@@ -1,0 +1,19 @@
+let a = 10
+
+fn add(x, d) {
+    x, d
+}
+
+if a == 10 {
+    add(a, 100)
+} else if a != 100 {
+    add(a, 1000)
+} else {
+    add(a, 10000)
+}
+
+# list shouldn't be a keyword
+# also the # symbol is used for comments
+for i in list {
+    print(i)
+}

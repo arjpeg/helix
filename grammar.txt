@@ -1,0 +1,46 @@
+
+
+
+# OLD GRAMMAR IS BELOW
+# The grammar used for the language
+
+program : statement (NEWLINE statement)*
+statement_list : statement (NEWLINE statement)*
+statement : expr | assign_stmt | if_stmt | for_stmt | while_stmt | function_def | function_invocation
+
+# Math grammar
+expr : term ((PLUS | MINUS) term)*
+       | factor_op
+
+term : factor ((MUL | DIV) factor)*
+
+factor: (PLUS | MINUS) factor 
+        | IDENTIFIER 
+        | INTEGER 
+        | FLOAT 
+        | LPAREN expr RPAREN
+        | function_invocation
+
+factor_op : factor ((PLUS | MINUS | MUL | DIV) factor)* 
+
+# Variable grammar
+assign_stmt : LET IDENTIFIER ASSIGN expr
+assign_stmt : IDENTIFIER ASSIGN expr
+
+# Conditionals
+condition : expr ((EQ | NEQ | LT | GT | LTE | GTE) expr)*
+
+# If statement
+if_stmt : IF condition LBRACE NEWLINE statement_list NEWLINE RBRACE (NEWLINE)* (else_if_stmt)* (NEWLINE)* (else_stmt)?
+else_if_stmt : ELSE if_stmt LBRACE NEWLINE statement_list NEWLINE RBRACE
+else_stmt : ELSE LBRACE NEWLINE statement_list NEWLINE RBRACE
+
+# For loops
+for_stmt : FOR IDENTIFIER IN expr LBRACE NEWLINE statement_list NEWLINE RBRACE
+
+# While loops
+while_stmt : WHILE condition LBRACE NEWLINE statement_list NEWLINE RBRACE
+
+# Functions
+function_def : FUNCTION IDENTIFIER LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LBRACE NEWLINE statement_list NEWLINE RBRACE
+function_invocation : IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
