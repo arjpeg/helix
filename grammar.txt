@@ -1,46 +1,41 @@
+# check examples for more information
+
+program : (statement)*
+statement : expr
+            | for-stmt
+            | while-stmt
+            | if-stmt
+            | func-def
 
 
+# Statements
+for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
 
-# OLD GRAMMAR IS BELOW
-# The grammar used for the language
+while-stmt : WHILE expr LBRACE (statement)* RBRACE
 
-program : statement (NEWLINE statement)*
-statement_list : statement (NEWLINE statement)*
-statement : expr | assign_stmt | if_stmt | for_stmt | while_stmt | function_def | function_invocation
+if-stmt : IF compare-expr LBRACE (statement)* RBRACE (ELSE IF compare-expr LBRACE (statement)* RBRACE)* (ELSE LBRACE (statement)* RBRACE)?
 
-# Math grammar
-expr : term ((PLUS | MINUS) term)*
-       | factor_op
+func-def : FUNC IDENTIFIER LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LBRACE (statement)* RBRACE
 
-term : factor ((MUL | DIV) factor)*
+expr : LET IDENTIFIER ASSIGN expr
+     |  artith-expr
+     |  compare-expr (AND|OR compare-expr)*
 
-factor: (PLUS | MINUS) factor 
-        | IDENTIFIER 
-        | INTEGER 
-        | FLOAT 
-        | LPAREN expr RPAREN
-        | function_invocation
+compare-expr : NOT compare-expr
+             |  expr (EQ|NEQ|GT|LT|GTE|LTE) arith-expr
 
-factor_op : factor ((PLUS | MINUS | MUL | DIV) factor)* 
+artith-expr : term ((PLUS|MINUS) term)*
 
-# Variable grammar
-assign_stmt : LET IDENTIFIER ASSIGN expr
-assign_stmt : IDENTIFIER ASSIGN expr
 
-# Conditionals
-condition : expr ((EQ | NEQ | LT | GT | LTE | GTE) expr)*
+term : factor ((MUL|DIV) factor)*
 
-# If statement
-if_stmt : IF condition LBRACE NEWLINE statement_list NEWLINE RBRACE (NEWLINE)* (else_if_stmt)* (NEWLINE)* (else_stmt)?
-else_if_stmt : ELSE if_stmt LBRACE NEWLINE statement_list NEWLINE RBRACE
-else_stmt : ELSE LBRACE NEWLINE statement_list NEWLINE RBRACE
+factor : (PLUS|MINUS) factor
+       |  power
 
-# For loops
-for_stmt : FOR IDENTIFIER IN expr LBRACE NEWLINE statement_list NEWLINE RBRACE
+power : call (POW factor)*
 
-# While loops
-while_stmt : WHILE condition LBRACE NEWLINE statement_list NEWLINE RBRACE
+call : atom (LPAREN expr (COMMA expr)* RPAREN)?
 
-# Functions
-function_def : FUNCTION IDENTIFIER LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LBRACE NEWLINE statement_list NEWLINE RBRACE
-function_invocation : IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
+atom : INT | FLOAT | IDENTIFIER
+       | LPAREN expr RPAREN
+
