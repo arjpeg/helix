@@ -1,0 +1,8 @@
+let b = 10
+let a = 10^2 * 3
+let c = 5
+
+let descriminant = b^2 - 4*a*c
+
+
+let x1 = (-b + descriminant^0.5) / (2*a)

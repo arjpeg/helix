@@ -75,6 +75,39 @@ class Parser:
 
         return self.expr()
 
+    # region Statements
+    def assign_stmt(self) -> ASTNode:
+        """
+        Parse an assignment. The grammar for this is:
+
+        assign_stmt : LET IDENTIFIER ASSIGN expr
+        """
+        assert (
+            self.current_token and self.current_token.value == Keyword.LET
+        ), f"Expected 'let' in variable assignment, got {self.current_token}"
+
+        self.advance()
+
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
+        ), f"Expected identifier in variable assignment, got {self.current_token}"
+
+        name = self.current_token
+
+        self.advance()
+
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.ASSIGN
+        ), f"Expected '=' in variable assignment, got {self.current_token}"
+
+        self.advance()
+
+        value = self.expr()
+
+        return AssignNode(name, value)
+
+    # endregion
+
     def expr(self) -> ASTNode:
         """
         Parse an expression.

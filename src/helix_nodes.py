@@ -14,7 +14,7 @@ class BinOpNode(ASTNode):
         self.right = right
 
     def __repr__(self):
-        return f"BinOpNode({self.left} {self.op.token_type.value} {self.right})"
+        return f"({self.left} {self.op.token_type.value} {self.right})"
 
 
 class VariableNode(ASTNode):
@@ -22,7 +22,7 @@ class VariableNode(ASTNode):
         self.name = name
 
     def __repr__(self):
-        return f"VariableNode({self.name})"
+        return f"var({self.name.value})"
 
 
 class NumberNode(ASTNode):
@@ -40,7 +40,7 @@ class UnaryOpNode(ASTNode):
         self.expr = expr
 
     def __repr__(self):
-        return f"({self.op}{self.expr})"
+        return f"({self.op.token_type.value}{self.expr})"
 
 
 class AssignNode(ASTNode):
@@ -49,7 +49,7 @@ class AssignNode(ASTNode):
         self.value = value
 
     def __repr__(self):
-        return f"AssignNode({self.name} = {self.value})"
+        return f"AssignNode({self.name.value} = {self.value})"
 
 
 class NoOpNode(ASTNode):
