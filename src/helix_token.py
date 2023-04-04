@@ -41,6 +41,7 @@ class TokenType(Enum):
     MINUS = "-"
     MUL = "*"
     DIV = "/"
+    POW = "^"
 
     LPAREN = "("
     RPAREN = ")"

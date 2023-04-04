@@ -6,9 +6,12 @@ statement : expr
             | while-stmt
             | if-stmt
             | func-def
+            | assign_stmt
 
 
 # Statements
+assign_stmt : LET IDENTIFIER ASSIGN expr
+
 for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
 
 while-stmt : WHILE expr LBRACE (statement)* RBRACE
@@ -17,9 +20,8 @@ if-stmt : IF compare-expr LBRACE (statement)* RBRACE (ELSE IF compare-expr LBRAC
 
 func-def : FUNC IDENTIFIER LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LBRACE (statement)* RBRACE
 
-expr : LET IDENTIFIER ASSIGN expr
-     |  artith-expr
-     |  compare-expr (AND|OR compare-expr)*
+expr : artith-expr
+       | compare-expr (AND|OR compare-expr)*
 
 compare-expr : NOT compare-expr
              |  expr (EQ|NEQ|GT|LT|GTE|LTE) arith-expr

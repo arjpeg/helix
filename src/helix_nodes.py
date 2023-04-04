@@ -14,7 +14,15 @@ class BinOpNode(ASTNode):
         self.right = right
 
     def __repr__(self):
-        return f"({self.left} {self.op.token_type.value} {self.right})"
+        return f"BinOpNode({self.left} {self.op.token_type.value} {self.right})"
+
+
+class VariableNode(ASTNode):
+    def __init__(self, name: Token[str]):
+        self.name = name
+
+    def __repr__(self):
+        return f"VariableNode({self.name})"
 
 
 class NumberNode(ASTNode):

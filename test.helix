@@ -1,19 +1,52 @@
+# Assignment expression
 let a = 10
 
-fn add(x, d) {
-    x, d
+# Arithmetic expression
+2 + 3 * 4
+
+# Comparison expression
+a == 10 and b <= 20
+
+# Logical expression
+(a == 10 or b != 20) and c > 30
+
+# Function definition
+func add(x, y) {
+    x + y
 }
 
-if a == 10 {
-    add(a, 100)
-} else if a != 100 {
-    add(a, 1000)
+# Function call
+add(2, 3)
+
+# If statement
+if a > 10 {
+    print("a is greater than 10")
 } else {
-    add(a, 10000)
+    print("a is less than or equal to 10")
 }
 
-# list shouldn't be a keyword
-# also the # symbol is used for comments
-for i in list {
+# If-else statement with multiple branches
+if a > 10 {
+    print("a is greater than 10")
+} else if a < 10 {
+    print("a is less than 10")
+} else {
+    print("a is equal to 10")
+}
+
+# While loop
+while a < 10 {
+    a = a + 1
+}
+
+# For loop
+for i in range(0, 10) {
     print(i)
+}
+
+# Nested statements
+if a > 10 {
+    for i in range(0, 10) {
+        print(i)
+    }
 }

@@ -1,0 +1,7 @@
+1 + 1
+3 + 10 * 2
+100 ^ 20
+
+# test all ops to make sure they work
+
+3 + 4 / 1 * (2 - 3) ^ 2
