@@ -1,5 +1,5 @@
-for a in 1 + 1 {
+for a in range {
     if a == 10 {
-
+        
     }
 }

@@ -76,7 +76,6 @@ class Parser:
 
             return self.expr()
 
-
         if self.current_token.token_type == TokenType.KEYWORD:
             if self.current_token.value == Keyword.LET:
                 return self.assign_stmt()
@@ -102,14 +101,14 @@ class Parser:
 
         assign_stmt : (LET)? IDENTIFIER ASSIGN expr
         """
-        if self.current_token.token_type == TokenType.KEYWORD:
+        if self.current_token and self.current_token.token_type == TokenType.KEYWORD:
             assert (
-                self.current_token 
+                self.current_token
                 and self.current_token.token_type == TokenType.KEYWORD
-                and self.current_token.value == Keyword.LET            
+                and self.current_token.value == Keyword.LET
             ), f"Expected 'let' in variable assignment, got {self.current_token}"
 
-            self.advance() # skip the let keyword
+            self.advance()  # skip the let keyword
 
         assert (
             self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
@@ -190,8 +189,7 @@ class Parser:
         while-stmt : WHILE compare-expr LBRACE (statement)* RBRACE
         """
         assert (
-            self.current_token
-            and self.current_token.value == Keyword.WHILE
+            self.current_token and self.current_token.value == Keyword.WHILE
         ), "Expected 'while' in while loop"
 
         self.advance()
@@ -199,8 +197,7 @@ class Parser:
         condition = self.compare_expr()
 
         assert (
-            self.current_token
-            and self.current_token.token_type == TokenType.LBRACE
+            self.current_token and self.current_token.token_type == TokenType.LBRACE
         ), "Expected '{{' in while loop"
 
         self.advance()
@@ -208,13 +205,12 @@ class Parser:
         body = self.statement_list()
 
         assert (
-            self.current_token
-            and self.current_token.token_type == TokenType.RBRACE
+            self.current_token and self.current_token.token_type == TokenType.RBRACE
         ), "Expected '}}' in while loop"
 
         self.advance()
 
-        return WhileNode(condition, body)
+        return WhileNode(condition, body)  # type: ignore
 
     def for_stmt(self) -> ASTNode:
         """
@@ -223,19 +219,17 @@ class Parser:
         for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
         """
         assert (
-            self.current_token
-            and self.current_token.value == Keyword.FOR
+            self.current_token and self.current_token.value == Keyword.FOR
         ), "Expected 'for' in for loop"
 
         self.advance()
 
         assert (
-            self.current_token
-            and self.current_token.token_type == TokenType.IDENTIFIER
+            self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
         ), "Expected identifier in for loop"
 
         token = self.current_token
-        
+
         self.advance()
 
         assert (
@@ -249,8 +243,7 @@ class Parser:
         expr = self.expr()
 
         assert (
-            self.current_token
-            and self.current_token.token_type == TokenType.LBRACE
+            self.current_token and self.current_token.token_type == TokenType.LBRACE
         ), "Expected '{{' in for loop"
 
         self.advance()
@@ -258,13 +251,67 @@ class Parser:
         statements = self.statement_list()
 
         assert (
-            self.current_token
-            and self.current_token.token_type == TokenType.RBRACE
+            self.current_token and self.current_token.token_type == TokenType.RBRACE
         ), "Expected '}}' in for loop"
 
         self.advance()
 
         return ForNode(token, expr, statements)
+
+    def func_def(self) -> ASTNode:
+        """
+        Parse a function definition. The grammar for this is:
+
+        func-def : FUNC IDENTIFIER LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LBRACE (statement)* RBRACE
+        """
+        assert self.current_token and self.current_token.value == Keyword.FN
+
+        self.advance()
+
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
+        )
+
+        fn_name = self.current_token
+        params: list[Token[Any]] = []
+
+        self.advance()
+
+        # check for any '('
+        if self.current_token.token_type == TokenType.LPAREN:  # type: ignore
+            # check for parameters
+            self.advance()
+
+            while (
+                self.current_token
+                and self.current_token.token_type == TokenType.IDENTIFIER
+            ):
+                params.append(self.current_token)
+                self.advance()
+
+                if self.current_token.token_type == TokenType.COMMA:
+                    self.advance()
+
+                else:
+                    break
+            assert (
+                self.current_token and self.current_token.token_type == TokenType.RPAREN
+            )
+
+            self.advance()
+
+        # find the lbrace
+        assert self.current_token and self.current_token.token_type == TokenType.LBRACE
+
+        self.advance()
+
+        body = self.statement_list()
+
+        assert self.current_token and self.current_token.token_type == TokenType.RBRACE
+
+        self.advance()
+
+        return FunctionDefNode(fn_name, params, body)
 
     # endregion
 
@@ -377,6 +424,7 @@ class Parser:
              | FLOAT
              | LPAREN expr RPAREN
              | IDENTIFIER
+             | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
         """
         token = self.current_token
 
@@ -400,10 +448,31 @@ class Parser:
             self.advance()
             return node
 
-        # the identifier is a variable
+        # the identifier is either a variable, or a function call
         elif token.token_type == TokenType.IDENTIFIER:
             token = self.current_token
             self.advance()
+
+            if self.current_token and self.current_token.token_type == TokenType.LPAREN:
+                params_list: list[ASTNode] = []
+
+                while (
+                    self.current_token
+                    and self.current_token.token_type != TokenType.RPAREN # type: ignore
+                ):
+                    self.advance()
+                    params_list.append(self.expr())
+
+                    if self.current_token.token_type == TokenType.COMMA: # type: ignore
+                        self.advance()
+
+                assert (
+                    self.current_token
+                    and self.current_token.token_type == TokenType.RPAREN
+                ), "Expected ')'"
+                self.advance()
+
+                return FunctionInvocationNode(token, params_list)  # type: ignore
 
             return VariableNode(token)  # type: ignore
 

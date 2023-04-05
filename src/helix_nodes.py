@@ -164,7 +164,7 @@ class FunctionDefNode(ASTNode):
         self.body = body
 
     def __repr__(self):
-        return f"FunctionDefNode({self.identifier}, ({', '.join([arg.value for arg in self.arguments])}), {self.body})"
+        return f"FunctionDefNode(fn {self.identifier.value}, ({', '.join([arg.value for arg in self.arguments])}), {self.body})"
 
 
 class FunctionInvocationNode(ASTNode):
@@ -173,7 +173,7 @@ class FunctionInvocationNode(ASTNode):
         self.arguments = arguments
 
     def __repr__(self):
-        return f"FunctionInvocationNode(function {self.identifier.value}, ({', '.join([str(arg) for arg in self.arguments])}))"
+        return f"FnInvokation(fn {self.identifier.value}({', '.join([str(arg) for arg in self.arguments])}))"
 
 
 class BlockNode(ASTNode):
