@@ -468,7 +468,7 @@ class Parser:
 
             if self.current_token and self.current_token.token_type == TokenType.COMMA:  # type: ignore
                 self.advance()
-            elif self.current_token.token_type != TokenType.NEWLINE:  # type: ignore
+            elif self.current_token.token_type not in [TokenType.NEWLINE, TokenType.RBRACKET]:  # type: ignore
                 raise SyntaxError("Expected ',' to seperate items in list")
 
         assert (
