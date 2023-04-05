@@ -63,6 +63,22 @@ class Parser:
         if self.current_token is None:
             return NoOpNode()
 
+        # if the current token is an identifier, then it might be
+        # a variable assignment, a function invocation, or a variable reference
+        if self.current_token.token_type == TokenType.IDENTIFIER:
+            self.advance()
+            token = self.current_token
+            self.rewind()
+
+            if token and token.token_type == TokenType.LPAREN:
+                return self.func_invocation()
+
+            if token and token.token_type == TokenType.ASSIGN:
+                return self.assign_stmt()
+
+            return self.expr()            
+
+
         if self.current_token.token_type == TokenType.KEYWORD:
             if self.current_token.value == Keyword.LET:
                 return self.assign_stmt()
@@ -86,13 +102,16 @@ class Parser:
         """
         Parse an assignment. The grammar for this is:
 
-        assign_stmt : LET IDENTIFIER ASSIGN expr
+        assign_stmt : (LET)? IDENTIFIER ASSIGN expr
         """
-        assert (
-            self.current_token and self.current_token.value == Keyword.LET
-        ), f"Expected 'let' in variable assignment, got {self.current_token}"
+        if self.current_token.token_type == TokenType.KEYWORD:
+            assert (
+                self.current_token 
+                and self.current_token.token_type == TokenType.KEYWORD
+                and self.current_token.value == Keyword.LET            
+            ), f"Expected 'let' in variable assignment, got {self.current_token}"
 
-        self.advance()
+            self.advance() # skip the let keyword
 
         assert (
             self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
@@ -165,6 +184,39 @@ class Parser:
                 self.advance()
 
         return ConditionalStatementNode(if_block, else_if_blocks, else_block)
+
+    def while_stmt(self) -> ASTNode:
+        """
+        Parse a while loop. The grammar for this is:
+
+        while-stmt : WHILE compare-expr LBRACE (statement)* RBRACE
+        """
+        assert (
+            self.current_token
+            and self.current_token.value == Keyword.WHILE
+        ), "Expected 'while' in while loop"
+
+        self.advance()
+
+        condition = self.compare_expr()
+
+        assert (
+            self.current_token
+            and self.current_token.token_type == TokenType.LBRACE
+        ), "Expected '{{' in while loop"
+
+        self.advance()
+
+        body = self.statement_list()
+
+        assert (
+            self.current_token
+            and self.current_token.token_type == TokenType.RBRACE
+        ), "Expected '}}' in while loop"
+
+        self.advance()
+
+        return WhileNode(condition, body)
 
     def for_stmt(self) -> ASTNode:
         """
@@ -326,7 +378,7 @@ class Parser:
         atom : INT
              | FLOAT
              | LPAREN expr RPAREN
-             | variable
+             | IDENTIFIER
         """
         token = self.current_token
 

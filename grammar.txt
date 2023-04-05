@@ -10,7 +10,7 @@ statement : expr
 
 
 # Statements
-assign_stmt : LET IDENTIFIER ASSIGN expr
+assign_stmt : (LET)? IDENTIFIER ASSIGN expr
 
 for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
 
