@@ -64,19 +64,17 @@ class Parser:
             return NoOpNode()
 
         # if the current token is an identifier, then it might be
-        # a variable assignment, a function invocation, or a variable reference
+        # a variable assignment,  or a variable reference
+        # the function call is handled in the expr function (atom)
         if self.current_token.token_type == TokenType.IDENTIFIER:
             self.advance()
             token = self.current_token
             self.rewind()
 
-            if token and token.token_type == TokenType.LPAREN:
-                return self.func_invocation()
-
             if token and token.token_type == TokenType.ASSIGN:
                 return self.assign_stmt()
 
-            return self.expr()            
+            return self.expr()
 
 
         if self.current_token.token_type == TokenType.KEYWORD:
