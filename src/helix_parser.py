@@ -74,6 +74,14 @@ class Parser:
             if token and token.token_type == TokenType.ASSIGN:
                 return self.assign_stmt()
 
+            # fast forward and check if the next token is a lbracket
+            self.advance()
+            token = self.current_token
+            self.rewind()
+
+            if token and token.token_type == TokenType.LBRACKET:
+                return self.assign_stmt()
+
             return self.expr()
 
         if self.current_token.token_type == TokenType.KEYWORD:
@@ -108,7 +116,7 @@ class Parser:
         """
         Parse an assignment. The grammar for this is:
 
-        assign_stmt : (LET)? IDENTIFIER ASSIGN expr
+        assign_stmt : (LET)? IDENTIFIER (LBRACE EXPR RBRACE)? ASSIGN expr
         """
         if self.current_token and self.current_token.token_type == TokenType.KEYWORD:
             assert (
@@ -124,16 +132,35 @@ class Parser:
         ), f"Expected identifier in variable assignment, got {self.current_token}"
 
         name = self.current_token
+        index: ASTNode | None = None
 
         self.advance()
+
+        if (
+            self.current_token
+            and self.current_token.token_type == TokenType.LBRACKET  # type: ignore
+        ):
+            # this is an index assignment
+            self.advance()
+
+            index = self.expr()
+
+            assert (
+                self.current_token
+                and self.current_token.token_type == TokenType.RBRACKET
+            ), f"Expected ']' in variable assignment, got {self.current_token}"
+
+            self.advance()
 
         assert (
             self.current_token and self.current_token.token_type == TokenType.ASSIGN
         ), f"Expected '=' in variable assignment, got {self.current_token}"
 
         self.advance()
-
         value = self.expr()
+
+        if index:
+            return AssignIndexNode(name, index, value)
 
         return AssignNode(name, value)
 
@@ -416,6 +443,43 @@ class Parser:
 
     # endregion
 
+    # region Data Structures
+    def generate_list(self) -> ASTNode:
+        """
+        Generate a list. The grammar for this is:
+
+        list : LBRACKET (expr (COMMA expr)*)? RBRACKET
+        """
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.LBRACKET
+        ), "Expected '[' to start list"
+
+        self.advance()
+
+        elements: list[ASTNode] = []
+
+        while self.current_token:
+            self.skip_newlines()
+
+            if self.current_token.token_type == TokenType.RBRACKET:  # type: ignore
+                break
+
+            elements.append(self.expr())
+
+            if self.current_token and self.current_token.token_type == TokenType.COMMA:  # type: ignore
+                self.advance()
+            elif self.current_token.token_type != TokenType.NEWLINE:  # type: ignore
+                raise SyntaxError("Expected ',' to seperate items in list")
+
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.RBRACKET
+        ), "Expected ']' to end list"
+        self.advance()
+
+        return ListNode(elements)
+
+    # endregion
+
     # region Math
 
     def arith_expr(self) -> ASTNode:
@@ -477,9 +541,11 @@ class Parser:
         atom : INT
              | FLOAT
              | STRING
+             | list
              | LPAREN expr RPAREN
              | IDENTIFIER
              | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
+             | IDENTIFIER LBRACKET expr RBRACKET
         """
         token = self.current_token
 
@@ -497,6 +563,9 @@ class Parser:
             self.advance()
             return StringNode(token)
 
+        elif token.token_type == TokenType.LBRACKET:
+            return self.generate_list()
+
         elif token.token_type == TokenType.LPAREN:
             self.advance()
             node = self.expr()
@@ -507,7 +576,7 @@ class Parser:
             self.advance()
             return node
 
-        # the identifier is either a variable, or a function call
+        # the identifier is either a variable, function call, or list/dict access
         elif token.token_type == TokenType.IDENTIFIER:
             token = self.current_token
             self.advance()
@@ -533,6 +602,22 @@ class Parser:
                 self.advance()
 
                 return FunctionInvocationNode(token, params_list)  # type: ignore
+
+            elif (
+                self.current_token
+                and self.current_token.token_type == TokenType.LBRACKET
+            ):
+                self.advance()
+                index = self.expr()
+
+                assert (
+                    self.current_token
+                    and self.current_token.token_type == TokenType.RBRACKET
+                ), "Expected ']'"
+
+                self.advance()
+
+                return IndexingNode(token, index)  # type: ignore
 
             return VariableNode(token)  # type: ignore
 

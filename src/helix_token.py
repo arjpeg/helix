@@ -51,9 +51,6 @@ class TokenType(Enum):
     DIV = "/"
     POW = "^"
 
-    LPAREN = "("
-    RPAREN = ")"
-
     # Assignment
     ASSIGN = "="
 
@@ -72,6 +69,12 @@ class TokenType(Enum):
     # Bracket types
     LBRACE = "{"
     RBRACE = "}"
+
+    LPAREN = "("
+    RPAREN = ")"
+
+    LBRACKET = "["
+    RBRACKET = "]"
 
 
 CONDITIONAL_OPERATORS = [

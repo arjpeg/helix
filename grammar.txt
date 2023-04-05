@@ -12,7 +12,7 @@ statement : expr
             | break-stmt
 
 # Statements
-assign-stmt : (LET)? IDENTIFIER ASSIGN expr
+assign-stmt : (LET)? IDENTIFIER (LBRACE expr RBRACE)? ASSIGN expr
 
 continue-stmt : CONTINUE
 
@@ -49,6 +49,12 @@ call : atom (LPAREN expr (COMMA expr)* RPAREN)?
 atom : INT
      | FLOAT
      | STRING
+     | list
      | LPAREN expr RPAREN
      | IDENTIFIER
      | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
+     | IDENTIFIER LBRACKET expr RBRACKET
+
+
+# Data types
+list : LBRACKET (expr (COMMA expr)*)? RBRACKET

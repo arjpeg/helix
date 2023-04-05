@@ -1,0 +1,15 @@
+fn add(a, b) {
+    return a + b
+}
+
+let mylist = [
+    1,
+    2,
+    3,
+    10
+]
+
+for i in range(len(mylist)) {
+    print(mylist[i])
+    mylist[i] = add(mylist[i], 1)
+}

@@ -43,6 +43,23 @@ class StringNode(ASTNode):
         return f'"{self.value}"'
 
 
+class ListNode(ASTNode):
+    def __init__(self, elements: list[ASTNode]):
+        self.elements = elements
+
+    def __repr__(self):
+        return f"List([{', '.join(map(str, self.elements))}])"
+
+
+class IndexingNode(ASTNode):
+    def __init__(self, list_node: Token[str], index: ASTNode):
+        self.list_node = list_node
+        self.index = index
+
+    def __repr__(self):
+        return f"{self.list_node.value}[{self.index}]"
+
+
 class UnaryOpNode(ASTNode):
     def __init__(self, op: Token[str], expr: ASTNode):
         self.op = op
@@ -59,6 +76,16 @@ class AssignNode(ASTNode):
 
     def __repr__(self):
         return f"AssignNode({self.name.value} = {self.value})"
+
+
+class AssignIndexNode(ASTNode):
+    def __init__(self, name: Token[str], index: ASTNode, value: ASTNode):
+        self.name = name
+        self.index = index
+        self.value = value
+
+    def __repr__(self):
+        return f"AssignIndexNode({self.name.value}[{self.index}] = {self.value})"
 
 
 class NoOpNode(ASTNode):
