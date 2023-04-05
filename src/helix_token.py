@@ -14,6 +14,9 @@ class Keyword(Enum):
     FOR = "for"
     WHILE = "while"
 
+    CONTINUE = "continue"
+    BREAK = "break"
+
     IN = "in"
 
     FN = "fn"

@@ -8,9 +8,15 @@ statement : expr
             | func-def
             | assign-stmt
             | return-stmt
+            | continue-stmt
+            | break-stmt
 
 # Statements
 assign-stmt : (LET)? IDENTIFIER ASSIGN expr
+
+continue-stmt : CONTINUE
+
+break-stmt : BREAK
 
 return-stmt : RETURN expr
 
@@ -26,6 +32,7 @@ expr : compare-expr (AND|OR compare-expr)*
 
 compare-expr : NOT compare-expr
              |  arith_expr ((EQ|NEQ|GT|LT|GTE|LTE) arith-expr)*
+             | arith_expr (IN arith-expr)?
 
 artith-expr : term ((PLUS|MINUS) term)*
 

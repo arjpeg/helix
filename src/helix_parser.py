@@ -95,6 +95,12 @@ class Parser:
             elif self.current_token.value == Keyword.RETURN:
                 return self.return_stmt()
 
+            elif self.current_token.value == Keyword.BREAK:
+                return self.break_stmt()
+
+            elif self.current_token.value == Keyword.CONTINUE:
+                return self.continue_stmt()
+
         return self.expr()
 
     # region Statements
@@ -130,6 +136,16 @@ class Parser:
         value = self.expr()
 
         return AssignNode(name, value)
+
+    def continue_stmt(self) -> ASTNode:
+        self.advance()
+
+        return ContinueNode()
+
+    def break_stmt(self) -> ASTNode:
+        self.advance()
+
+        return BreakNode()
 
     def return_stmt(self) -> ASTNode:
         """
@@ -367,20 +383,36 @@ class Parser:
 
         compare-expr : NOT compare-expr
              |  arith_expr ((EQ|NEQ|GT|LT|GTE|LTE) arith-expr)*
+             |  arith_expr (IN arith-expr)?
         """
 
-        if (
-            self.current_token
-            and self.current_token.token_type == TokenType.KEYWORD
-            and self.current_token.value == Keyword.NOT
-        ):
+        if self.current_token and self.current_token.value == Keyword.NOT:
             self.advance()
-
             return UnaryOpNode(self.current_token, self.compare_expr())
 
-        res = self._bin_op(self.arith_expr, CONDITIONAL_OPERATORS, CompareNode)
+        arith_expr = self.arith_expr()
 
-        return res
+        if self.current_token and self.current_token.token_type == TokenType.KEYWORD:
+            if self.current_token.value == Keyword.IN:
+                self.advance()
+                return InNode(arith_expr, self.arith_expr())
+            else:
+                raise SyntaxError(
+                    f"Unexpected keyword {self.current_token.value} in compare expression"
+                )
+
+        while (
+            self.current_token is not None
+            and self.current_token.token_type != TokenType.EOF
+            and self.current_token.token_type in CONDITIONAL_OPERATORS
+        ):
+            op = self.current_token
+            self.advance()
+            right = self.arith_expr()
+
+            arith_expr = CompareNode(arith_expr, op, right)
+
+        return arith_expr
 
     # endregion
 

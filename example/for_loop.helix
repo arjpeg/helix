@@ -1,5 +1,13 @@
-for a in range {
+let sum = 0
+
+for a in range(0, 10) {
     if a == 10 {
-        
+        continue
+    } else {
+        sum = sum + a
+    }
+
+    if a in range(4, 7) {
+        sum = sum + 1
     }
 }

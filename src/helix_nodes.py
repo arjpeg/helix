@@ -67,6 +67,15 @@ class CompareNode(ASTNode):
         return f"ConditionNode({self.left} {self.op.token_type.value} {self.right})"
 
 
+class InNode(ASTNode):
+    def __init__(self, left: ASTNode, right: ASTNode):
+        self.left = left
+        self.right = right
+
+    def __repr__(self):
+        return f"InNode({self.left} in {self.right})"
+
+
 class AndNode(ASTNode):
     def __init__(self, left: ASTNode, right: ASTNode):
         self.left = left
@@ -155,6 +164,16 @@ class WhileNode(ASTNode):
         return f"WhileNode({self.condition}, {self.body})"
 
 
+class ContinueNode(ASTNode):
+    def __repr__(self):
+        return "continue"
+
+
+class BreakNode(ASTNode):
+    def __repr__(self):
+        return "break"
+
+
 class FunctionDefNode(ASTNode):
     def __init__(
         self, identifier: Token[str], arguments: list[Token[str]], body: ASTNode
@@ -175,12 +194,14 @@ class FunctionInvocationNode(ASTNode):
     def __repr__(self):
         return f"{self.identifier.value}({', '.join([str(arg) for arg in self.arguments])})"
 
+
 class ReturnNode(ASTNode):
     def __init__(self, expr: ASTNode):
         self.expr = expr
 
     def __repr__(self):
         return f"ReturnNode({self.expr})"
+
 
 class BlockNode(ASTNode):
     def __init__(self, statements: list[ASTNode]):
