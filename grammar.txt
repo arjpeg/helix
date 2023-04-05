@@ -6,11 +6,13 @@ statement : expr
             | while-stmt
             | if-stmt
             | func-def
-            | assign_stmt
-
+            | assign-stmt
+            | return-stmt
 
 # Statements
-assign_stmt : (LET)? IDENTIFIER ASSIGN expr
+assign-stmt : (LET)? IDENTIFIER ASSIGN expr
+
+return-stmt : RETURN expr
 
 for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
 

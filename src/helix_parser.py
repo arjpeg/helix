@@ -294,6 +294,7 @@ class Parser:
 
                 else:
                     break
+
             assert (
                 self.current_token and self.current_token.token_type == TokenType.RPAREN
             )
@@ -315,6 +316,7 @@ class Parser:
 
     # endregion
 
+    # region Expressions
     def expr(self) -> ASTNode:
         """
         Parse an expression.
@@ -361,6 +363,8 @@ class Parser:
         res = self._bin_op(self.arith_expr, CONDITIONAL_OPERATORS, CompareNode)
 
         return res
+
+    # endregion
 
     # region Math
 
@@ -454,16 +458,17 @@ class Parser:
             self.advance()
 
             if self.current_token and self.current_token.token_type == TokenType.LPAREN:
+                self.advance()
+
                 params_list: list[ASTNode] = []
 
-                while (
-                    self.current_token
-                    and self.current_token.token_type != TokenType.RPAREN # type: ignore
-                ):
-                    self.advance()
+                while self.current_token:
+                    if self.current_token.token_type == TokenType.RPAREN:  # type: ignore
+                        break
+
                     params_list.append(self.expr())
 
-                    if self.current_token.token_type == TokenType.COMMA: # type: ignore
+                    if self.current_token.token_type == TokenType.COMMA:  # type: ignore
                         self.advance()
 
                 assert (

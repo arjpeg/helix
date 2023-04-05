@@ -173,7 +173,7 @@ class FunctionInvocationNode(ASTNode):
         self.arguments = arguments
 
     def __repr__(self):
-        return f"FnInvokation(fn {self.identifier.value}({', '.join([str(arg) for arg in self.arguments])}))"
+        return f"{self.identifier.value}({', '.join([str(arg) for arg in self.arguments])})"
 
 
 class BlockNode(ASTNode):
@@ -189,7 +189,7 @@ class BlockNode(ASTNode):
 
             statement_str = str(statement).replace("\n", "\n\t")
 
-            result += "\t" + statement_str + ",\n"
+            result += "\t" + statement_str + "\n"
 
         result += "}"
 

@@ -17,9 +17,9 @@ class Keyword(Enum):
     IN = "in"
 
     FN = "fn"
+    RETURN = "return"
 
     NOT = "not"
-
     AND = "and"
     OR = "or"
 
