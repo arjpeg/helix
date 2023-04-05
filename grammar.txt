@@ -31,10 +31,10 @@ func-def : FUNC IDENTIFIER LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LBRAC
 expr : compare-expr (AND|OR compare-expr)*
 
 compare-expr : NOT compare-expr
-             |  arith_expr ((EQ|NEQ|GT|LT|GTE|LTE) arith-expr)*
+             | arith_expr ((EQ|NEQ|GT|LT|GTE|LTE) arith-expr)*
              | arith_expr (IN arith-expr)?
 
-artith-expr : term ((PLUS|MINUS) term)*
+arith-expr : term ((PLUS|MINUS) term)*
 
 
 term : factor ((MUL|DIV) factor)*
