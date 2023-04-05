@@ -3,9 +3,10 @@ from typing import Any, Callable, Type, TypeVar
 from src.utils.custom_iter import CustomIter
 
 from .helix_nodes import *
-from .helix_token import Keyword, Token, TokenType
+from .helix_token import CONDITIONAL_OPERATORS, Keyword, Token, TokenType
 
 T = TypeVar("T", IfNode, ElseIfNode)
+V = TypeVar("V")
 
 
 class Parser:
@@ -114,24 +115,50 @@ class Parser:
 
         The grammar for this is:
 
-        expr : artith-expr
-             |  compare-expr (AND|OR compare-expr)*
+        expr : compare-expr (AND|OR compare-expr)*
         """
-        # peek ahead to see if we have a comparison
-        self.advance()
+        compare_expr = self.compare_expr()
 
-        if self.current_token and self.current_token.token_type in [
-            TokenType.EQ,
-            TokenType.NOT_EQ,
-            TokenType.LT,
-            TokenType.GT,
-        ]:
-            self.rewind()
+        print("Finished parsing compare expr", compare_expr)
+        print("Current token is", self.current_token)
 
-        # this is an arithmetic expression
-        self.rewind()
+        while self.current_token and self.current_token.token_type == TokenType.KEYWORD:
+            if self.current_token.value == Keyword.AND:
+                self.advance()
+                compare_expr = AndNode(compare_expr, self.compare_expr())
 
-        return self.arith_expr()
+            elif self.current_token.value == Keyword.OR:
+                self.advance()
+                compare_expr = OrNode(compare_expr, self.compare_expr())
+
+            else:
+                break
+
+        return compare_expr
+
+    def compare_expr(self) -> ASTNode:
+        """
+        Parse a comparison expression.
+
+        The grammar for this is:
+
+        compare-expr : NOT compare-expr
+             |  arith_expr ((EQ|NEQ|GT|LT|GTE|LTE) arith-expr)*
+        """
+
+        if (
+            self.current_token
+            and self.current_token.token_type == TokenType.KEYWORD
+            and self.current_token.value == Keyword.NOT
+        ):
+            self.advance()
+
+            return UnaryOpNode(self.current_token, self.compare_expr())
+
+        res = self._bin_op(self.arith_expr, CONDITIONAL_OPERATORS, CompareNode)
+
+        print("Finished parsing conditional", res)
+        return res
 
     def arith_expr(self) -> ASTNode:
         """
@@ -196,7 +223,11 @@ class Parser:
         """
         token = self.current_token
 
-        assert token, "Expected atom, got EOF"
+        assert token, "Expected atom, got None"
+
+        # Check if the token is EOF
+        if token.token_type == TokenType.EOF:
+            return NoOpNode()
 
         if token.token_type == TokenType.INT or token.token_type == TokenType.FLOAT:
             self.advance()
@@ -241,7 +272,12 @@ class Parser:
         ):
             self.advance()
 
-    def _bin_op(self, fn: Callable[[], ASTNode], ops: list[TokenType]) -> ASTNode:
+    def _bin_op(
+        self,
+        fn: Callable[[], ASTNode],
+        ops: list[TokenType] | list[Keyword],
+        return_type: Type[ASTNode] = BinOpNode,
+    ) -> ASTNode:
         """
         Helper function for parsing binary operations.
         """
@@ -254,9 +290,15 @@ class Parser:
         ):
             op = self.current_token
             self.advance()
+            # input(
+            #     f"Found op {op}, left is {left}, and ops are {ops} current token is {self.current_token}"
+            # )
+
             right = fn()
 
-            left = BinOpNode(left, op, right)
+            # input(f"Right returned {right} for op {op} and left {left}")
+
+            left = return_type(left, op, right)  # type: ignore
 
         return left
 

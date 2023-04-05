@@ -53,7 +53,7 @@ class Interpreter:
         self.variables[node.name.value] = self.visit(node.value)
         return self.variables[node.name.value]
 
-    def visit_ConditionNode(self, node: ConditionNode) -> float:
+    def visit_ConditionNode(self, node: CompareNode) -> float:
         if node.op.token_type == TokenType.EQ:
             return self.visit(node.left) == self.visit(node.right)
         elif node.op.token_type == TokenType.NOT_EQ:

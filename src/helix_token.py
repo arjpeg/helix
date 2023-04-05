@@ -16,7 +16,12 @@ class Keyword(Enum):
 
     IN = "in"
 
-    FUNCTION = "fn"
+    FN = "fn"
+
+    NOT = "not"
+
+    AND = "and"
+    OR = "or"
 
 
 class TokenType(Enum):
@@ -65,6 +70,15 @@ class TokenType(Enum):
     LBRACE = "{"
     RBRACE = "}"
 
+
+CONDITIONAL_OPERATORS = [
+    TokenType.EQ,
+    TokenType.NOT_EQ,
+    TokenType.LT,
+    TokenType.GT,
+    TokenType.GTE,
+    TokenType.LTE,
+]
 
 T = TypeVar("T")
 

@@ -54,10 +54,10 @@ class AssignNode(ASTNode):
 
 class NoOpNode(ASTNode):
     def __repr__(self):
-        return "NoOpNode"
+        return ""
 
 
-class ConditionNode(ASTNode):
+class CompareNode(ASTNode):
     def __init__(self, left: ASTNode, op: Token[str], right: ASTNode):
         self.left = left
         self.op = op
@@ -67,8 +67,26 @@ class ConditionNode(ASTNode):
         return f"ConditionNode({self.left} {self.op.token_type.value} {self.right})"
 
 
+class AndNode(ASTNode):
+    def __init__(self, left: ASTNode, right: ASTNode):
+        self.left = left
+        self.right = right
+
+    def __repr__(self):
+        return f"AndNode({self.left}, {self.right})"
+
+
+class OrNode(ASTNode):
+    def __init__(self, left: ASTNode, right: ASTNode):
+        self.left = left
+        self.right = right
+
+    def __repr__(self):
+        return f"OrNode({self.left}, {self.right})"
+
+
 class IfNode(ASTNode):
-    def __init__(self, condition: ConditionNode, body: ASTNode):
+    def __init__(self, condition: CompareNode, body: ASTNode):
         self.condition = condition
         self.body = body
 
@@ -77,7 +95,7 @@ class IfNode(ASTNode):
 
 
 class ElseIfNode(ASTNode):
-    def __init__(self, condition: ConditionNode, body: ASTNode):
+    def __init__(self, condition: CompareNode, body: ASTNode):
         self.condition = condition
         self.body = body
 
@@ -129,7 +147,7 @@ class ForNode(ASTNode):
 
 
 class WhileNode(ASTNode):
-    def __init__(self, condition: ConditionNode, body: ASTNode):
+    def __init__(self, condition: CompareNode, body: ASTNode):
         self.condition = condition
         self.body = body
 

@@ -1,0 +1,2 @@
+# test basic conditionals
+10 >= 20 and 30 <= 20 or 4 == 4
