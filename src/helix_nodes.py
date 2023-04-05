@@ -175,6 +175,12 @@ class FunctionInvocationNode(ASTNode):
     def __repr__(self):
         return f"{self.identifier.value}({', '.join([str(arg) for arg in self.arguments])})"
 
+class ReturnNode(ASTNode):
+    def __init__(self, expr: ASTNode):
+        self.expr = expr
+
+    def __repr__(self):
+        return f"ReturnNode({self.expr})"
 
 class BlockNode(ASTNode):
     def __init__(self, statements: list[ASTNode]):

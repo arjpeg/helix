@@ -92,6 +92,9 @@ class Parser:
             elif self.current_token.value == Keyword.FN:
                 return self.func_def()
 
+            elif self.current_token.value == Keyword.RETURN:
+                return self.return_stmt()
+
         return self.expr()
 
     # region Statements
@@ -127,6 +130,21 @@ class Parser:
         value = self.expr()
 
         return AssignNode(name, value)
+
+    def return_stmt(self) -> ASTNode:
+        """
+        Parse the return statement. The grammar for this is:
+
+        return-stmt : RETURN expr
+        """
+        assert (
+            self.current_token and self.current_token.value == Keyword.RETURN
+        ), "Expected 'return' in return statement"
+
+        self.advance()
+        expr = self.expr()
+
+        return ReturnNode(expr)
 
     def if_stmt(self) -> ASTNode:
         """
