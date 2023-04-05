@@ -476,6 +476,7 @@ class Parser:
 
         atom : INT
              | FLOAT
+             | STRING
              | LPAREN expr RPAREN
              | IDENTIFIER
              | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
@@ -491,6 +492,10 @@ class Parser:
         if token.token_type == TokenType.INT or token.token_type == TokenType.FLOAT:
             self.advance()
             return NumberNode(token)
+
+        elif token.token_type == TokenType.STRING:
+            self.advance()
+            return StringNode(token)
 
         elif token.token_type == TokenType.LPAREN:
             self.advance()
@@ -532,7 +537,7 @@ class Parser:
             return VariableNode(token)  # type: ignore
 
         raise Exception(
-            f"Invalid syntax: {token}. Expected int, float, or identifier, got {token.token_type}"
+            f"Invalid syntax: {token}. Expected int, float, string, or identifier, got {token.token_type}"
         )
 
     # endregion

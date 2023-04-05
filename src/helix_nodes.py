@@ -34,6 +34,15 @@ class NumberNode(ASTNode):
         return str(self.value)
 
 
+class StringNode(ASTNode):
+    def __init__(self, token: Token[str]):
+        self.token = token
+        self.value = token.value
+
+    def __repr__(self):
+        return f'"{self.value}"'
+
+
 class UnaryOpNode(ASTNode):
     def __init__(self, op: Token[str], expr: ASTNode):
         self.op = op

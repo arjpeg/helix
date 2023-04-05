@@ -4,5 +4,14 @@ let c = 5
 
 let descriminant = b^2 - 4*a*c
 
+if descriminant < 0 {
+    print("No real solutions :(")
+} else {
+    let x1 = (-b + descriminant^0.5) / (2*a)
+    let x2 = (-b - descriminant^0.5) / (2*a)
+
+    print("Root one:" + x1)
+    print("Root two:" + x2)
+}
 
 let x1 = (-b + descriminant^0.5) / (2*a)
