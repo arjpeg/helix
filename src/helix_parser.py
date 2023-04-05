@@ -37,6 +37,12 @@ class Parser:
             self.current_token is not None
             and self.current_token.token_type != TokenType.EOF
         ):
+            self.skip_newlines()
+
+            # if the current token is a rbrace, then we've reached the end of the block
+            if self.current_token.token_type == TokenType.RBRACE:
+                break
+
             statements.append(self.statement())
 
         return BlockNode(statements)
@@ -53,7 +59,6 @@ class Parser:
             | func-def
             | assign-stmt
         """
-        self.skip_newlines()
 
         if self.current_token is None:
             return NoOpNode()
@@ -107,6 +112,110 @@ class Parser:
 
         return AssignNode(name, value)
 
+    def if_stmt(self) -> ASTNode:
+        """
+        Parse an if statement. The grammar for this is:
+
+        if-stmt : IF compare-expr LBRACE (statement)* RBRACE (ELSE IF compare-expr LBRACE (statement)* RBRACE)* (ELSE LBRACE (statement)* RBRACE)?
+        """
+        assert (
+            self.current_token and self.current_token.value == Keyword.IF
+        ), f"Expected 'if' in if statement, got {self.current_token}"
+
+        if_block = self._condition_op(IfNode)
+        else_if_blocks: list[ElseIfNode] = []
+        else_block: ElseNode | None = None
+
+        self.skip_newlines()
+
+        while (
+            self.current_token
+            and self.current_token.token_type == TokenType.KEYWORD
+            and self.current_token.value == Keyword.ELSE
+        ):
+            # check if it's an else if
+            self.advance()
+
+            if (
+                self.current_token
+                and self.current_token.token_type == TokenType.KEYWORD
+                and self.current_token.value == Keyword.IF
+            ):
+                else_if_blocks.append(self._condition_op(ElseIfNode))
+                self.skip_newlines()
+
+            else:
+                if else_block is not None:
+                    raise Exception("Cannot have more than one else block")
+
+                assert (
+                    self.current_token
+                    and self.current_token.token_type == TokenType.LBRACE
+                ), f"Expected '{{' in else block, got {self.current_token}"
+
+                self.advance()
+
+                else_block = ElseNode(self.statement_list())
+
+                assert (
+                    self.current_token
+                    and self.current_token.token_type == TokenType.RBRACE
+                ), f"Expected '}}' in else block, got {self.current_token}"
+
+                self.advance()
+
+        return ConditionalStatementNode(if_block, else_if_blocks, else_block)
+
+    def for_stmt(self) -> ASTNode:
+        """
+        Parse a for loop. The grammar for this is:
+
+        for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
+        """
+        assert (
+            self.current_token
+            and self.current_token.value == Keyword.FOR
+        ), "Expected 'for' in for loop"
+
+        self.advance()
+
+        assert (
+            self.current_token
+            and self.current_token.token_type == TokenType.IDENTIFIER
+        ), "Expected identifier in for loop"
+
+        token = self.current_token
+        
+        self.advance()
+
+        assert (
+            self.current_token
+            and self.current_token.token_type == TokenType.KEYWORD
+            and self.current_token.value == Keyword.IN
+        ), "Expected 'in' in for loop after identifier"
+
+        self.advance()
+
+        expr = self.expr()
+
+        assert (
+            self.current_token
+            and self.current_token.token_type == TokenType.LBRACE
+        ), "Expected '{{' in for loop"
+
+        self.advance()
+
+        statements = self.statement_list()
+
+        assert (
+            self.current_token
+            and self.current_token.token_type == TokenType.RBRACE
+        ), "Expected '}}' in for loop"
+
+        self.advance()
+
+        return ForNode(token, expr, statements)
+
     # endregion
 
     def expr(self) -> ASTNode:
@@ -155,6 +264,8 @@ class Parser:
         res = self._bin_op(self.arith_expr, CONDITIONAL_OPERATORS, CompareNode)
 
         return res
+
+    # region Math
 
     def arith_expr(self) -> ASTNode:
         """
@@ -250,6 +361,9 @@ class Parser:
             f"Invalid syntax: {token}. Expected int, float, or identifier, got {token.token_type}"
         )
 
+    # endregion
+
+    # region Helper Functions
     @staticmethod
     def matches_type(token: Token[Any], token_types: list[TokenType]) -> bool:
         """
@@ -310,17 +424,22 @@ class Parser:
 
         both share similar grammar rules.
         """
+        assert (
+            self.current_token
+            and self.current_token.token_type == TokenType.KEYWORD
+            and self.current_token.value == Keyword.IF
+        ), "Expected 'if'"
+
         self.advance()
 
-        condition = self.condition()
-
-        print(condition)
+        condition = self.compare_expr()
 
         assert self.current_token, "Expected '{' after if condition"
         assert (
             a := self.current_token.token_type
         ) == TokenType.LBRACE, "Expected '{' after if condition, got " + str(a)
 
+        self.advance()  # Consume lbrace
         self.advance()  # Consume newline
 
         statements = self.statement_list()
@@ -332,7 +451,7 @@ class Parser:
 
         self.advance()  # Consume rbrace
 
-        return return_type(condition, statements)
+        return return_type(condition, statements)  # type: ignore
 
     def advance(self) -> Token[Any] | None:
         """
@@ -347,3 +466,5 @@ class Parser:
         """
         self.current_token = self.tokens.prev()
         return self.current_token
+
+    # endregion

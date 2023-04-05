@@ -1,0 +1,28 @@
+if 1 == 1 {
+    let a = 10
+
+    if 2 == 2 {
+        let b = 20
+    }
+}
+
+
+else if 3 == 3 {
+    let c = 30
+}
+
+
+
+else if 2 != 10 {
+    let d = 40
+}
+
+else {
+    let e = 50
+}
+
+let f = 60
+
+if f == f {
+    let g = 70
+}

@@ -137,13 +137,13 @@ class ConditionalStatementNode(ASTNode):
 
 
 class ForNode(ASTNode):
-    def __init__(self, name: Token[str], iterator: Any, body: ASTNode):
-        self.name = name
+    def __init__(self, identifier: Token[str], iterator: Any, body: ASTNode):
+        self.identifier = identifier
         self.iterator = iterator
         self.body = body
 
     def __repr__(self):
-        return f"ForNode({self.name} in {self.iterator}, {self.body})"
+        return f"ForNode({self.identifier.value} in {self.iterator}, {self.body})"
 
 
 class WhileNode(ASTNode):
