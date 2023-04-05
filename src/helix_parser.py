@@ -119,9 +119,6 @@ class Parser:
         """
         compare_expr = self.compare_expr()
 
-        print("Finished parsing compare expr", compare_expr)
-        print("Current token is", self.current_token)
-
         while self.current_token and self.current_token.token_type == TokenType.KEYWORD:
             if self.current_token.value == Keyword.AND:
                 self.advance()
@@ -157,7 +154,6 @@ class Parser:
 
         res = self._bin_op(self.arith_expr, CONDITIONAL_OPERATORS, CompareNode)
 
-        print("Finished parsing conditional", res)
         return res
 
     def arith_expr(self) -> ASTNode:
@@ -290,13 +286,7 @@ class Parser:
         ):
             op = self.current_token
             self.advance()
-            # input(
-            #     f"Found op {op}, left is {left}, and ops are {ops} current token is {self.current_token}"
-            # )
-
             right = fn()
-
-            # input(f"Right returned {right} for op {op} and left {left}")
 
             left = return_type(left, op, right)  # type: ignore
 
