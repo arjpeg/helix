@@ -505,8 +505,9 @@ class Parser:
         """
 
         if self.current_token and self.current_token.value == Keyword.NOT:
+            tok = self.current_token
             self.advance()
-            return UnaryOpNode(self.current_token, self.compare_expr())
+            return UnaryOpNode(tok, self.compare_expr())
 
         arith_expr = self.arith_expr()
 

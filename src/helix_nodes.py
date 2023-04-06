@@ -1,6 +1,6 @@
 from typing import Any
 
-from .helix_token import Token
+from .helix_token import Token, TokenType
 
 
 class ASTNode:
@@ -78,7 +78,10 @@ class UnaryOpNode(ASTNode):
         self.expr = expr
 
     def __repr__(self):
-        return f"({self.op.token_type.value}{self.expr})"
+        if self.op.token_type == TokenType.KEYWORD:
+            return f"{self.op.value.value} {self.expr}"  # type: ignore
+
+        return f"{self.op.token_type.value}{self.expr}"
 
 
 class AssignNode(ASTNode):
