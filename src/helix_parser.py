@@ -173,6 +173,31 @@ class Parser:
 
             self.advance()
 
+            if (
+                self.current_token
+                and self.current_token.token_type != TokenType.ASSIGN  # type: ignore
+            ):
+                # this could either be a function call or a variable reference
+                # check if the next token is a lparen
+                if self.current_token.token_type == TokenType.LPAREN:
+                    # this is a function call
+                    self.advance()
+
+                    return PropertyAccessNode(
+                        name,
+                        [
+                            PropertyFunctionInvocationNode(
+                                property_name,
+                                self.sep_by(
+                                    TokenType.COMMA, self.expr, stop=TokenType.RPAREN
+                                ),
+                            )
+                        ],
+                    )
+                else:
+                    # this is a variable reference
+                    return PropertyAccessNode(name, [property_name])
+
         assert (
             self.current_token and self.current_token.token_type == TokenType.ASSIGN
         ), f"Expected '=' in variable assignment, got {self.current_token}"
@@ -981,5 +1006,24 @@ class Parser:
         self.rewind()
 
         return tok
+
+    def sep_by(
+        self, token: TokenType, fn: Callable[[], ASTNode], stop: TokenType
+    ) -> list[ASTNode]:
+        """
+        Parse a list of expressions separated by a token.
+        """
+
+        exprs: list[ASTNode] = []
+
+        while self.current_token and self.current_token.token_type != stop:
+            exprs.append(fn())
+
+            if self.current_token and self.current_token.token_type == token:
+                self.advance()
+
+        self.advance()
+
+        return exprs
 
     # endregion
