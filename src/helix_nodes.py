@@ -231,6 +231,37 @@ class FunctionInvocationNode(ASTNode):
         return f"{self.identifier.value}({', '.join([str(arg) for arg in self.arguments])})"
 
 
+class PropertyAccessNode(ASTNode):
+    def __init__(
+        self,
+        object: Token[str],
+        property_lookups: list[Token[str] | "PropertyFunctionInvocationNode"],
+    ):
+        self.object = object
+        self.property_lookups = property_lookups
+
+    def __repr__(self):
+        result = f"PropertyLookup({self.object.value}"
+
+        for lookup in self.property_lookups:
+            if isinstance(lookup, Token):
+                result += f".{lookup.value}"
+
+            else:
+                result += f".{lookup}"
+
+        return result + ")"
+
+
+class PropertyFunctionInvocationNode(ASTNode):
+    def __init__(self, identifier: Token[str], arguments: list[ASTNode]):
+        self.identifier = identifier
+        self.arguments = arguments
+
+    def __repr__(self):
+        return f"{self.identifier.value}({', '.join([str(arg) for arg in self.arguments])})"
+
+
 class ReturnNode(ASTNode):
     def __init__(self, expr: ASTNode):
         self.expr = expr

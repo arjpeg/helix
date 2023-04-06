@@ -1,0 +1,11 @@
+let a = [1, 3, 4]
+
+fn adder(x) {
+    return x + 1
+}
+
+let b = a.map(adder)
+
+# [2, 4, 5]
+print(b.join(" "))
+

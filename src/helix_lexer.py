@@ -87,6 +87,22 @@ class Lexer:
             elif self.current_char == COMMENT:
                 self.skip_comment()
 
+            elif self.current_char == ".":
+                # this could be a float or a dot operator
+                self.advance()
+
+                if self.current_char and self.current_char.isdigit():
+                    number = self.generate_number()
+
+                    if number.token_type == TokenType.FLOAT:
+                        # there were more than one decimal points
+                        raise Exception(f"Invalid number: 0.{number.value}")
+
+                    number = Token(TokenType.FLOAT, float(f"0.{number.value}"))
+                    yield number
+                else:
+                    yield Token(TokenType.DOT)
+
             else:
                 raise Exception(f"Invalid character: {repr(self.current_char)}")
 

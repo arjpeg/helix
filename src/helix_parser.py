@@ -546,6 +546,7 @@ class Parser:
              | IDENTIFIER
              | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
              | IDENTIFIER LBRACKET expr RBRACKET
+             | IDENTIFIER (DOT IDENTIFIER (LPAREN expr (COMMA expr)* RPAREN)?)*
         """
         token = self.current_token
 
@@ -603,6 +604,7 @@ class Parser:
 
                 return FunctionInvocationNode(token, params_list)  # type: ignore
 
+            # check if it's a list access
             elif (
                 self.current_token
                 and self.current_token.token_type == TokenType.LBRACKET
@@ -618,6 +620,61 @@ class Parser:
                 self.advance()
 
                 return IndexingNode(token, index)  # type: ignore
+
+            # check if it's a property access
+            elif self.current_token and self.current_token.token_type == TokenType.DOT:
+                properties: list[Token[Any] | PropertyFunctionInvocationNode] = []
+                object = token
+
+                while (
+                    self.current_token
+                    and self.current_token.token_type == TokenType.DOT
+                ):
+                    # check for function call, e.g. foo.bar()
+                    self.advance()
+
+                    if self.current_token.token_type != TokenType.IDENTIFIER:  # type: ignore
+                        raise Exception("Expected identifier after '.'")
+
+                    self.advance()
+                    token = self.current_token
+                    self.rewind()
+
+                    if token.token_type == TokenType.LPAREN:
+                        # function call
+                        token = self.current_token
+
+                        self.advance()
+                        self.advance()
+
+                        args: list[ASTNode] = []
+
+                        while self.current_token:
+                            if self.current_token.token_type == TokenType.RPAREN:
+                                break
+
+                            self.skip_newlines()
+                            args.append(self.expr())
+                            self.skip_newlines()
+
+                            if self.current_token.token_type == TokenType.COMMA:
+                                self.advance()
+
+                        assert (
+                            self.current_token
+                            and self.current_token.token_type == TokenType.RPAREN
+                        ), "Expected ')'"
+
+                        self.advance()
+
+                        properties.append(PropertyFunctionInvocationNode(token, args))
+
+                    else:
+                        # property access
+                        properties.append(self.current_token)
+                        self.advance()
+
+                return PropertyAccessNode(object, properties)  # type: ignore
 
             return VariableNode(token)  # type: ignore
 

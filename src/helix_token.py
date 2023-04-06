@@ -76,6 +76,8 @@ class TokenType(Enum):
     LBRACKET = "["
     RBRACKET = "]"
 
+    DOT = "."
+
 
 CONDITIONAL_OPERATORS = [
     TokenType.EQ,
