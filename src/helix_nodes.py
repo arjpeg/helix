@@ -63,6 +63,14 @@ class DictNode(ASTNode):
         )
 
 
+class TupleNode(ASTNode):
+    def __init__(self, elements: list[ASTNode]):
+        self.elements = elements
+
+    def __repr__(self):
+        return f"Tuple({', '.join(map(str, self.elements))})"
+
+
 class IndexingNode(ASTNode):
     def __init__(self, list_node: Token[str], index: ASTNode):
         self.list_node = list_node

@@ -621,6 +621,50 @@ class Parser:
 
         return DictNode(values)
 
+    def generate_tuple(self) -> ASTNode:
+        """
+        Generate a tuple. The grammar for this is:
+
+        tuple : LPAREN (expr (COMMA expr)*)? RPAREN
+        """
+        values: list[ASTNode] = []
+
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.LPAREN
+        ), "Expected '(' to start tuple"
+
+        self.advance()
+
+        while self.current_token:
+            self.skip_newlines()
+
+            if self.current_token.token_type == TokenType.RPAREN:  # type: ignore
+                break
+
+            values.append(self.expr())
+
+            if self.current_token.token_type == TokenType.RPAREN:  # type: ignore
+                break
+
+            assert (
+                self.current_token and self.current_token.token_type == TokenType.COMMA
+            ), f"Expected ',' to seperate items in tuple, got {self.current_token}"
+
+            self.advance()
+
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.RPAREN
+        ), "Expected ')' to end tuple"
+
+        self.advance()
+
+        # if there was only one value, then it might be a parenthesized expression
+        # so we return the value instead of a tuple
+        if len(values) == 1:
+            return values[0]
+
+        return TupleNode(values)
+
     # endregion
 
     # region Math
@@ -686,7 +730,7 @@ class Parser:
              | STRING
              | list
              | dict
-             | LPAREN expr RPAREN
+             | tuple
              | IDENTIFIER
              | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
              | IDENTIFIER LBRACKET expr RBRACKET
@@ -715,17 +759,7 @@ class Parser:
             return self.generate_dict()
 
         elif token.token_type == TokenType.LPAREN:
-            self.advance()
-            node = self.expr()
-
-            assert self.current_token, "Expected ')'"
-            assert (
-                a := self.current_token.token_type
-            ) == TokenType.RPAREN, "Expected ')', got " + str(a)
-
-            self.advance()
-
-            return node
+            return self.generate_tuple()
 
         # the identifier is either a variable, function call, or list/dict access
         elif token.token_type == TokenType.IDENTIFIER:

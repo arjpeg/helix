@@ -1,0 +1,8 @@
+let values = (1, 2)
+
+# test that normal expressions work
+(3 + 2) * 4
+
+let test = ((3 + 2) * 4, "test")
+
+

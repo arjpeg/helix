@@ -55,7 +55,7 @@ atom : INT
      | STRING
      | list
      | dict
-     | LPAREN expr RPAREN
+     | LPAREN expr ((COMMA EXPR)*)? RPAREN
      | IDENTIFIER
      | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
      | IDENTIFIER LBRACKET expr RBRACKET
@@ -66,3 +66,6 @@ atom : INT
 list : LBRACKET (expr (COMMA expr)*)? RBRACKET
 
 dict : LBRACE (IDENTIFIER COLON expr (COMMA IDENTIFIER COLON expr)*)? RBRACE
+
+tuple : LPAREN (expr (COMMA expr)*)? RPAREN
+      : expr (COMMA expr)+
