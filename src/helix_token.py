@@ -79,6 +79,8 @@ class TokenType(Enum):
     DOT = "."
     COLON = ":"
 
+    ARROW = "->"
+
 
 CONDITIONAL_OPERATORS = [
     TokenType.EQ,

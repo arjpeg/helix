@@ -29,6 +29,9 @@ if-stmt : IF compare-expr LBRACE (statement)* RBRACE (ELSE IF compare-expr LBRAC
 func-def : FUNC IDENTIFIER LPAREN (IDENTIFIER (COMMA IDENTIFIER)*)? RPAREN LBRACE (statement)* RBRACE
 
 expr : compare-expr (AND|OR compare-expr)*
+     | function-expr
+
+function-expr : LPAREN (expr (COMMA expr)*)? RPAREN ARROW LBRACE (statement)* RBRACE
 
 compare-expr : NOT compare-expr
              | arith_expr ((EQ|NEQ|GT|LT|GTE|LTE) arith-expr)*

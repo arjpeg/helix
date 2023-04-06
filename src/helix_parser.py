@@ -412,6 +412,7 @@ class Parser:
         The grammar for this is:
 
         expr : compare-expr (AND|OR compare-expr)*
+             | func-expr
         """
         compare_expr = self.compare_expr()
 
@@ -652,11 +653,15 @@ class Parser:
         elif token.token_type == TokenType.LPAREN:
             self.advance()
             node = self.expr()
+            
             assert self.current_token, "Expected ')'"
             assert (
                 a := self.current_token.token_type
             ) == TokenType.RPAREN, "Expected ')', got " + str(a)
+            
             self.advance()
+
+
             return node
 
         # the identifier is either a variable, function call, or list/dict access

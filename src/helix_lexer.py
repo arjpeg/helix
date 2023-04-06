@@ -77,6 +77,17 @@ class Lexer:
                 yield Token(TokenType.COMMA)
                 self.advance()
 
+            elif self.current_char == "-":
+                # this could be a minus operator or an arrow
+                self.advance()
+
+                if self.current_char == ">":
+                    yield Token(TokenType.ARROW)
+                    self.advance()
+
+                else:
+                    yield Token(TokenType.MINUS)
+
             elif self.current_char in OPERATORS:
                 if self.current_char in CONDITIONAL_OPERATORS:
                     yield self.generate_conditional_operator()
