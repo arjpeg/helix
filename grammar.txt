@@ -20,7 +20,7 @@ break-stmt : BREAK
 
 return-stmt : RETURN expr
 
-for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
+for-stmt : FOR (LET)? IDENTIFIER IN expr LBRACE (statement)* RBRACE
 
 while-stmt : WHILE expr LBRACE (statement)* RBRACE
 
@@ -54,8 +54,7 @@ atom : INT
      | IDENTIFIER
      | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
      | IDENTIFIER LBRACKET expr RBRACKET
-     | IDENTIFIER DOT IDENTIFIER
-     | IDENTIFIER DOT IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
+     | IDENTIFIER (DOT IDENTIFIER (LPAREN expr (COMMA expr)* RPAREN)?)*
 
 
 # Data types

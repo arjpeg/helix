@@ -277,13 +277,16 @@ class Parser:
         """
         Parse a for loop. The grammar for this is:
 
-        for-stmt : FOR IDENTIFIER IN expr LBRACE (statement)* RBRACE
+        for-stmt : FOR (LET)? IDENTIFIER IN expr LBRACE (statement)* RBRACE
         """
         assert (
             self.current_token and self.current_token.value == Keyword.FOR
         ), "Expected 'for' in for loop"
 
         self.advance()
+
+        if self.current_token and self.current_token.value == Keyword.LET:
+            self.advance()
 
         assert (
             self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
@@ -787,5 +790,15 @@ class Parser:
         """
         self.current_token = self.tokens.prev()
         return self.current_token
+
+    def peek(self) -> Token[Any] | None:
+        """
+        Peek at the next token.
+        """
+        self.advance()
+        tok = self.current_token
+        self.rewind()
+
+        return tok
 
     # endregion
