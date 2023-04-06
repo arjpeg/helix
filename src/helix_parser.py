@@ -395,24 +395,11 @@ class Parser:
             # check for parameters
             self.advance()
 
-            while (
-                self.current_token
-                and self.current_token.token_type == TokenType.IDENTIFIER
-            ):
-                params.append(self.current_token)
-                self.advance()
-
-                if self.current_token.token_type == TokenType.COMMA:
-                    self.advance()
-
-                else:
-                    break
-
-            assert (
-                self.current_token and self.current_token.token_type == TokenType.RPAREN
+            params = self.sep_by(
+                TokenType.COMMA,
+                self.parse_identifier,
+                TokenType.RPAREN,
             )
-
-            self.advance()
 
         # find the lbrace
         assert self.current_token and self.current_token.token_type == TokenType.LBRACE
@@ -1007,14 +994,22 @@ class Parser:
 
         return tok
 
-    def sep_by(
-        self, token: TokenType, fn: Callable[[], ASTNode], stop: TokenType
-    ) -> list[ASTNode]:
+    def parse_identifier(self) -> Token[str]:
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
+        )
+
+        token = self.current_token
+        self.advance()
+
+        return token
+
+    def sep_by(self, token: TokenType, fn: Callable[[], V], stop: TokenType) -> list[V]:
         """
         Parse a list of expressions separated by a token.
         """
 
-        exprs: list[ASTNode] = []
+        exprs: list[V] = []
 
         while self.current_token and self.current_token.token_type != stop:
             exprs.append(fn())
