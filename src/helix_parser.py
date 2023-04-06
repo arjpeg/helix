@@ -182,7 +182,7 @@ class Parser:
 
         if index:
             return AssignIndexNode(name, index, value)
-        
+
         if property_name:
             return AssignPropertyNode(name, property_name, value)
 
@@ -414,6 +414,69 @@ class Parser:
         expr : compare-expr (AND|OR compare-expr)*
              | func-expr
         """
+        if self.current_token and self.current_token.token_type == TokenType.LPAREN:
+            # check for a function expr
+            self.advance()
+            times_advanced = 1
+            is_fn_def = True
+
+            params: list[Token[str]] = []
+
+            while self.current_token:
+                if self.current_token.token_type == TokenType.RPAREN:  # type: ignore
+                    break
+
+                if self.current_token.token_type == TokenType.COMMA:  # type: ignore
+                    pass
+                elif self.current_token.token_type == TokenType.IDENTIFIER:  # type: ignore
+                    params.append(self.current_token)
+
+                else:  # this wasn't a function expr, so we need to rewind
+                    for _ in range(times_advanced):
+                        self.rewind()
+
+                    is_fn_def = False
+
+                    break
+
+                self.advance()
+                times_advanced += 1
+
+            if is_fn_def:
+                assert (
+                    self.current_token
+                    and self.current_token.token_type == TokenType.RPAREN
+                )
+
+                self.advance()
+
+                assert (
+                    self.current_token
+                    and self.current_token.token_type == TokenType.ARROW
+                )
+
+                self.advance()
+
+                if self.current_token.token_type == TokenType.LBRACE:
+                    self.advance()
+
+                    body = self.statement_list()
+
+                    assert (
+                        self.current_token
+                        and self.current_token.token_type == TokenType.RBRACE
+                    ), "Expected '}}' in function expression"
+
+                    self.advance()
+
+                    return FunctionExprNode(params, body)
+
+                else:
+                    # this is a single expression
+                    expr = self.expr()
+
+                    return FunctionExprNode(params, ReturnNode(expr))
+
         compare_expr = self.compare_expr()
 
         while self.current_token and self.current_token.token_type == TokenType.KEYWORD:
@@ -653,14 +716,13 @@ class Parser:
         elif token.token_type == TokenType.LPAREN:
             self.advance()
             node = self.expr()
-            
+
             assert self.current_token, "Expected ')'"
             assert (
                 a := self.current_token.token_type
             ) == TokenType.RPAREN, "Expected ')', got " + str(a)
-            
-            self.advance()
 
+            self.advance()
 
             return node
 

@@ -32,6 +32,7 @@ expr : compare-expr (AND|OR compare-expr)*
      | function-expr
 
 function-expr : LPAREN (expr (COMMA expr)*)? RPAREN ARROW LBRACE (statement)* RBRACE
+              | LPAREN (expr (COMMA expr)*)? RPAREN ARROW expr 
 
 compare-expr : NOT compare-expr
              | arith_expr ((EQ|NEQ|GT|LT|GTE|LTE) arith-expr)*

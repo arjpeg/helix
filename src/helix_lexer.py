@@ -81,7 +81,7 @@ class Lexer:
                 # this could be a minus operator or an arrow
                 self.advance()
 
-                if self.current_char == ">":
+                if self.current_char == ">":  # type: ignore
                     yield Token(TokenType.ARROW)
                     self.advance()
 

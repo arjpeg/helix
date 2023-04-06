@@ -1,3 +1,20 @@
-(value) -> {
-    print(value)
+let solve = (a, b, c) -> {
+    # Solve a quadratic equation
+    # a*x^2 + b*x + c = 0
+
+    # Compute the discriminant
+    let descriminant = b^2 - 4*a*c
+
+    # Compute the two roots
+    let root1 = (-b + sqrt(descriminant)) / (2*a)
+    let root2 = (-b - sqrt(descriminant)) / (2*a)
+
+    let isreal = (d) -> d >= 0
+
+    if not isreal(descriminant) {
+        print("No real roots!")
+    }
+
+    # Return the roots
+    return [root1, root2]
 }

@@ -7,15 +7,9 @@ let scores = {
     minnesota: -10,
 }
 
-fn filter(city) {
-    if city.score > 0 {
-        return true
-    }
-
-    return false
-}
-
-for let city in scores.values().filter(filter) {
+for let city in scores.values().filter((city) -> {
+    return city > 0
+}) {
     print(city)
 }
 

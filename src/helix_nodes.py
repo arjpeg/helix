@@ -99,6 +99,7 @@ class AssignIndexNode(ASTNode):
     def __repr__(self):
         return f"AssignIndexNode({self.name.value}[{self.index}] = {self.value})"
 
+
 class AssignPropertyNode(ASTNode):
     def __init__(self, name: Token[str], property: Token[str], value: ASTNode):
         self.name = name
@@ -229,6 +230,19 @@ class ContinueNode(ASTNode):
 class BreakNode(ASTNode):
     def __repr__(self):
         return "break"
+
+
+class FunctionExprNode(ASTNode):
+    def __init__(self, arguments: list[Token[str]], body: ASTNode) -> None:
+        """
+        Used as an anonymous function.
+        """
+
+        self.arguments = arguments
+        self.body = body
+
+    def __repr__(self):
+        return f"FunctionExprNode(({', '.join([arg.value for arg in self.arguments])}), {self.body})"
 
 
 class FunctionDefNode(ASTNode):
