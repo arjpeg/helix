@@ -1,5 +1,5 @@
-from src import Lexer
-from src.helix_token import Keyword, TokenType
+from helix import Lexer
+from helix.helix_token import Keyword, TokenType
 
 
 def test_operators():

@@ -1,6 +1,6 @@
 import sys
 
-from src import Lexer, Parser
+from helix import Lexer, Parser
 
 debug_attrs = {"print_tokens": 0}
 

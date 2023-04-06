@@ -2,7 +2,7 @@
 
 import os
 
-from src import Lexer, Parser
+from helix import Lexer, Parser
 
 files = []
 

@@ -1,6 +1,6 @@
 from typing import Any, Callable, Type, TypeVar
 
-from src.utils.custom_iter import CustomIter
+from helix.utils.custom_iter import CustomIter
 
 from .helix_nodes import *
 from .helix_token import CONDITIONAL_OPERATORS, Keyword, Token, TokenType
