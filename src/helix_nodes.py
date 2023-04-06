@@ -99,6 +99,15 @@ class AssignIndexNode(ASTNode):
     def __repr__(self):
         return f"AssignIndexNode({self.name.value}[{self.index}] = {self.value})"
 
+class AssignPropertyNode(ASTNode):
+    def __init__(self, name: Token[str], property: Token[str], value: ASTNode):
+        self.name = name
+        self.property = property
+        self.value = value
+
+    def __repr__(self):
+        return f"AssignPropertyNode({self.name.value}.{self.property.value} = {self.value})"
+
 
 class NoOpNode(ASTNode):
     def __repr__(self):

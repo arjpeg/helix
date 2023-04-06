@@ -18,3 +18,5 @@ fn filter(city) {
 for let city in scores.values().filter(filter) {
     print(city)
 }
+
+scores.value = 10

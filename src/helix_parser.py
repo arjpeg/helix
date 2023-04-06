@@ -82,6 +82,9 @@ class Parser:
             if token and token.token_type == TokenType.LBRACKET:
                 return self.assign_stmt()
 
+            if token and token.token_type == TokenType.DOT:
+                return self.assign_stmt()
+
             return self.expr()
 
         if self.current_token.token_type == TokenType.KEYWORD:
@@ -116,8 +119,9 @@ class Parser:
         """
         Parse an assignment. The grammar for this is:
 
-        assign_stmt : (LET)? IDENTIFIER (LBRACE EXPR RBRACE)? ASSIGN expr
+        assign-stmt : (LET)? IDENTIFIER ((LBRACKET expr RBRACKET)|DOT IDENTIFIER)? ASSIGN expr
         """
+
         if self.current_token and self.current_token.token_type == TokenType.KEYWORD:
             assert (
                 self.current_token
@@ -133,6 +137,7 @@ class Parser:
 
         name = self.current_token
         index: ASTNode | None = None
+        property_name: Token[Any] | None = None
 
         self.advance()
 
@@ -152,6 +157,22 @@ class Parser:
 
             self.advance()
 
+        if (
+            self.current_token
+            and self.current_token.token_type == TokenType.DOT  # type: ignore
+        ):
+            # this is a property assignment
+            self.advance()
+
+            assert (
+                self.current_token
+                and self.current_token.token_type == TokenType.IDENTIFIER
+            ), f"Expected identifier in variable assignment, got {self.current_token}"
+
+            property_name = self.current_token
+
+            self.advance()
+
         assert (
             self.current_token and self.current_token.token_type == TokenType.ASSIGN
         ), f"Expected '=' in variable assignment, got {self.current_token}"
@@ -161,6 +182,9 @@ class Parser:
 
         if index:
             return AssignIndexNode(name, index, value)
+        
+        if property_name:
+            return AssignPropertyNode(name, property_name, value)
 
         return AssignNode(name, value)
 
