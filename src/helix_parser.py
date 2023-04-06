@@ -481,6 +481,57 @@ class Parser:
 
         return ListNode(elements)
 
+    def generate_dict(self) -> ASTNode:
+        """
+        Generate a dictionary. The grammar for this is:
+
+        dict : LBRACE (IDENTIFIER COLON expr (COMMA IDENTIFIER COLON expr)*)? RBRACE
+        """
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.LBRACE
+        ), "Expected '{' to start dict"
+
+        self.advance()
+        values = {}
+
+        while self.current_token:
+            self.skip_newlines()
+
+            if self.current_token.token_type == TokenType.RBRACE:  # type: ignore
+                break
+
+            key = self.current_token
+
+            assert (
+                key and key.token_type == TokenType.IDENTIFIER
+            ), "Expected identifier as key in dict"
+
+            self.advance()
+
+            assert (
+                self.current_token and self.current_token.token_type == TokenType.COLON
+            ), "Expected ':' to seperate key and value in dict"
+
+            self.advance()
+
+            value = self.expr()
+
+            values[key.value] = value
+
+            if self.current_token and self.current_token.token_type == TokenType.COMMA:  # type: ignore
+                self.advance()
+
+            elif self.current_token.token_type not in [TokenType.NEWLINE, TokenType.RBRACE]:  # type: ignore
+                raise SyntaxError("Expected ',' to seperate items in dict")
+
+        assert (
+            self.current_token and self.current_token.token_type == TokenType.RBRACE
+        ), "Expected '}' to end dict"
+
+        self.advance()
+
+        return DictNode(values)
+
     # endregion
 
     # region Math
@@ -545,6 +596,7 @@ class Parser:
              | FLOAT
              | STRING
              | list
+             | dict
              | LPAREN expr RPAREN
              | IDENTIFIER
              | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
@@ -569,6 +621,9 @@ class Parser:
 
         elif token.token_type == TokenType.LBRACKET:
             return self.generate_list()
+
+        elif token.token_type == TokenType.LBRACE:
+            return self.generate_dict()
 
         elif token.token_type == TokenType.LPAREN:
             self.advance()

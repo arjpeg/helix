@@ -51,6 +51,18 @@ class ListNode(ASTNode):
         return f"List([{', '.join(map(str, self.elements))}])"
 
 
+class DictNode(ASTNode):
+    def __init__(self, elements: dict[Token[str], ASTNode]):
+        self.elements = elements
+
+    def __repr__(self):
+        return (
+            "Dict({\n"
+            + ",\n".join(f"\t{key}: {value}" for key, value in self.elements.items())
+            + "\n})"
+        )
+
+
 class IndexingNode(ASTNode):
     def __init__(self, list_node: Token[str], index: ASTNode):
         self.list_node = list_node

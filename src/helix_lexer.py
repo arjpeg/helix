@@ -24,6 +24,7 @@ OPERATORS = [
     "[",
     "]",
     "!",
+    ":",
 ]
 
 CONDITIONAL_OPERATORS = ["=", "!", "<", ">", "<", ">"]

@@ -1,0 +1,20 @@
+let scores = {
+    dallas: 60,
+    philadelphia: 10,
+    newyork: 23.3,
+    boston: 40,
+    chicago: 10,
+    minnesota: -10,
+}
+
+fn filter(city) {
+    if city.score > 0 {
+        return true
+    }
+
+    return false
+}
+
+for let city in scores.values().filter(filter) {
+    print(city)
+}

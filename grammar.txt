@@ -50,6 +50,7 @@ atom : INT
      | FLOAT
      | STRING
      | list
+     | dict
      | LPAREN expr RPAREN
      | IDENTIFIER
      | IDENTIFIER LPAREN (expr (COMMA expr)*)? RPAREN
@@ -59,3 +60,5 @@ atom : INT
 
 # Data types
 list : LBRACKET (expr (COMMA expr)*)? RBRACKET
+
+dict : LBRACE (IDENTIFIER COLON expr (COMMA IDENTIFIER COLON expr)*)? RBRACE

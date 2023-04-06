@@ -4,3 +4,4 @@
 **/site-packages
 **/dist-packages
 **/egg-info
+**/.pytest_cache/

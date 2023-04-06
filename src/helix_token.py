@@ -77,6 +77,7 @@ class TokenType(Enum):
     RBRACKET = "]"
 
     DOT = "."
+    COLON = ":"
 
 
 CONDITIONAL_OPERATORS = [
