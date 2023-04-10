@@ -8,10 +8,14 @@ class Variable:
 
 
 class SymbolTable:
-    def __init__(self) -> None:
+    def __init__(self, symbols: dict[str, Any] | None = None) -> None:
         # the last element in the list is the current scope
         # each previous element is a parent scope
         self.symbols: list[dict[str, Variable]] = [{}]
+
+        if symbols is not None:
+            for name, value in symbols.items():
+                self.symbols[0][name] = Variable(value)
 
     def get(self, name: str) -> Any:
         # loop through all scopes (in reverse order)

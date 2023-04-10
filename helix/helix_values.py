@@ -253,3 +253,17 @@ class Function:
 
     def __repr__(self):
         return f"Function({self.name}, {self.args}, {self.body})"
+
+
+class BuiltInFunction:
+    def __init__(self, name: str, code: Any) -> None:
+        self.name = name
+        self.code = code
+
+    def call(
+        self,
+        args: list[Any],
+        symbol_table: SymbolTable,
+        visitor_method: Callable[[ASTNode], Any],
+    ):
+        return self.code(*args)

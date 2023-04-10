@@ -22,9 +22,10 @@ def run(code: str):
     if isinstance(ast, BlockNode) and len(ast.statements) == 1:
         ast = ast.statements[0]  # Unwrap the block node
 
-    interpreter = Interpreter()
-
-    print(interpreter.visit(ast))
+    if isinstance(ast, BlockNode):
+        Interpreter().visit(ast)
+    else:
+        print(Interpreter().visit(ast))
 
 
 def repl() -> None:

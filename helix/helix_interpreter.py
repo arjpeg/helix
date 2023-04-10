@@ -4,9 +4,19 @@ from helix.helix_token import Keyword
 from helix.helix_values import *
 
 
+def custom_print(*args: String):
+    for arg in args:
+        print(arg.value, end=" ")
+
+    print()
+
+
+global_symbol_table = SymbolTable({"print": BuiltInFunction("print", custom_print)})
+
+
 class Interpreter:
     def __init__(self) -> None:
-        self.symbol_table = SymbolTable()
+        self.symbol_table = global_symbol_table
 
     def visit(self, node: ASTNode):
         method_name = f"visit_{type(node).__name__}"
@@ -40,7 +50,7 @@ class Interpreter:
 
     def visit_BlockNode(self, node: BlockNode):
         for child in node.statements:
-            print(self.visit(child))
+            self.visit(child)
 
     def visit_NumberNode(self, node: NumberNode) -> Number:
         return Number(node.token.value)
@@ -246,11 +256,12 @@ class Interpreter:
     def visit_PropertyAccessNode(self, node: PropertyAccessNode):
         # the property accesses are chained, so we need to visit each one
         # and get the value of the property
-        value = self.visit(VariableNode(node.object))
+        # value = self.visit(VariableNode(node.object))
 
-        for property in node.property_lookups:
-            if isinstance(property, PropertyFunctionInvocationNode):
-                # if the property is a function invocation, such as
-                # a.print(), then we need to execute the function
+        # for property in node.property_lookups:
+        #     if isinstance(property, PropertyFunctionInvocationNode):
+        #         # if the property is a function invocation, such as
+        #         # a.print(), then we need to execute the function
 
-                property = value.get_property(property.name.value)
+        #         # property = value.get_property(property.name.value)
+        pass
