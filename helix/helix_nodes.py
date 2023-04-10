@@ -52,7 +52,7 @@ class ListNode(ASTNode):
 
 
 class DictNode(ASTNode):
-    def __init__(self, elements: dict[Token[str], ASTNode]):
+    def __init__(self, elements: dict[str, ASTNode]):
         self.elements = elements
 
     def __repr__(self):
