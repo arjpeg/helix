@@ -462,6 +462,10 @@ class Parser:
 
                 self.advance()
 
+                if not self.current_token.token_type == TokenType.ARROW:  # type: ignore
+                    # this is a tuple
+                    return TupleNode([VariableNode(node) for node in params])
+
                 assert (
                     self.current_token
                     and self.current_token.token_type == TokenType.ARROW

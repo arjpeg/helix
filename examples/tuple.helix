@@ -1,4 +1,4 @@
-let values = (1, 2)
+let values = (a, b)
 
 # test that normal expressions work
 (3 + 2) * 4

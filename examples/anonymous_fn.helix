@@ -16,5 +16,5 @@ let solve = (a, b, c) -> {
     }
 
     # Return the roots
-    return [root1, root2]
+    return (root1, root2)
 }
