@@ -1,9 +1,7 @@
-let is_correct_password = (password) -> password == "rao"
-
-let user_input = input("What is your name? ")
-
-print("Nice to meet you " + user_input)
-
-if is_correct_password(user_input) {
-    print("Wow so cool")
+let a = {
+    func: () -> {
+        print("a")
+    }
 }
+
+print(a)

@@ -187,11 +187,16 @@ class Dict:
         return other in self.elements
 
     def __repr__(self):
-        return (
-            "Dict({\n"
-            + "\n".join(f"   '{key}': {value}" for key, value in self.elements.items())
-            + "\n})"
-        )
+        result = "{\n"
+
+        for key, value in self.elements.items():
+            value_str = str(value).replace("\n", "\n\t")
+
+            result += f"\t{key}: {value_str}\n"
+
+        result += "}"
+
+        return result
 
 
 class Tuple:

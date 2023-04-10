@@ -4,9 +4,12 @@ from helix.helix_token import Keyword
 from helix.helix_values import *
 
 
-def custom_print(*args: String):
+def custom_print(*args: Any):
     for arg in args:
-        print(arg.value, end=" ")
+        if isinstance(arg, String):
+            print(arg.value, end=" ")
+        else:
+            print(arg, end=" ")
 
     print()
 
