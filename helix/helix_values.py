@@ -210,7 +210,7 @@ class Function:
         self,
         name: str,
         args: list[str],
-        body: BlockNode,
+        body: BlockNode | ReturnNode,
     ) -> None:
         self.name = name
         self.args = args
@@ -239,6 +239,13 @@ class Function:
         # execute the function
         # because there might be a return statement, we need to
         # manually execute the body
+        if isinstance(self.body, ReturnNode):
+            result = visitor_method(self.body)
+
+            symbol_table.pop_scope()
+
+            return result
+
         result = None
 
         for statement in self.body.statements:

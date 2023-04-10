@@ -11,7 +11,19 @@ def custom_print(*args: String):
     print()
 
 
-global_symbol_table = SymbolTable({"print": BuiltInFunction("print", custom_print)})
+def custom_input(prompt: String | None = None):
+    if prompt:
+        print(prompt.value, end="")
+
+    return String(input())
+
+
+global_symbol_table = SymbolTable(
+    {
+        "print": BuiltInFunction("print", custom_print),
+        "input": BuiltInFunction("input", custom_input),
+    }
+)
 
 
 class Interpreter:
@@ -91,15 +103,11 @@ class Interpreter:
         else:
             self.symbol_table.update(name, value)
 
-        return value
-
     def visit_AssignConstantNode(self, node: AssignConstantNode):
         name = node.name
         value = self.visit(node.value)
 
         self.symbol_table.set(name.value, value, True)
-
-        return value
 
     def visit_AssignPropertyNode(self, node: AssignPropertyNode):
         name = self.visit(VariableNode(node.name))

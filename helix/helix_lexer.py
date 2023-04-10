@@ -149,7 +149,9 @@ class Lexer:
         """
         identifier = ""
 
-        while self.current_char is not None and self.current_char.isalnum():
+        while self.current_char is not None and (
+            self.current_char.isalnum() or self.current_char == "_"
+        ):
             identifier += self.current_char
             self.advance()
 

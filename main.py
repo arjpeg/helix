@@ -25,7 +25,8 @@ def run(code: str):
     if isinstance(ast, BlockNode):
         Interpreter().visit(ast)
     else:
-        print(Interpreter().visit(ast))
+        if result := Interpreter().visit(ast):
+            print(result)
 
 
 def repl() -> None:
