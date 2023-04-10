@@ -88,7 +88,7 @@ class Parser:
             return self.expr()
 
         if self.current_token.token_type == TokenType.KEYWORD:
-            if self.current_token.value == Keyword.LET:
+            if self.current_token.value in [Keyword.LET, Keyword.CONST]:
                 return self.assign_stmt()
 
             if self.current_token.value == Keyword.FOR:
@@ -122,14 +122,19 @@ class Parser:
         assign-stmt : (LET)? IDENTIFIER ((LBRACKET expr RBRACKET)|DOT IDENTIFIER)? ASSIGN expr
         """
 
+        is_const = False
+
         if self.current_token and self.current_token.token_type == TokenType.KEYWORD:
             assert (
                 self.current_token
                 and self.current_token.token_type == TokenType.KEYWORD
-                and self.current_token.value == Keyword.LET
-            ), f"Expected 'let' in variable assignment, got {self.current_token}"
+                and self.current_token.value in [Keyword.LET, Keyword.CONST]
+            ), f"Expected 'let' or 'const' in variable assignment, got {self.current_token}"
 
-            self.advance()  # skip the let keyword
+            if self.current_token.value == Keyword.CONST:
+                is_const = True
+
+            self.advance()  # skip the assign keyword
 
         assert (
             self.current_token and self.current_token.token_type == TokenType.IDENTIFIER
@@ -211,7 +216,9 @@ class Parser:
         if property_name:
             return AssignPropertyNode(name, property_name, value)
 
-        return AssignNode(name, value)
+        return (
+            AssignNode(name, value) if not is_const else AssignConstantNode(name, value)
+        )
 
     def continue_stmt(self) -> ASTNode:
         self.advance()

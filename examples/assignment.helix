@@ -14,4 +14,8 @@ if descriminant < 0 {
     print("Root two:" + x2)
 }
 
-let x1 = (-b + descriminant^0.5) / (2*a)
+const a = 10
+const b = 10
+const c = 5
+
+const halfB = b / 2

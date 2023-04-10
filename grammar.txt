@@ -12,7 +12,7 @@ statement : expr
             | break-stmt
 
 # Statements
-assign-stmt : (LET)? IDENTIFIER ((LBRACKET expr RBRACKET)|DOT IDENTIFIER)? ASSIGN expr
+assign-stmt : (LET|CONST)? IDENTIFIER ((LBRACKET expr RBRACKET)|DOT IDENTIFIER)? ASSIGN expr
 
 continue-stmt : CONTINUE
 

@@ -101,6 +101,15 @@ class AssignNode(ASTNode):
         return f"AssignNode({self.name.value} = {self.value})"
 
 
+class AssignConstantNode(ASTNode):
+    def __init__(self, name: Token[str], value: ASTNode):
+        self.name = name
+        self.value = value
+
+    def __repr__(self):
+        return f"AssignConstantNode({self.name.value} = {self.value})"
+
+
 class AssignIndexNode(ASTNode):
     def __init__(self, name: Token[str], index: ASTNode, value: ASTNode):
         self.name = name

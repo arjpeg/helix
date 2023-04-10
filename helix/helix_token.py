@@ -8,6 +8,8 @@ class Keyword(Enum):
     """
 
     LET = "let"
+    CONST = "const"
+
     IF = "if"
     ELSE = "else"
 
