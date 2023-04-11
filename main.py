@@ -1,6 +1,6 @@
 import sys
 
-from helix import Lexer, Parser, Interpreter
+from helix import Interpreter, Lexer, Parser
 from helix.helix_nodes import BlockNode
 
 debug_attrs = {"print_tokens": 0}
@@ -18,6 +18,8 @@ def run(code: str):
 
     parser = Parser(list(tokens))
     ast = parser.parse()
+
+    input(ast)
 
     if isinstance(ast, BlockNode) and len(ast.statements) == 1:
         ast = ast.statements[0]  # Unwrap the block node

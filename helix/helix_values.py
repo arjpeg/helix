@@ -7,7 +7,26 @@ from helix.helix_nodes import ASTNode, BlockNode, ReturnNode
 from helix.helix_symbol_table import SymbolTable
 
 
-class Boolean:
+class Object:
+    def set_property(self, name: Any, value: Any):
+        setattr(self, name, value)
+
+    def get_property(self, name: Any):
+        return getattr(self, name)
+
+
+class Null(Object):
+    def __repr__(self):
+        return "Null"
+
+    def set_property(self, name: Any, value: Any):
+        raise Exception("Cannot set property on null")
+
+    def get_property(self, name: Any):
+        raise Exception("Cannot get property on null")
+
+
+class Boolean(Object):
     def __init__(self, value: bool):
         self.value = value
 
@@ -15,7 +34,7 @@ class Boolean:
         return str(self.value).lower()
 
 
-class Number:
+class Number(Object):
     def __init__(self, value: int | float):
         self.value = value
 
@@ -73,9 +92,13 @@ class Number:
         return f"{self.value}"
 
 
-class String:
+class String(Object):
     def __init__(self, value: str):
         self.value = value
+
+        # methods
+        self.set_property("length", Number(len(value)))
+        self.set_property("to_int", BuiltInFunction("to_int", self.to_int))
 
     def add(self, other: Any):
         if isinstance(other, String):
@@ -106,11 +129,14 @@ class String:
 
         return Boolean(False)
 
+    def to_int(self):
+        return Number(int(self.value))
+
     def __repr__(self):
         return f'"{self.value}"'
 
 
-class List:
+class List(Object):
     def __init__(self, elements: list[Any]):
         self.elements = elements
 
@@ -162,7 +188,7 @@ class List:
         return f"List([{', '.join(map(str, self.elements))}])"
 
 
-class Dict:
+class Dict(Object):
     def __init__(self, elements: dict[str, Any]):
         self.elements = elements
 
@@ -180,8 +206,11 @@ class Dict:
 
         raise Exception(f"Key '{index}' not found")
 
-    def set_property(self, key: Any, value: Any):
-        self.elements[key] = value
+    def set_property(self, name: Any, value: Any):
+        self.elements[name] = value
+
+    def get_property(self, name: Any):
+        return self.elements[name]
 
     def contains(self, other: Any):
         return other in self.elements
@@ -199,7 +228,7 @@ class Dict:
         return result
 
 
-class Tuple:
+class Tuple(Object):
     def __init__(self, elements: list[Any]):
         self.elements = elements
 
@@ -210,7 +239,7 @@ class Tuple:
         return f"Tuple({', '.join(map(str, self.elements))})"
 
 
-class Function:
+class Function(Object):
     def __init__(
         self,
         name: str,
@@ -227,6 +256,8 @@ class Function:
         symbol_table: SymbolTable,
         visitor_method: Callable[[ASTNode], Any],
     ):
+        print(f"in function {self.name} call, being passed {args}")
+
         # call the function
         symbol_table.push_scope()
 
@@ -251,12 +282,13 @@ class Function:
 
             return result
 
-        result = None
+        result = Null()
 
         for statement in self.body.statements:
+            print("executing statement", statement)
             result = visitor_method(statement)
 
-            if isinstance(result, ReturnNode):
+            if isinstance(statement, ReturnNode):
                 break
 
         symbol_table.pop_scope()
@@ -267,7 +299,7 @@ class Function:
         return f"Function({self.name}, {self.args}, {self.body})"
 
 
-class BuiltInFunction:
+class BuiltInFunction(Object):
     def __init__(self, name: str, code: Any) -> None:
         self.name = name
         self.code = code

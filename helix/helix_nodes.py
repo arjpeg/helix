@@ -296,7 +296,7 @@ class PropertyAccessNode(ASTNode):
         self.property_lookups = property_lookups
 
     def __repr__(self):
-        result = f"PropertyLookup({self.object.value}"
+        result = f"PropertyAccessNode({self.object.value}"
 
         for lookup in self.property_lookups:
             if isinstance(lookup, Token):

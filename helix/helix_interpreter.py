@@ -1,3 +1,5 @@
+import math
+
 from helix.helix_nodes import *
 from helix.helix_symbol_table import SymbolTable
 from helix.helix_token import Keyword
@@ -14,24 +16,40 @@ def custom_print(*args: Any):
     print()
 
 
-def custom_input(prompt: String | None = None):
+def custom_input(prompt: Any | None = None):
     if prompt:
-        print(prompt.value, end="")
+        if isinstance(prompt, String):
+            print(prompt.value, end="")
+        else:
+            print(prompt, end="")
 
     return String(input())
 
 
-global_symbol_table = SymbolTable(
+math_namespace = Dict(
+    {
+        "pi": Number(math.pi),
+        "e": Number(math.e),
+        "sin": BuiltInFunction("sin", math.sin),
+        "cos": BuiltInFunction("cos", math.cos),
+        "tan": BuiltInFunction("tan", math.tan),
+        "sqrt": BuiltInFunction("sqrt", lambda x: Number(math.sqrt(x.value))),  # type: ignore
+    }
+)
+
+GLOBAL_SYMBOL_TABLE = SymbolTable(
     {
         "print": BuiltInFunction("print", custom_print),
         "input": BuiltInFunction("input", custom_input),
+        "null": Null(),
+        "Math": math_namespace,
     }
 )
 
 
 class Interpreter:
     def __init__(self) -> None:
-        self.symbol_table = global_symbol_table
+        self.symbol_table = GLOBAL_SYMBOL_TABLE
 
     def visit(self, node: ASTNode):
         method_name = f"visit_{type(node).__name__}"
@@ -45,6 +63,7 @@ class Interpreter:
     def visit_NoOpNode(self, _: NoOpNode):
         pass
 
+    # region Data types
     def visit_StringNode(self, node: StringNode):
         return String(node.token.value)
 
@@ -57,6 +76,8 @@ class Interpreter:
     def visit_TupleNode(self, node: TupleNode):
         return Tuple([self.visit(element) for element in node.elements])
 
+    # endregion
+
     def visit_IndexingNode(self, node: IndexingNode):
         list_node = self.visit(VariableNode(node.list_node))
         index = self.visit(node.index)
@@ -66,6 +87,8 @@ class Interpreter:
     def visit_BlockNode(self, node: BlockNode):
         for child in node.statements:
             self.visit(child)
+
+    # region Math
 
     def visit_NumberNode(self, node: NumberNode) -> Number:
         return Number(node.token.value)
@@ -96,6 +119,10 @@ class Interpreter:
         elif node.op.token_type == TokenType.POW:
             return left.pow(right)
 
+    # endregion
+
+    # region Variables
+
     def visit_AssignNode(self, node: AssignNode):
         name = node.name.value
         value = self.visit(node.value)
@@ -120,6 +147,44 @@ class Interpreter:
 
         return value
 
+    def visit_VariableNode(self, node: VariableNode):
+        name = node.name.value
+        value = self.symbol_table.get(name)
+
+        if value is None:
+            raise Exception(f"Variable {name} is not defined")
+
+        return value
+
+    def visit_PropertyAccessNode(self, node: PropertyAccessNode):
+        # the property accesses are chained, so we need to visit each one
+        # and get the value of the property
+        value = self.visit(VariableNode(node.object))
+
+        for property_lookup in node.property_lookups:
+            if isinstance(property_lookup, Token):
+                value = value.get_property(property_lookup.value)
+
+            else:
+                # this is a function call
+
+                # get the name of the function
+                function_name = property_lookup.identifier.value
+
+                # get the function
+                function = value.get_property(function_name)
+
+                # get the arguments
+                args = [self.visit(arg) for arg in property_lookup.arguments]
+
+                # call the function
+                value = function.call(args, self.symbol_table, self.visit)
+
+        return value
+
+    # endregion
+
+    # region Control Flow
     def visit_CompareNode(self, node: CompareNode) -> Boolean:
         left = self.visit(node.left)
         right = self.visit(node.right)
@@ -202,6 +267,9 @@ class Interpreter:
 
         return Boolean(True)
 
+    # endregion
+
+    # region Loops
     def visit_ForNode(self, node: ForNode):
         self.symbol_table.push_scope()
 
@@ -225,6 +293,9 @@ class Interpreter:
 
         self.symbol_table.pop_scope()
 
+    # endregion
+
+    # region Functions
     def visit_FunctionDefNode(self, node: FunctionDefNode):
         name = node.identifier.value
         params = node.arguments
@@ -255,24 +326,4 @@ class Interpreter:
     def visit_ReturnNode(self, node: ReturnNode):
         return self.visit(node.expr)
 
-    def visit_VariableNode(self, node: VariableNode):
-        name = node.name.value
-        value = self.symbol_table.get(name)
-
-        if value is None:
-            raise Exception(f"Variable {name} is not defined")
-
-        return value
-
-    def visit_PropertyAccessNode(self, node: PropertyAccessNode):
-        # the property accesses are chained, so we need to visit each one
-        # and get the value of the property
-        # value = self.visit(VariableNode(node.object))
-
-        # for property in node.property_lookups:
-        #     if isinstance(property, PropertyFunctionInvocationNode):
-        #         # if the property is a function invocation, such as
-        #         # a.print(), then we need to execute the function
-
-        #         # property = value.get_property(property.name.value)
-        print(node)
+    # endregion

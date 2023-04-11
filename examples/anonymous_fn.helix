@@ -5,6 +5,8 @@ let solve = (a, b, c) -> {
     # Compute the discriminant
     let descriminant = b^2 - 4*a*c
 
+    let sqrt = (x) -> x ^ (1/2)
+
     # Compute the two roots
     let root1 = (-b + sqrt(descriminant)) / (2*a)
     let root2 = (-b - sqrt(descriminant)) / (2*a)
@@ -15,6 +17,13 @@ let solve = (a, b, c) -> {
         print("No real roots!")
     }
 
+    if descriminant == 0 {
+        print("Two equal roots!")
+        return root1
+    }
+
     # Return the roots
     return (root1, root2)
 }
+
+print(solve(1, 2, 1))
