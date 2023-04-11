@@ -4,4 +4,4 @@ let a = {
     }
 }
 
-print(a)
+a.func()

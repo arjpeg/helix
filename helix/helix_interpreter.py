@@ -275,4 +275,4 @@ class Interpreter:
         #         # a.print(), then we need to execute the function
 
         #         # property = value.get_property(property.name.value)
-        pass
+        print(node)
