@@ -123,15 +123,21 @@ class Interpreter:
 
     # region Variables
 
-    def visit_AssignNode(self, node: AssignNode):
+    def visit_NewAssignNode(self, node: NewAssignNode):
         name = node.name.value
         value = self.visit(node.value)
 
-        if self.symbol_table.get(name) == None:
-            # this is a new variable
-            self.symbol_table.set(name, value)
-        else:
-            self.symbol_table.update(name, value)
+        self.symbol_table.set(name, value)
+
+    def visit_ReAssignNode(self, node: ReAssignNode):
+        name = node.name.value
+        value = self.visit(node.value)
+
+        # make sure the variable exists
+        if self.symbol_table.get(name) is None:
+            raise Exception(f"Variable {name} is not defined")
+
+        self.symbol_table.update(name, value)
 
     def visit_AssignConstantNode(self, node: AssignConstantNode):
         name = node.name

@@ -123,6 +123,7 @@ class Parser:
         """
 
         is_const = False
+        is_new_var = False
 
         if self.current_token and self.current_token.token_type == TokenType.KEYWORD:
             assert (
@@ -133,6 +134,8 @@ class Parser:
 
             if self.current_token.value == Keyword.CONST:
                 is_const = True
+
+            is_new_var = True
 
             self.advance()  # skip the assign keyword
 
@@ -216,8 +219,13 @@ class Parser:
         if property_name:
             return AssignPropertyNode(name, property_name, value)
 
+        if is_new_var:
+            return (
+            NewAssignNode(name, value) if not is_const else AssignConstantNode(name, value)
+        )
+
         return (
-            AssignNode(name, value) if not is_const else AssignConstantNode(name, value)
+            ReAssignNode(name, value) if not is_const else AssignConstantNode(name, value)
         )
 
     def continue_stmt(self) -> ASTNode:

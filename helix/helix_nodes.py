@@ -92,13 +92,18 @@ class UnaryOpNode(ASTNode):
         return f"{self.op.token_type.value}{self.expr}"
 
 
-class AssignNode(ASTNode):
+class NewAssignNode(ASTNode):
     def __init__(self, name: Token[str], value: ASTNode):
         self.name = name
         self.value = value
 
     def __repr__(self):
-        return f"AssignNode({self.name.value} = {self.value})"
+        return f"NewAssignNode({self.name.value} = {self.value})"
+
+
+class ReAssignNode(NewAssignNode):
+    def __repr__(self):
+        return f"ReAssignNode({self.name.value} = {self.value})"
 
 
 class AssignConstantNode(ASTNode):
