@@ -1,9 +1,10 @@
 import math
 
+from helix.data import *
+from helix.helix_context import Context
 from helix.helix_nodes import *
 from helix.helix_symbol_table import SymbolTable
 from helix.helix_token import Keyword
-from helix.helix_values import *
 
 
 def custom_print(*args: Any):
@@ -49,7 +50,7 @@ GLOBAL_SYMBOL_TABLE = SymbolTable(
 
 class Interpreter:
     def __init__(self) -> None:
-        self.symbol_table = GLOBAL_SYMBOL_TABLE
+        self.context = Context(GLOBAL_SYMBOL_TABLE)
 
     def visit(self, node: ASTNode):
         method_name = f"visit_{type(node).__name__}"
@@ -87,6 +88,9 @@ class Interpreter:
     def visit_BlockNode(self, node: BlockNode):
         for child in node.statements:
             self.visit(child)
+
+            if self.context.should_return:
+                break
 
     # region Math
 
@@ -127,23 +131,23 @@ class Interpreter:
         name = node.name.value
         value = self.visit(node.value)
 
-        self.symbol_table.set(name, value)
+        self.context.symbol_table.set(name, value)
 
     def visit_ReAssignNode(self, node: ReAssignNode):
         name = node.name.value
         value = self.visit(node.value)
 
         # make sure the variable exists
-        if self.symbol_table.get(name) is None:
+        if self.context.symbol_table.get(name) is None:
             raise Exception(f"Variable {name} is not defined")
 
-        self.symbol_table.update(name, value)
+        self.context.symbol_table.update(name, value)
 
     def visit_AssignConstantNode(self, node: AssignConstantNode):
         name = node.name
         value = self.visit(node.value)
 
-        self.symbol_table.set(name.value, value, True)
+        self.context.symbol_table.set(name.value, value, True)
 
     def visit_AssignPropertyNode(self, node: AssignPropertyNode):
         name = self.visit(VariableNode(node.name))
@@ -155,7 +159,7 @@ class Interpreter:
 
     def visit_VariableNode(self, node: VariableNode):
         name = node.name.value
-        value = self.symbol_table.get(name)
+        value = self.context.symbol_table.get(name)
 
         if value is None:
             raise Exception(f"Variable {name} is not defined")
@@ -178,13 +182,13 @@ class Interpreter:
                 function_name = property_lookup.identifier.value
 
                 # get the function
-                function = value.get_property(function_name)
+                function: Function = value.get_property(function_name)
 
                 # get the arguments
                 args = [self.visit(arg) for arg in property_lookup.arguments]
 
                 # call the function
-                value = function.call(args, self.symbol_table, self.visit)
+                value = function.call(args, self.context, self.visit)
 
         return value
 
@@ -243,11 +247,17 @@ class Interpreter:
         if if_node_succesful.value:
             return if_node_succesful
 
+        if self.context.should_return:
+            return
+
         for elif_node in node.elif_nodes:
             elif_node_succesful = self.visit_ElseIfNode(elif_node)
 
             if elif_node_succesful.value:
                 return elif_node_succesful
+
+            if self.context.should_return:
+                return
 
         if node.else_node is not None:
             return self.visit_ElseNode(node.else_node)
@@ -277,7 +287,7 @@ class Interpreter:
 
     # region Loops
     def visit_ForNode(self, node: ForNode):
-        self.symbol_table.push_scope()
+        self.context.symbol_table.push_scope()
 
         variable_name = node.identifier.value
         iterator = self.visit(node.iterator)
@@ -286,18 +296,18 @@ class Interpreter:
             raise Exception(f"{iterator} is not iterable")
 
         for value in iterator.iter():
-            self.symbol_table.set(variable_name, value)
+            self.context.symbol_table.set(variable_name, value)
             self.visit(node.body)
 
-        self.symbol_table.pop_scope()
+        self.context.symbol_table.pop_scope()
 
     def visit_WhileNode(self, node: WhileNode):
-        self.symbol_table.push_scope()
+        self.context.symbol_table.push_scope()
 
         while self.visit(node.condition).value:
             self.visit(node.body)
 
-        self.symbol_table.pop_scope()
+        self.context.symbol_table.pop_scope()
 
     # endregion
 
@@ -309,7 +319,7 @@ class Interpreter:
 
         function = Function(name, [param.value for param in params], body)  # type: ignore
 
-        self.symbol_table.set(name, function)
+        self.context.symbol_table.set(name, function)
 
     def visit_FunctionExprNode(self, node: FunctionExprNode):
         # used to create an anonymous function
@@ -322,14 +332,17 @@ class Interpreter:
         name = node.identifier.value
         args = [self.visit(arg) for arg in node.arguments]
 
-        function: Function | None = self.symbol_table.get(name)
+        function: Function | None = self.context.symbol_table.get(name)
 
         if function is None:
             raise Exception(f"Function {name} is not defined")
 
-        return function.call(args, self.symbol_table, self.visit)
+        return function.call(args, self.context, self.visit)
 
     def visit_ReturnNode(self, node: ReturnNode):
-        return self.visit(node.expr)
+        self.context.should_return = True
+        self.context.return_value = self.visit(node.expr)
+
+        return self.context.return_value
 
     # endregion

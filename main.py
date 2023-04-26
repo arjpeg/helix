@@ -19,8 +19,6 @@ def run(code: str):
     parser = Parser(list(tokens))
     ast = parser.parse()
 
-    input(ast)
-
     if isinstance(ast, BlockNode) and len(ast.statements) == 1:
         ast = ast.statements[0]  # Unwrap the block node
 

@@ -1,14 +1,40 @@
-fn a(c, d) {
-    return a + b
+fn solve (a, b, c) {
+    let descriminant = b^2 - 4*a*c
+
+    if (descriminant < 0) {
+        return "imaginary"
+    }
+
+    else if (descriminant == 0) {
+        return -b / (2*a)
+    }
+
+    else {
+        descriminant = Math.sqrt(descriminant)
+
+        let x1 = (-b + descriminant) / (2*a)
+        let x2 = (-b - descriminant) / (2*a)
+
+        return (x1, x2)
+    }
 }
 
-fn b() {
-    let x = a(10, 20)
+print("Welcome to the Quadratic Formula Calculator!")
+
+let a = input("Enter the 'a' coefficient: ")
+let b = input("Enter the 'b' coefficient: ")
+let c = input("Enter the 'c' coefficient: ")
+
+a = a.to_int()
+b = b.to_int()
+c = c.to_int()
+
+print("The quadratic formula is: (-b ± √(b^2 - 4ac)) / 2a")
+
+let result = solve(a, b, c)
+
+if result == "imaginary" {
+    print("Oh no! The result is imaginary!")
 }
 
-
-a(10) + a(20 >= 20)
-
-if a(10) == a(20) {
-    print(20)
-}
+print("The result is:", result)

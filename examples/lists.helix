@@ -9,7 +9,6 @@ let mylist = [
     10
 ]
 
-for i in range(len(mylist)) {
-    print(mylist[i])
-    mylist[i] = add(mylist[i], 1)
+for element in mylist {
+    print(element)
 }
