@@ -1,56 +1,21 @@
-import math
-
-from helix.data import *
+from helix.builtins import GLOBAL_SYMBOL_TABLE
+from helix.data.boolean import Boolean
+from helix.data.dict import Dict
+from helix.data.function import Function
+from helix.data.list import List
+from helix.data.number import Number
+from helix.data.string import String
+from helix.data.tuple import Tuple
 from helix.helix_context import Context
 from helix.helix_nodes import *
-from helix.helix_symbol_table import SymbolTable
 from helix.helix_token import Keyword
 
-
-def custom_print(*args: Any):
-    for arg in args:
-        if isinstance(arg, String):
-            print(arg.value, end=" ")
-        else:
-            print(arg, end=" ")
-
-    print()
-
-
-def custom_input(prompt: Any | None = None):
-    if prompt:
-        if isinstance(prompt, String):
-            print(prompt.value, end="")
-        else:
-            print(prompt, end="")
-
-    return String(input())
-
-
-math_namespace = Dict(
-    {
-        "pi": Number(math.pi),
-        "e": Number(math.e),
-        "sin": BuiltInFunction("sin", math.sin),
-        "cos": BuiltInFunction("cos", math.cos),
-        "tan": BuiltInFunction("tan", math.tan),
-        "sqrt": BuiltInFunction("sqrt", lambda x: Number(math.sqrt(x.value))),  # type: ignore
-    }
-)
-
-GLOBAL_SYMBOL_TABLE = SymbolTable(
-    {
-        "print": BuiltInFunction("print", custom_print),
-        "input": BuiltInFunction("input", custom_input),
-        "null": Null(),
-        "Math": math_namespace,
-    }
-)
+# from helix.data
 
 
 class Interpreter:
-    def __init__(self) -> None:
-        self.context = Context(GLOBAL_SYMBOL_TABLE)
+    def __init__(self, context: Context | None = None) -> None:
+        self.context = context if context else Context(GLOBAL_SYMBOL_TABLE)
 
     def visit(self, node: ASTNode):
         method_name = f"visit_{type(node).__name__}"

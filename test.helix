@@ -15,8 +15,6 @@ let x = {
     }
 }
 
-let a = x.fnc()
-
-print(a.fnc())
-
+print(x.fnc)
+print(x.fnc())
 

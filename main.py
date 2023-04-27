@@ -1,41 +1,23 @@
 import sys
 
-from helix import Interpreter, Lexer, Parser
-from helix.helix_nodes import BlockNode
-
-debug_attrs = {"print_tokens": 0}
-
-
-def run(code: str):
-    lexer = Lexer(code)
-    tokens = lexer.generate_tokens()
-
-    if debug_attrs.get("print_tokens"):
-        print("Tokens in stream:")
-
-        for token in tokens:
-            print("\t" + str(token))
-
-    parser = Parser(list(tokens))
-    ast = parser.parse()
-
-    if isinstance(ast, BlockNode) and len(ast.statements) == 1:
-        ast = ast.statements[0]  # Unwrap the block node
-
-    if isinstance(ast, BlockNode):
-        Interpreter().visit(ast)
-    else:
-        if result := Interpreter().visit(ast):
-            print(result)
+from helix import run
+from helix.builtins.global_symbol_table import GLOBAL_SYMBOL_TABLE
+from helix.helix_context import Context
 
 
 def repl() -> None:
+    # create a new context - this will be used for allowing
+    # the user to define variables and functions
+    context = Context(GLOBAL_SYMBOL_TABLE)
+
+    context.symbol_table.push_scope()
+
     try:
         while True:
             # Get user input
             text = input("helix > ")
 
-            run(text)
+            run(text, context)
 
     except KeyboardInterrupt:
         pass

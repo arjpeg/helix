@@ -14,11 +14,11 @@ let solve = (a, b, c) -> {
     let isreal = (d) -> d >= 0
 
     if not isreal(descriminant) {
-        print("No real roots!")
+        io.print("No real roots!")
     }
 
     if descriminant == 0 {
-        print("Two equal roots!")
+        io.print("Two equal roots!")
         return root1
     }
 
@@ -26,4 +26,4 @@ let solve = (a, b, c) -> {
     return (root1, root2)
 }
 
-print(solve(1, 2, 1))
+io.print(solve(1, 2, 1))
