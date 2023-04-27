@@ -2,6 +2,7 @@ from typing import Any
 
 from helix.data.boolean import Boolean
 from helix.data.function import BuiltInFunction
+from helix.data.list import List
 from helix.data.number import Number
 from helix.data.object import Object
 
@@ -13,6 +14,7 @@ class String(Object):
         # methods
         self.set_property("length", Number(len(value)))
         self.set_property("to_int", BuiltInFunction("to_int", self.to_int))
+        self.set_property("split", BuiltInFunction("split", self.split))
 
     def add(self, other: Any):
         if isinstance(other, String):
@@ -45,6 +47,10 @@ class String(Object):
 
     def to_int(self):
         return Number(int(self.value))
+
+    def split(self, other: Any):
+        if isinstance(other, String):
+            return List([String(x) for x in self.value.split(other.value)])
 
     def __repr__(self):
         return f'"{self.value}"'

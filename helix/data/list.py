@@ -1,6 +1,7 @@
 from typing import Any
 
 from helix.data.boolean import Boolean
+from helix.data.function import BuiltInFunction
 from helix.data.number import Number
 from helix.data.object import Object
 
@@ -8,6 +9,9 @@ from helix.data.object import Object
 class List(Object):
     def __init__(self, elements: list[Any]):
         self.elements = elements
+
+        # methods
+        self.set_property("length", BuiltInFunction("length", self.length))
 
     def add(self, other: Any):
         if isinstance(other, List):
@@ -52,6 +56,9 @@ class List(Object):
             yield self.elements[iter_index]
 
             iter_index += 1
+
+    def length(self):
+        return Number(len(self.elements))
 
     def __repr__(self):
         return f"List([{', '.join(map(str, self.elements))}])"

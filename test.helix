@@ -1,20 +1,13 @@
-let x = {
-    a: 1,
-    fnc: () -> {
-        print("Hello World from x.fnc")
+io.print("Reading ./test.helix")
 
-        return {
-            fnc: () -> {
-                print("Hello World from x.fnc.fnc")
+let fd = file("test.helix")
+fd.open("r")
 
-                return 5
-            }
-        }
+let text = fd.read()
+let words = text.split(" ")
 
-        print("sdfjdskfjsdhfkjdshfkdjsh") # This should not be printed
-    }
+io.print("Words:", words.length)
+
+for word in words {
+    io.print(word, "is", word.length, "characters long")
 }
-
-print(x.fnc)
-print(x.fnc())
-
