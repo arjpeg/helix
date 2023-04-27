@@ -170,6 +170,27 @@ class Lexer:
         self.advance()  # Skip the first quote
 
         while self.current_char is not None and self.current_char != quote_type:
+            if self.current_char == "\\":
+                self.advance()
+
+                if self.current_char == "n":  # type: ignore
+                    string += "\n"
+
+                elif self.current_char == "t":  # type: ignore
+                    string += "\t"
+
+                elif self.current_char == "\\":
+                    string += "\\"
+
+                elif self.current_char == quote_type:
+                    string += quote_type
+
+                else:
+                    raise Exception(f"Invalid escape character: {self.current_char}")
+
+                self.advance()
+                continue
+
             string += self.current_char or ""
             self.advance()
 

@@ -61,4 +61,4 @@ class List(Object):
         return Number(len(self.elements))
 
     def __repr__(self):
-        return f"List([{', '.join(map(str, self.elements))}])"
+        return f"[{', '.join(map(str, self.elements))})"

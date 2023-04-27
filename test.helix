@@ -4,10 +4,9 @@ let fd = file("test.helix")
 fd.open("r")
 
 let text = fd.read()
-let words = text.split(" ")
+let lines = text.split("\n")
 
-io.print("Words:", words.length)
+io.print(lines)
 
-for word in words {
-    io.print(word, "is", word.length, "characters long")
-}
+io.print("There are", lines.length(), "lines in the file")
+
