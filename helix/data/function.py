@@ -4,7 +4,6 @@ from helix.data.null import Null
 from helix.data.object import Object
 from helix.helix_context import Context
 from helix.helix_nodes import ASTNode, BlockNode, ReturnNode
-from helix.helix_symbol_table import SymbolTable
 
 
 class Function(Object):
@@ -68,8 +67,38 @@ class BuiltInFunction(Object):
 
     def call(
         self,
-        args: list[Any],
-        symbol_table: SymbolTable,
+        args: list[str],
+        context: Context,
         visitor_method: Callable[[ASTNode], Any],
     ):
-        return self.code(*args)
+        res = self.code(*args)
+
+        if res:
+            context.should_return = True
+            context.return_value = res
+        else:
+            context.should_return = False
+            context.return_value = Null()
+
+        return res
+
+
+class PythonFunction(Object):
+    def __init__(
+        self,
+        name: str,
+        code: Any,
+    ) -> None:
+        """
+        This is different from a built-in function because it is a function that is written in python, and needs the context to be passed in.
+        """
+        self.name = name
+        self.fn = code
+
+    def call(
+        self,
+        args: list[str],
+        context: Context,
+        visitor_method: Callable[[ASTNode], Any],
+    ):
+        return self.fn(args, context, visitor_method)

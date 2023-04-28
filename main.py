@@ -17,7 +17,8 @@ def repl() -> None:
             # Get user input
             text = input("helix > ")
 
-            run(text, context)
+            if res := run(text, context)[1]:
+                print(res)
 
     except KeyboardInterrupt:
         pass

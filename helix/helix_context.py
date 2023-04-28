@@ -8,3 +8,5 @@ class Context:
 
         self.should_return = False
         self.return_value = Null()
+
+        self.in_var_declaration = False

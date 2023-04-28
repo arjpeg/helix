@@ -2,7 +2,7 @@
 
 import os
 
-from helix import Lexer, Parser
+from helix import run
 
 files = []
 
@@ -23,14 +23,7 @@ for file in files:
         source = f.read()
 
     try:
-        lexer = Lexer(source)
-        tokens = lexer.generate_tokens()
-
-        print("Lexing complete!")
-
-        parser = Parser(list(tokens))
-        ast = parser.parse()
-
+        run(source)
         print("Success!\n")
 
     except Exception as e:

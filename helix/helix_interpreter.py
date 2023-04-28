@@ -55,6 +55,10 @@ class Interpreter:
             self.visit(child)
 
             if self.context.should_return:
+                print(f"\n{node}")
+                print(child)
+                print(self.context.return_value)
+                input("stopping from visit_BlockNode")
                 break
 
     # region Math
@@ -74,8 +78,19 @@ class Interpreter:
         return expr
 
     def visit_BinOpNode(self, node: BinOpNode):
+        print("expr:", node)
+        print("left:", node.left, "type:", type(node.left))
+        print("right:", node.right, "type:", type(node.right))
+        input("in visit_BinOpNode")
+        print()
+
         left = self.visit(node.left)
         right = self.visit(node.right)
+
+        print("in expr,", node)
+        print("left:", left, "type:", type(left))
+        print("right:", right, "type:", type(right))
+        input("finished evaluating left and right")
 
         if node.op.token_type == TokenType.PLUS:
             return left.add(right)
@@ -93,12 +108,18 @@ class Interpreter:
     # region Variables
 
     def visit_NewAssignNode(self, node: NewAssignNode):
+        self.context.in_var_declaration = True
+
         name = node.name.value
         value = self.visit(node.value)
 
         self.context.symbol_table.set(name, value)
 
+        self.context.in_var_declaration = False
+
     def visit_ReAssignNode(self, node: ReAssignNode):
+        self.context.in_var_declaration = True
+
         name = node.name.value
         value = self.visit(node.value)
 
@@ -108,17 +129,27 @@ class Interpreter:
 
         self.context.symbol_table.update(name, value)
 
+        self.context.in_var_declaration = False
+
     def visit_AssignConstantNode(self, node: AssignConstantNode):
+        self.context.in_var_declaration = True
+
         name = node.name
         value = self.visit(node.value)
 
         self.context.symbol_table.set(name.value, value, True)
 
+        self.context.in_var_declaration = False
+
     def visit_AssignPropertyNode(self, node: AssignPropertyNode):
+        self.context.in_var_declaration = True
+
         name = self.visit(VariableNode(node.name))
         value = self.visit(node.value)
 
         name.set_property(node.property.value, value)
+
+        self.context.in_var_declaration = False
 
         return value
 
@@ -213,7 +244,11 @@ class Interpreter:
             return if_node_succesful
 
         if self.context.should_return:
+            print(self.context.return_value)
+            input("should return --- conditional statement")
             return
+
+        input("if node not succesful - evaluating elif nodes")
 
         for elif_node in node.elif_nodes:
             elif_node_succesful = self.visit_ElseIfNode(elif_node)
@@ -302,11 +337,27 @@ class Interpreter:
         if function is None:
             raise Exception(f"Function {name} is not defined")
 
-        return function.call(args, self.context, self.visit)
+        print("\n")
+        print(function)
+        print(args)
+        input("in function invocation")
+        print()
+
+        res = function.call(args, self.context, self.visit)
+
+        print("\n")
+        print(res, "context:", self.context.return_value)
+        print(function)
+        input("after function invocation")
+
+        return res
 
     def visit_ReturnNode(self, node: ReturnNode):
         self.context.should_return = True
         self.context.return_value = self.visit(node.expr)
+
+        print(self.context.return_value)
+        input("return node")
 
         return self.context.return_value
 

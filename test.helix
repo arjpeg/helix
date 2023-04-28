@@ -1,12 +1,16 @@
-io.print("Reading ./test.helix")
+fn function(n) {
+    if n <= 1 {
+        # io.print("#### n was less than or equal to 1, returning 0")
+        return 1       
+    } else {
+        # io.print(n)
+        # let a = function(n-1)
+        # let b = function(n-2)
 
-let fd = file("test.helix")
-fd.open("r")
+        # io.print("a:", a, "b:", b)
 
-let text = fd.read()
-let lines = text.split("\n")
+        return function(n-1) + function(n-2)
+    }
+}
 
-io.print(lines)
-
-io.print("There are", lines.length(), "lines in the file")
-
+io.print("#############", function(3))
