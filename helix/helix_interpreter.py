@@ -54,10 +54,12 @@ class Interpreter:
         for child in node.statements:
             self.visit(child)
 
-            if self.context.should_return:
+            fn_stack = self.context.fn_context_stack
+
+            if len(fn_stack) and fn_stack[-1]["should_return"]:
                 print(f"\n{node}")
                 print(child)
-                print(self.context.return_value)
+                print(fn_stack[-1])
                 input("stopping from visit_BlockNode")
                 break
 
@@ -243,8 +245,8 @@ class Interpreter:
         if if_node_succesful.value:
             return if_node_succesful
 
-        if self.context.should_return:
-            print(self.context.return_value)
+        if self.context.get_fn_context()["should_return"]:
+            # print(self.context.return_value)
             input("should return --- conditional statement")
             return
 
@@ -256,7 +258,7 @@ class Interpreter:
             if elif_node_succesful.value:
                 return elif_node_succesful
 
-            if self.context.should_return:
+            if self.context.get_fn_context()["should_return"]:
                 return
 
         if node.else_node is not None:
@@ -337,28 +339,35 @@ class Interpreter:
         if function is None:
             raise Exception(f"Function {name} is not defined")
 
+        self.context.push_fn_context(function.name)
+
         print("\n")
         print(function)
         print(args)
+        print(self.context.fn_context_stack)
+        print(self.context.get_fn_context())
         input("in function invocation")
         print()
 
         res = function.call(args, self.context, self.visit)
 
         print("\n")
-        print(res, "context:", self.context.return_value)
+        print(res, "context:", self.context.fn_context_stack)
         print(function)
         input("after function invocation")
+
+        self.context.pop_fn_context()
 
         return res
 
     def visit_ReturnNode(self, node: ReturnNode):
-        self.context.should_return = True
-        self.context.return_value = self.visit(node.expr)
+        self.context.get_fn_context()["return_value"] = self.visit(node.expr)
+        self.context.get_fn_context()["should_return"] = True
 
-        print(self.context.return_value)
+        print(self.context.get_fn_context()["return_value"])
+        print(self.context.fn_context_stack)
         input("return node")
 
-        return self.context.return_value
+        # No need to return anything here, the return value is stored in the context
 
     # endregion

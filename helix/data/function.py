@@ -48,11 +48,7 @@ class Function(Object):
         context.symbol_table.pop_scope()
 
         # at this point, the return value will be in the context
-        result = context.return_value
-
-        # reset the return value
-        context.return_value = Null()
-        context.should_return = False
+        result = context.get_fn_context().get("return_value")
 
         return result
 
@@ -73,12 +69,15 @@ class BuiltInFunction(Object):
     ):
         res = self.code(*args)
 
+        if not len(context.fn_context_stack):
+            context.push_fn_context(self.name)
+
         if res:
-            context.should_return = True
-            context.return_value = res
+            context.get_fn_context()["should_return"] = True
+            context.get_fn_context()["return_value"] = res
         else:
-            context.should_return = False
-            context.return_value = Null()
+            context.get_fn_context()["should_return"] = False
+            context.get_fn_context()["return_value"] = Null()
 
         return res
 

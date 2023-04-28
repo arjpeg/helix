@@ -1,16 +1,11 @@
-fn function(n) {
-    if n <= 1 {
-        # io.print("#### n was less than or equal to 1, returning 0")
-        return 1       
-    } else {
-        # io.print(n)
-        # let a = function(n-1)
-        # let b = function(n-2)
-
-        # io.print("a:", a, "b:", b)
-
-        return function(n-1) + function(n-2)
+fn a(n) {
+    if n <= 0 {
+        return 1
     }
+
+    return a(n - 1) + 1
 }
 
-io.print("#############", function(3))
+let b = 12
+
+io.print(a(b)) # should print b + 1
