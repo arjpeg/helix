@@ -1,11 +1,9 @@
-fn a(n) {
-    if n <= 0 {
-        return 1
+fn fib(n) {
+    if n < 2 {
+        return n
+    } else {
+        return fib(n - 1) + fib(n - 2)
     }
-
-    return a(n - 1) + 1
 }
 
-let b = 12
-
-io.print(a(b)) # should print b + 1
+io.print("fib(4) =", fib(6))

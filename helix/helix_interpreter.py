@@ -10,7 +10,27 @@ from helix.helix_context import Context
 from helix.helix_nodes import *
 from helix.helix_token import Keyword
 
-# from helix.data
+
+def _variable_set_context(fn: Any, *args: Any, **kwargs: Any):
+    """
+    Helper decorator for setting the in_var_declaration flag to True
+    """
+
+    def wrapper(*args: Any, **kwargs: Any):
+        instance: Interpreter = args[0]
+
+        # set in_var_assign to True
+        instance.context.current_scope().in_var_declaration = True
+
+        # call the function
+        result = fn(*args, **kwargs)
+
+        # set in_var_assign to False
+        instance.context.current_scope().in_var_declaration = False
+
+        return result
+
+    return wrapper
 
 
 class Interpreter:
@@ -54,14 +74,17 @@ class Interpreter:
         for child in node.statements:
             self.visit(child)
 
-            fn_stack = self.context.fn_context_stack
-
-            if len(fn_stack) and fn_stack[-1]["should_return"]:
-                print(f"\n{node}")
-                print(child)
-                print(fn_stack[-1])
-                input("stopping from visit_BlockNode")
+            if self.context.current_scope().should_stop:
                 break
+
+            # fn_stack = self.context.fn_context_stack
+
+            # if len(fn_stack) and fn_stack[-1]["should_return"]:
+            #     print(f"\n{node}")
+            #     print(child)
+            #     print(fn_stack[-1])
+            #     input("stopping from visit_BlockNode")
+            #     break
 
     # region Math
 
@@ -89,6 +112,11 @@ class Interpreter:
         left = self.visit(node.left)
         right = self.visit(node.right)
 
+        print("Finished visiting left and right")
+        print(
+            "N is:",
+            self.context.current_scope().symbol_table.symbols[-1]["n"].value,
+        )
         print("in expr,", node)
         print("left:", left, "type:", type(left))
         print("right:", right, "type:", type(right))
@@ -109,19 +137,15 @@ class Interpreter:
 
     # region Variables
 
+    @_variable_set_context
     def visit_NewAssignNode(self, node: NewAssignNode):
-        self.context.in_var_declaration = True
-
         name = node.name.value
         value = self.visit(node.value)
 
         self.context.symbol_table.set(name, value)
 
-        self.context.in_var_declaration = False
-
+    @_variable_set_context
     def visit_ReAssignNode(self, node: ReAssignNode):
-        self.context.in_var_declaration = True
-
         name = node.name.value
         value = self.visit(node.value)
 
@@ -131,27 +155,19 @@ class Interpreter:
 
         self.context.symbol_table.update(name, value)
 
-        self.context.in_var_declaration = False
-
+    @_variable_set_context
     def visit_AssignConstantNode(self, node: AssignConstantNode):
-        self.context.in_var_declaration = True
-
         name = node.name
         value = self.visit(node.value)
 
         self.context.symbol_table.set(name.value, value, True)
 
-        self.context.in_var_declaration = False
-
+    @_variable_set_context
     def visit_AssignPropertyNode(self, node: AssignPropertyNode):
-        self.context.in_var_declaration = True
-
         name = self.visit(VariableNode(node.name))
         value = self.visit(node.value)
 
         name.set_property(node.property.value, value)
-
-        self.context.in_var_declaration = False
 
         return value
 
@@ -245,11 +261,13 @@ class Interpreter:
         if if_node_succesful.value:
             return if_node_succesful
 
-        if self.context.get_fn_context()["should_return"]:
+        if self.context.current_scope().should_stop:
             # print(self.context.return_value)
             input("should return --- conditional statement")
             return
 
+        print("\n")
+        print(node.if_node.condition)
         input("if node not succesful - evaluating elif nodes")
 
         for elif_node in node.elif_nodes:
@@ -258,7 +276,7 @@ class Interpreter:
             if elif_node_succesful.value:
                 return elif_node_succesful
 
-            if self.context.get_fn_context()["should_return"]:
+            if self.context.current_scope().should_stop:
                 return
 
         if node.else_node is not None:
@@ -339,33 +357,43 @@ class Interpreter:
         if function is None:
             raise Exception(f"Function {name} is not defined")
 
-        self.context.push_fn_context(function.name)
+        self.context.push_scope(function.name)
 
         print("\n")
         print(function)
         print(args)
-        print(self.context.fn_context_stack)
-        print(self.context.get_fn_context())
+        print(self.context.scopes)
         input("in function invocation")
         print()
 
         res = function.call(args, self.context, self.visit)
 
         print("\n")
-        print(res, "context:", self.context.fn_context_stack)
+        print(res, "context:", self.context.scopes)
         print(function)
+        print(
+            self.context.current_scope().should_return,
+            self.context.current_scope().return_value,
+        )  # should be false
         input("after function invocation")
 
-        self.context.pop_fn_context()
+        self.context.pop_scope()
+
+        print(
+            "still in function invocation but popping stack",
+        )
+        print(self.context.scopes)
+        input()
 
         return res
 
     def visit_ReturnNode(self, node: ReturnNode):
-        self.context.get_fn_context()["return_value"] = self.visit(node.expr)
-        self.context.get_fn_context()["should_return"] = True
+        self.context.current_scope().return_value = self.visit(node.expr)
+        self.context.current_scope().should_return = True
 
-        print(self.context.get_fn_context()["return_value"])
-        print(self.context.fn_context_stack)
+        print("\n")
+        print(node.expr)
+        print(self.context.current_scope().return_value)
         input("return node")
 
         # No need to return anything here, the return value is stored in the context

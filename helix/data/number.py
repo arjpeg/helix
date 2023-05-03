@@ -8,6 +8,9 @@ class Number(Object):
     def __init__(self, value: int | float):
         self.value = value
 
+        # methods
+        self.set_property("to_str", self.to_str)
+
     def add(self, other: Any):
         if isinstance(other, Number):
             return Number(self.value + other.value)
@@ -57,6 +60,11 @@ class Number(Object):
             return Boolean(self.value <= other.value)
 
         return Boolean(False)
+
+    def to_str(self):
+        from helix.data.string import String
+
+        return String(str(self.value))
 
     def __repr__(self):
         return f"{self.value}"

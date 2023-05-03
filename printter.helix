@@ -5,3 +5,4 @@ fn fib(n) {
         io.print(1)
     }
 }
+

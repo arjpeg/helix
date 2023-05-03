@@ -1,6 +1,5 @@
 from typing import Any, Callable
 
-from helix.data.null import Null
 from helix.data.object import Object
 from helix.helix_context import Context
 from helix.helix_nodes import ASTNode, BlockNode, ReturnNode
@@ -31,8 +30,6 @@ class Function(Object):
                 f"Expected {len(self.args)} arguments for function {self.name}, but got {len(args)}"
             )
 
-        context.symbol_table.push_scope()
-
         # add all the arguments to the symbol table
         for i in range(len(args)):
             context.symbol_table.set(self.args[i], args[i])
@@ -48,7 +45,7 @@ class Function(Object):
         context.symbol_table.pop_scope()
 
         # at this point, the return value will be in the context
-        result = context.get_fn_context().get("return_value")
+        result = context.current_scope().return_value
 
         return result
 
@@ -69,15 +66,14 @@ class BuiltInFunction(Object):
     ):
         res = self.code(*args)
 
-        if not len(context.fn_context_stack):
-            context.push_fn_context(self.name)
+        if not len(context.scopes):
+            raise Exception(
+                "WTFFFFF, this should not happen, this is a bug in the interpreter"
+            )
 
         if res:
-            context.get_fn_context()["should_return"] = True
-            context.get_fn_context()["return_value"] = res
-        else:
-            context.get_fn_context()["should_return"] = False
-            context.get_fn_context()["return_value"] = Null()
+            context.current_scope().should_return = True
+            context.current_scope().return_value = res
 
         return res
 
