@@ -77,15 +77,6 @@ class Interpreter:
             if self.context.current_scope().should_stop:
                 break
 
-            # fn_stack = self.context.fn_context_stack
-
-            # if len(fn_stack) and fn_stack[-1]["should_return"]:
-            #     print(f"\n{node}")
-            #     print(child)
-            #     print(fn_stack[-1])
-            #     input("stopping from visit_BlockNode")
-            #     break
-
     # region Math
 
     def visit_NumberNode(self, node: NumberNode) -> Number:
@@ -103,24 +94,8 @@ class Interpreter:
         return expr
 
     def visit_BinOpNode(self, node: BinOpNode):
-        print("expr:", node)
-        print("left:", node.left, "type:", type(node.left))
-        print("right:", node.right, "type:", type(node.right))
-        input("in visit_BinOpNode")
-        print()
-
         left = self.visit(node.left)
         right = self.visit(node.right)
-
-        print("Finished visiting left and right")
-        print(
-            "N is:",
-            self.context.current_scope().symbol_table.symbols[-1]["n"].value,
-        )
-        print("in expr,", node)
-        print("left:", left, "type:", type(left))
-        print("right:", right, "type:", type(right))
-        input("finished evaluating left and right")
 
         if node.op.token_type == TokenType.PLUS:
             return left.add(right)
@@ -262,13 +237,7 @@ class Interpreter:
             return if_node_succesful
 
         if self.context.current_scope().should_stop:
-            # print(self.context.return_value)
-            input("should return --- conditional statement")
             return
-
-        print("\n")
-        print(node.if_node.condition)
-        input("if node not succesful - evaluating elif nodes")
 
         for elif_node in node.elif_nodes:
             elif_node_succesful = self.visit_ElseIfNode(elif_node)
@@ -358,43 +327,14 @@ class Interpreter:
             raise Exception(f"Function {name} is not defined")
 
         self.context.push_scope(function.name)
-
-        print("\n")
-        print(function)
-        print(args)
-        print(self.context.scopes)
-        input("in function invocation")
-        print()
-
         res = function.call(args, self.context, self.visit)
-
-        print("\n")
-        print(res, "context:", self.context.scopes)
-        print(function)
-        print(
-            self.context.current_scope().should_return,
-            self.context.current_scope().return_value,
-        )  # should be false
-        input("after function invocation")
-
         self.context.pop_scope()
-
-        print(
-            "still in function invocation but popping stack",
-        )
-        print(self.context.scopes)
-        input()
 
         return res
 
     def visit_ReturnNode(self, node: ReturnNode):
         self.context.current_scope().return_value = self.visit(node.expr)
         self.context.current_scope().should_return = True
-
-        print("\n")
-        print(node.expr)
-        print(self.context.current_scope().return_value)
-        input("return node")
 
         # No need to return anything here, the return value is stored in the context
 

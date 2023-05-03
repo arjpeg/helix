@@ -1,9 +1,3 @@
-fn fib(n) {
-    if n < 2 {
-        return n
-    } else {
-        return fib(n - 1) + fib(n - 2)
-    }
-}
+let a = (b) -> b^2
 
-io.print("fib(4) =", fib(6))
+io.print(a(2)) # 4
