@@ -34,12 +34,6 @@ class Function(Object):
         for i in range(len(args)):
             context.symbol_table.set(self.args[i], args[i])
 
-        if isinstance(self.body, ReturnNode):
-            result = visitor_method(self.body)
-
-            context.symbol_table.pop_scope()
-
-            return result
 
         visitor_method(self.body)
         context.symbol_table.pop_scope()
