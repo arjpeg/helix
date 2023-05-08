@@ -1,6 +1,5 @@
 # The Helix Programming Language
---
-Helix is a high-level programming language designed to be fast, expressive, and easy to use. It is written in Rust, a systems programming language that provides both speed and memory safety. This means that Helix programs can be written quickly and run efficiently on modern hardware.
+Helix - a high-level programming language designed to be fast, expressive, and easy to use. It is written in Rust, a systems programming language that provides both speed and memory safety. 
 
 ### Features
 - Simple syntax and semantics
@@ -8,6 +7,7 @@ Helix is a high-level programming language designed to be fast, expressive, and 
 - First-class functions and closures
 - Fast and efficient runtime
 - Easy to learn
+
 
 ### Examples
 Here is a simple Helix program that prints "Hello, world!":
