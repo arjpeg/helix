@@ -6,7 +6,7 @@ use self::{
 
 mod cursor;
 pub mod error;
-mod span;
+pub mod span;
 pub mod token;
 
 /// Struct used to lex a source file.

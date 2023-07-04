@@ -1,10 +1,14 @@
 mod input;
 mod lexer;
+mod parser;
 
 use lexer::{error::LexerError, Lexer};
 use owo_colors::OwoColorize;
 
-use crate::lexer::token::{CommandType, TokenKind};
+use crate::{
+    lexer::token::{CommandType, TokenKind},
+    parser::Parser,
+};
 
 fn main() {
     input::print_intro();
@@ -22,12 +26,21 @@ fn main() {
 
         let tokens = tokens.unwrap();
 
+        if tokens.is_empty() {
+            continue;
+        }
+
         if let TokenKind::Command(command) = tokens[0].token_kind {
             handle_command(command);
             continue;
         }
 
-        println!("{:#?}", tokens)
+        // println!("{:#?}", tokens);
+
+        let mut parser = Parser::new(tokens);
+        let ast = parser.parse();
+
+        println!("{:#?}", ast);
     }
 }
 
