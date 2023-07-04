@@ -125,8 +125,17 @@ impl Parser {
         )
     }
 
-    /// Parses a factor. (NUMBER) | (IDENT) | (LPAREN EXPR RPAREN)
+    /// Parses a factor. (ATOM) (POW factor)*
     fn parse_factor(&mut self) -> ParserResult<AstNode> {
+        self.parse_binary_expr(
+            Self::parse_atom,
+            &[OperatorKind::Pow],
+            Some(Self::parse_factor),
+        )
+    }
+
+    /// Parses an atom.
+    fn parse_atom(&mut self) -> ParserResult<AstNode> {
         let token = match self.clone().peek() {
             Some(token) => token.clone(),
             None => {

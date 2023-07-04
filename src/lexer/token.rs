@@ -62,6 +62,7 @@ pub enum OperatorKind {
     Minus,
     Star,
     Slash,
+    Pow,
 
     // Assignment operator, ie. =
     Assign,

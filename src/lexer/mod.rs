@@ -79,6 +79,7 @@ impl Lexer<'_> {
             Some('-') => TokenKind::Operator(OperatorKind::Minus),
             Some('*') => TokenKind::Operator(OperatorKind::Star),
             Some('/') => TokenKind::Operator(OperatorKind::Slash),
+            Some('^') => TokenKind::Operator(OperatorKind::Pow),
 
             Some('=') => {
                 if self.cursor.peek() == Some('=') {

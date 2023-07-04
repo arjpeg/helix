@@ -9,6 +9,8 @@ let_statement : LET IDENT ASSIGN expression
 
 expression : term ((PLUS | MINUS) term) *
 term : factor ((MUL | DIV) factor) *
-factor : INTEGER 
+factor : atom (POW factor) *
+
+atom : INTEGER 
        | IDENT
        | LPAREN expression RPAREN
