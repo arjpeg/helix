@@ -10,4 +10,5 @@ let_statement : LET IDENT ASSIGN expression
 expression : term ((PLUS | MINUS) term) *
 term : factor ((MUL | DIV) factor) *
 factor : INTEGER 
+       | IDENT
        | LPAREN expression RPAREN

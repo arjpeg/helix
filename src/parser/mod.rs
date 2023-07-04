@@ -125,7 +125,7 @@ impl Parser {
         )
     }
 
-    /// Parses a factor. (NUMBER) | (LPAREN EXPR RPAREN)
+    /// Parses a factor. (NUMBER) | (IDENT) | (LPAREN EXPR RPAREN)
     fn parse_factor(&mut self) -> ParserResult<AstNode> {
         let token = match self.clone().peek() {
             Some(token) => token.clone(),
@@ -142,6 +142,15 @@ impl Parser {
 
                 Ok(AstNode {
                     kind: AstNodeKind::NumberLiteral(num),
+                    span: token.span,
+                })
+            }
+
+            TokenKind::Identifier { name } => {
+                self.advance();
+
+                Ok(AstNode {
+                    kind: AstNodeKind::VariableReference(name),
                     span: token.span,
                 })
             }

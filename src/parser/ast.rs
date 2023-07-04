@@ -26,6 +26,9 @@ pub enum AstNodeKind {
     /// A number literal, such as `1`
     NumberLiteral(f64),
 
+    /// A variable reference, such as `x`
+    VariableReference(String),
+
     /// An empty tree
     Empty,
 
