@@ -36,7 +36,10 @@ impl<'a> Cursor<'a> {
     /// Advances the cursor by one character.
     pub fn advance(&mut self) -> Option<char> {
         let c = self.content.next();
-        c.map(|c| self.byte_pos += c.len_utf8());
+
+        if let Some(c) = c {
+            self.byte_pos += c.len_utf8();
+        };
 
         self.current = c;
 

@@ -15,9 +15,9 @@ use crate::{
     parser::{error::ParserError, Parser},
 };
 
-fn run(code: &String) -> Result<(), Error> {
+fn run(code: &str) -> Result<(), Error> {
     let mut lexer = Lexer::new(code);
-    let tokens = lexer.lex().map_err(|e| Error::LexerError(e))?;
+    let tokens = lexer.lex().map_err(Error::LexerError)?;
 
     if tokens.is_empty() {
         return Ok(());
@@ -31,7 +31,7 @@ fn run(code: &String) -> Result<(), Error> {
     // println!("{:#?}", tokens);
 
     let mut parser = Parser::new(tokens);
-    let ast = parser.parse().map_err(|e| Error::ParserError(e))?;
+    let ast = parser.parse().map_err(Error::ParserError)?;
 
     println!("{:#?}", ast);
 
@@ -59,8 +59,8 @@ fn handle_command(command: CommandType) {
 
         CommandType::Help => {
             println!("{} ({}):", "Help".blue().bold(), "Helix v0.1.0".dimmed());
-            println!("  {} - {}", "#quit".cyan().bold(), "Quit the REPL");
-            println!("  {} - {}", "#help".cyan().bold(), "Show this message");
+            println!("  {} - Quit the REPL", "#quit".cyan().bold());
+            println!("  {} - Show this message", "#help".cyan().bold());
 
             println!();
             println!(
@@ -81,7 +81,7 @@ fn format_error(input: String, error: Error) {
         // Lexer errors
         Error::LexerError(error) => match error {
             LexerError::TooManyDots { range } => (
-                format!("A number cannot contain more than one decimal place."),
+                "A number cannot contain more than one decimal place.".to_string(),
                 range,
             ),
             LexerError::UnknownSymbol { range } => {
