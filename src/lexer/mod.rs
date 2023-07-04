@@ -80,6 +80,10 @@ impl Lexer<'_> {
             Some('*') => TokenKind::Operator(OperatorKind::Star),
             Some('/') => TokenKind::Operator(OperatorKind::Slash),
 
+            // Parentheses
+            Some('(') => TokenKind::LeftParen,
+            Some(')') => TokenKind::RightParen,
+
             // Anything else
             Some(_) => {
                 self.cursor.advance_while(|c| !c.is_ascii_whitespace());

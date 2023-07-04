@@ -1,7 +1,7 @@
 use super::span::Span;
 
 /// Represents an error that occurred during lexing.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LexerError {
     /// When a number contains more than one dot.
     TooManyDots { range: Span },

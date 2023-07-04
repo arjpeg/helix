@@ -1,11 +1,18 @@
 pub mod ast;
+pub mod error;
 
 use crate::lexer::{
     span::Span,
     token::{OperatorKind, Token, TokenKind},
 };
 
-use self::ast::{AstNode, AstNodeKind};
+use self::{
+    ast::{AstNode, AstNodeKind},
+    error::ParserError,
+};
+
+/// A type alias for a result from the parser.
+pub type ParserResult<T> = Result<T, ParserError>;
 
 /// Struct to represent a parser.
 /// A parser takes a list of tokens and parses them into an AST.
@@ -25,48 +32,69 @@ impl Parser {
     }
 
     /// Parses the list of tokens into an AST.
-    pub fn parse(&mut self) -> AstNode {
+    pub fn parse(&mut self) -> ParserResult<AstNode> {
         match self.tokens.len() {
-            0 => AstNode {
+            0 => Ok(AstNode {
                 kind: AstNodeKind::Empty,
                 span: Span::new(0, 0),
-            },
+            }),
             _ => self.parse_expr(),
         }
     }
 
     /// Parses an expression. (TERM) (PLUS|MINUS TERM)*
-    fn parse_expr(&mut self) -> AstNode {
+    fn parse_expr(&mut self) -> ParserResult<AstNode> {
         self.parse_binary_expr(
             Self::parse_term,
             &[OperatorKind::Plus, OperatorKind::Minus],
-            None::<fn(&mut Self) -> AstNode>,
+            None::<fn(&mut Self) -> ParserResult<AstNode>>,
         )
     }
 
     /// Parses a term. (FACTOR) (MULT|DIV FACTOR)*
-    fn parse_term(&mut self) -> AstNode {
+    fn parse_term(&mut self) -> ParserResult<AstNode> {
         self.parse_binary_expr(
             Self::parse_factor,
             &[OperatorKind::Star, OperatorKind::Slash],
-            None::<fn(&mut Self) -> AstNode>,
+            None::<fn(&mut Self) -> ParserResult<AstNode>>,
         )
     }
 
     /// Parses a factor. (NUMBER) | (LPAREN EXPR RPAREN)
-    fn parse_factor(&mut self) -> AstNode {
+    fn parse_factor(&mut self) -> ParserResult<AstNode> {
         let token = self.peek().unwrap().clone();
 
         match token.token_kind {
             TokenKind::Number(num) => {
                 self.advance();
 
-                AstNode {
+                Ok(AstNode {
                     kind: AstNodeKind::NumberLiteral(num),
                     span: token.span,
-                }
+                })
             }
-            _ => panic!("Expected number or parenthesis"),
+
+            TokenKind::LeftParen => {
+                self.advance();
+
+                let expr = self.parse_expr()?;
+
+                if self.peek().unwrap().token_kind != TokenKind::RightParen {
+                    return Err(ParserError::UnexpectedToken {
+                        expected: "a right parenthesis",
+                        found: self.peek().unwrap().clone(),
+                    });
+                }
+
+                self.advance();
+
+                Ok(expr)
+            }
+
+            _ => Err(ParserError::UnexpectedToken {
+                expected: "a number literal or a left parenthesis",
+                found: token,
+            }),
         }
     }
 
@@ -75,17 +103,14 @@ impl Parser {
     /// (as long as it exists), then parses the right hand side.
     fn parse_binary_expr(
         &mut self,
-        left_fn: impl Fn(&mut Self) -> AstNode,
+        left_fn: impl Fn(&mut Self) -> ParserResult<AstNode>,
         operators: &[OperatorKind],
-        right_fn: Option<impl Fn(&mut Self) -> AstNode>,
-    ) -> AstNode {
-        // If right is none, then we just use left_fn
-        let mut lhs = left_fn(self);
+        right_fn: Option<impl Fn(&mut Self) -> ParserResult<AstNode>>,
+    ) -> ParserResult<AstNode> {
+        let mut lhs = left_fn(self)?;
         let start = lhs.span.start;
 
-        // FIXME: I am pretty sure this is wrong
         while let Some(op) = self.clone().peek() {
-            dbg!(op);
             if !matches!(op.token_kind, TokenKind::Operator(op) if operators.contains(&op)) {
                 break;
             }
@@ -93,8 +118,8 @@ impl Parser {
             self.advance();
 
             let rhs = match right_fn.as_ref() {
-                Some(right_fn) => right_fn(self),
-                None => left_fn(self),
+                Some(right_fn) => right_fn(self)?,
+                None => left_fn(self)?,
             };
 
             let end = rhs.span.end;
@@ -112,7 +137,7 @@ impl Parser {
             };
         }
 
-        lhs
+        Ok(lhs)
     }
 
     /// Moves forward in the list of tokens.

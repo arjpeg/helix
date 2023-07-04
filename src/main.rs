@@ -1,46 +1,50 @@
+mod errors;
 mod input;
 mod lexer;
 mod parser;
 
+use errors::Error;
 use lexer::{error::LexerError, Lexer};
 use owo_colors::OwoColorize;
 
 use crate::{
     lexer::token::{CommandType, TokenKind},
-    parser::Parser,
+    parser::{error::ParserError, Parser},
 };
+
+fn run(code: &String) -> Result<(), Error> {
+    let mut lexer = Lexer::new(code);
+    let tokens = lexer.lex().map_err(|e| Error::LexerError(e))?;
+
+    if tokens.is_empty() {
+        return Ok(());
+    }
+
+    if let TokenKind::Command(command) = tokens[0].token_kind {
+        handle_command(command);
+        return Ok(());
+    }
+
+    // println!("{:#?}", tokens);
+
+    let mut parser = Parser::new(tokens);
+    let ast = parser.parse().map_err(|e| Error::ParserError(e))?;
+
+    println!("{:#?}", ast);
+
+    Ok(())
+}
 
 fn main() {
     input::print_intro();
 
     loop {
         let input = input::get_input();
+        let result = run(&input);
 
-        let mut lexer = Lexer::new(&input);
-        let tokens = lexer.lex();
-
-        if let Err(error) = tokens {
-            format_error(input, error);
-            continue;
+        if let Err(err) = result {
+            format_error(input, err);
         }
-
-        let tokens = tokens.unwrap();
-
-        if tokens.is_empty() {
-            continue;
-        }
-
-        if let TokenKind::Command(command) = tokens[0].token_kind {
-            handle_command(command);
-            continue;
-        }
-
-        // println!("{:#?}", tokens);
-
-        let mut parser = Parser::new(tokens);
-        let ast = parser.parse();
-
-        println!("{:#?}", ast);
     }
 }
 
@@ -69,19 +73,32 @@ fn handle_command(command: CommandType) {
     }
 }
 
-fn format_error(input: String, error: LexerError) {
+fn format_error(input: String, error: Error) {
     let (message, range) = match error {
-        LexerError::TooManyDots { range } => (
-            format!("A number cannot contain more than one decimal place."),
-            range,
-        ),
-        LexerError::UnknownSymbol { range } => {
-            (format!("Unknown symbol '{}'", &input[range]), range)
-        }
+        // Lexer errors
+        Error::LexerError(error) => match error {
+            LexerError::TooManyDots { range } => (
+                format!("A number cannot contain more than one decimal place."),
+                range,
+            ),
+            LexerError::UnknownSymbol { range } => {
+                (format!("Unknown symbol '{}'", &input[range]), range)
+            }
 
-        LexerError::UnknownCommand { range } => {
-            (format!("Unknown command '{}'", &input[range]), range)
-        }
+            LexerError::UnknownCommand { range } => {
+                (format!("Unknown command '{}'", &input[range]), range)
+            }
+        },
+        // Parser errors
+        Error::ParserError(error) => match error {
+            ParserError::UnexpectedToken { found, expected } => (
+                format!(
+                    "Expected {}, but found a token of kind {:?}",
+                    expected, found.token_kind
+                ),
+                found.span,
+            ),
+        },
     };
 
     // Get the line in which the error occurred

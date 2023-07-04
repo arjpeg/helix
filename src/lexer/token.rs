@@ -42,6 +42,10 @@ pub enum TokenKind {
 
     // An operator, such as +, -, *, /, etc.
     Operator(OperatorKind),
+
+    // Parenthesis, ie. (, )
+    LeftParen,
+    RightParen,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
