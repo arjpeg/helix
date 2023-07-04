@@ -166,6 +166,7 @@ impl Parser {
 
             TokenKind::Operator(op) => match op {
                 OperatorKind::Plus | OperatorKind::Minus | OperatorKind::Not => {
+                    let start = self.pos;
                     self.advance();
 
                     let expr = self.parse_expr()?;
@@ -175,7 +176,7 @@ impl Parser {
                             operator: op,
                             expr: Box::new(expr),
                         },
-                        span: token.span,
+                        span: Span::new(start, self.pos),
                     })
                 }
 
