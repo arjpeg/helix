@@ -28,6 +28,8 @@ fn run(code: &String) -> Result<(), Error> {
         return Ok(());
     }
 
+    println!("{:#?}", tokens);
+
     let mut parser = Parser::new(tokens);
     let ast = parser.parse().map_err(|e| Error::ParserError(e))?;
 

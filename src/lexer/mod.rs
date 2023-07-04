@@ -1,7 +1,7 @@
 use self::{
     cursor::Cursor,
     error::LexerError,
-    token::{CommandType, OperatorKind, Token, TokenKind},
+    token::{CommandType, KeywordKind, OperatorKind, Token, TokenKind},
 };
 
 mod cursor;
@@ -80,9 +80,33 @@ impl Lexer<'_> {
             Some('*') => TokenKind::Operator(OperatorKind::Star),
             Some('/') => TokenKind::Operator(OperatorKind::Slash),
 
+            Some('=') => {
+                if self.cursor.peek() == Some('=') {
+                    self.cursor.advance();
+                    todo!();
+                } else {
+                    TokenKind::Operator(OperatorKind::Assign)
+                }
+            }
+
             // Parentheses
             Some('(') => TokenKind::LeftParen,
             Some(')') => TokenKind::RightParen,
+
+            // Identifiers
+            Some(c) if c.is_ascii_alphabetic() || c == '_' => {
+                self.cursor
+                    .advance_while(|c| c.is_ascii_alphanumeric() || c == '_');
+
+                let lexeme = &self.input[start..self.cursor.pos()];
+
+                match KeywordKind::get_keyword(lexeme) {
+                    Some(keyword) => TokenKind::Keyword(keyword),
+                    None => TokenKind::Identifier {
+                        name: lexeme.to_string(),
+                    },
+                }
+            }
 
             // Anything else
             Some(_) => {

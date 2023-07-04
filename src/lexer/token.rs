@@ -29,7 +29,7 @@ impl Token {
 }
 
 /// Enum that represents the type of a token.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
     // A number literal
     Number(f64),
@@ -46,6 +46,14 @@ pub enum TokenKind {
     // Parenthesis, ie. (, )
     LeftParen,
     RightParen,
+
+    // An identifier, ie. a variable name
+    Identifier {
+        name: String,
+    },
+
+    // A keyword, ie. let, if, else, etc.
+    Keyword(KeywordKind),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -54,6 +62,9 @@ pub enum OperatorKind {
     Minus,
     Star,
     Slash,
+
+    // Assignment operator, ie. =
+    Assign,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -66,6 +77,20 @@ impl CommandType {
         match lexeme {
             "quit" | "q" => Some(CommandType::Quit),
             "help" | "h" => Some(CommandType::Help),
+            _ => None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum KeywordKind {
+    Let,
+}
+
+impl KeywordKind {
+    pub fn get_keyword(lexeme: &str) -> Option<KeywordKind> {
+        match lexeme {
+            "let" => Some(KeywordKind::Let),
             _ => None,
         }
     }
