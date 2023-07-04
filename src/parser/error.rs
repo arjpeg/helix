@@ -10,4 +10,10 @@ pub enum ParserError {
         /// The expected token.
         expected: &'static str,
     },
+
+    /// An unexpected end of input was found.
+    UnexpectedEof {
+        /// The expected token.
+        expected: &'static str,
+    },
 }

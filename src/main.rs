@@ -8,7 +8,10 @@ use lexer::{error::LexerError, Lexer};
 use owo_colors::OwoColorize;
 
 use crate::{
-    lexer::token::{CommandType, TokenKind},
+    lexer::{
+        span::Span,
+        token::{CommandType, TokenKind},
+    },
     parser::{error::ParserError, Parser},
 };
 
@@ -24,8 +27,6 @@ fn run(code: &String) -> Result<(), Error> {
         handle_command(command);
         return Ok(());
     }
-
-    // println!("{:#?}", tokens);
 
     let mut parser = Parser::new(tokens);
     let ast = parser.parse().map_err(|e| Error::ParserError(e))?;
@@ -97,6 +98,13 @@ fn format_error(input: String, error: Error) {
                     expected, found.token_kind
                 ),
                 found.span,
+            ),
+            ParserError::UnexpectedEof { expected } => (
+                format!(
+                    "Expected {}, but unexpectedly reached the end of file",
+                    expected
+                ),
+                Span::new(input.len() - 1, input.len()),
             ),
         },
     };

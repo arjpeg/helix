@@ -38,7 +38,18 @@ impl Parser {
                 kind: AstNodeKind::Empty,
                 span: Span::new(0, 0),
             }),
-            _ => self.parse_expr(),
+            _ => {
+                let res = self.parse_expr()?;
+
+                if self.pos != self.tokens.len() {
+                    return Err(ParserError::UnexpectedToken {
+                        expected: "end of input",
+                        found: self.peek().unwrap().clone(),
+                    });
+                }
+
+                Ok(res)
+            }
         }
     }
 
@@ -62,7 +73,14 @@ impl Parser {
 
     /// Parses a factor. (NUMBER) | (LPAREN EXPR RPAREN)
     fn parse_factor(&mut self) -> ParserResult<AstNode> {
-        let token = self.peek().unwrap().clone();
+        let token = match self.clone().peek() {
+            Some(token) => token.clone(),
+            None => {
+                return Err(ParserError::UnexpectedEof {
+                    expected: "a number literal or left parenthesis",
+                })
+            }
+        };
 
         match token.token_kind {
             TokenKind::Number(num) => {
