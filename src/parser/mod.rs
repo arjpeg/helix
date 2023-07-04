@@ -3,7 +3,7 @@ pub mod error;
 
 use crate::lexer::{
     span::Span,
-    token::{OperatorKind, Token, TokenKind},
+    token::{KeywordKind, OperatorKind, Token, TokenKind},
 };
 
 use self::{
@@ -39,11 +39,11 @@ impl Parser {
                 span: Span::new(0, 0),
             }),
             _ => {
-                let res = self.parse_expr()?;
+                let res = self.parse_statement()?;
 
                 if self.pos != self.tokens.len() {
                     return Err(ParserError::UnexpectedToken {
-                        expected: "end of input",
+                        expected: "end of input".to_string(),
                         found: self.peek().unwrap().clone(),
                     });
                 }
@@ -51,6 +51,60 @@ impl Parser {
                 Ok(res)
             }
         }
+    }
+
+    /// Parses a statement
+    fn parse_statement(&mut self) -> ParserResult<AstNode> {
+        // Check against the current token
+        match self.peek().unwrap().token_kind {
+            TokenKind::Keyword(keyword) => match keyword {
+                KeywordKind::Let => self.parse_assignment(),
+            },
+            _ => self.parse_expr(),
+        }
+    }
+
+    /// Parses an assignment statement. (LET IDENT ASSIGN EXPR)
+    fn parse_assignment(&mut self) -> ParserResult<AstNode> {
+        let start = self.pos;
+
+        self.advance();
+
+        let ident = match self.clone().peek() {
+            Some(t) => match &t.token_kind {
+                TokenKind::Identifier { name } => {
+                    self.advance();
+                    name
+                }
+                _ => {
+                    return Err(ParserError::UnexpectedToken {
+                        expected: "an identifier".to_string(),
+                        found: t.clone(),
+                    })
+                }
+            },
+
+            None => {
+                return Err(ParserError::UnexpectedEof {
+                    expected: "an identifier".to_string(),
+                })
+            }
+        }
+        .clone();
+
+        self.expect(TokenKind::Operator(OperatorKind::Assign))?;
+
+        let expr = self.parse_expr()?;
+
+        let end = self.pos;
+
+        Ok(AstNode {
+            kind: AstNodeKind::Assignment {
+                name: ident,
+                value: Box::new(expr),
+            },
+            span: Span::new(start, end),
+        })
     }
 
     /// Parses an expression. (TERM) (PLUS|MINUS TERM)*
@@ -77,7 +131,7 @@ impl Parser {
             Some(token) => token.clone(),
             None => {
                 return Err(ParserError::UnexpectedEof {
-                    expected: "a number literal or left parenthesis",
+                    expected: "a number literal or left parenthesis".to_string(),
                 })
             }
         };
@@ -99,7 +153,7 @@ impl Parser {
 
                 if self.peek().unwrap().token_kind != TokenKind::RightParen {
                     return Err(ParserError::UnexpectedToken {
-                        expected: "a right parenthesis",
+                        expected: "a right parenthesis".to_string(),
                         found: self.peek().unwrap().clone(),
                     });
                 }
@@ -110,7 +164,7 @@ impl Parser {
             }
 
             _ => Err(ParserError::UnexpectedToken {
-                expected: "a number literal or a left parenthesis",
+                expected: "a number literal or a left parenthesis".to_string(),
                 found: token,
             }),
         }
@@ -166,5 +220,23 @@ impl Parser {
     /// Peeks at the current token.
     fn peek(&self) -> Option<&Token> {
         self.tokens.get(self.pos)
+    }
+
+    /// Expects the current token to be of a certain kind.
+    /// If it is, it moves forward in the list of tokens.
+    fn expect(&mut self, kind: TokenKind) -> ParserResult<()> {
+        match self.peek() {
+            Some(token) if token.token_kind == kind => {
+                self.advance();
+                Ok(())
+            }
+            Some(token) => Err(ParserError::UnexpectedToken {
+                expected: format!("a {:?}", kind),
+                found: token.clone(),
+            }),
+            None => Err(ParserError::UnexpectedEof {
+                expected: format!("a {:?}", kind),
+            }),
+        }
     }
 }

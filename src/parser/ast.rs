@@ -28,4 +28,12 @@ pub enum AstNodeKind {
 
     /// An empty tree
     Empty,
+
+    /// An assignment expression, such as `x = 1`
+    Assignment {
+        /// The name of the variable being assigned to
+        name: String,
+        /// The value being assigned
+        value: Box<AstNode>,
+    },
 }

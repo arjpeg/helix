@@ -8,12 +8,12 @@ pub enum ParserError {
         /// The token that was found.
         found: Token,
         /// The expected token.
-        expected: &'static str,
+        expected: String,
     },
 
     /// An unexpected end of input was found.
     UnexpectedEof {
         /// The expected token.
-        expected: &'static str,
+        expected: String,
     },
 }
