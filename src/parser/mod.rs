@@ -164,6 +164,27 @@ impl Parser {
                 })
             }
 
+            TokenKind::Operator(op) => match op {
+                OperatorKind::Plus | OperatorKind::Minus | OperatorKind::Not => {
+                    self.advance();
+
+                    let expr = self.parse_expr()?;
+
+                    Ok(AstNode {
+                        kind: AstNodeKind::UnaryExpression {
+                            operator: op,
+                            expr: Box::new(expr),
+                        },
+                        span: token.span,
+                    })
+                }
+
+                _ => Err(ParserError::UnexpectedToken {
+                    expected: "a number literal or a left parenthesis".to_string(),
+                    found: token,
+                }),
+            },
+
             TokenKind::LeftParen => {
                 self.advance();
 

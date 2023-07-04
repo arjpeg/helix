@@ -81,6 +81,15 @@ impl Lexer<'_> {
             Some('/') => TokenKind::Operator(OperatorKind::Slash),
             Some('^') => TokenKind::Operator(OperatorKind::Pow),
 
+            Some('!') => {
+                if self.cursor.peek() == Some('=') {
+                    self.cursor.advance();
+                    todo!();
+                } else {
+                    TokenKind::Operator(OperatorKind::Not)
+                }
+            }
+
             Some('=') => {
                 if self.cursor.peek() == Some('=') {
                     self.cursor.advance();

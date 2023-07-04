@@ -64,6 +64,9 @@ pub enum OperatorKind {
     Slash,
     Pow,
 
+    // The not operator, ie. !
+    Not,
+
     // Assignment operator, ie. =
     Assign,
 }

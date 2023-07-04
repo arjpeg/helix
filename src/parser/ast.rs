@@ -39,4 +39,10 @@ pub enum AstNodeKind {
         /// The value being assigned
         value: Box<AstNode>,
     },
+
+    /// A unary expression, such as `-1`
+    UnaryExpression {
+        operator: OperatorKind,
+        expr: Box<AstNode>,
+    },
 }

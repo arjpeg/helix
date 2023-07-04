@@ -13,4 +13,5 @@ factor : atom (POW factor) *
 
 atom : INTEGER 
        | IDENT
+       | (PLUS | MINUS | NOT) atom
        | LPAREN expression RPAREN

@@ -23,10 +23,5 @@ pub fn get_input() -> String {
 
     std::io::stdin().read_line(&mut input).unwrap();
 
-    // If the user pressed Ctrl+C, abort the current expression.
-    if input == "\u{3}" {
-        return "\n".to_string();
-    }
-
     input
 }
