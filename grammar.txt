@@ -1,0 +1,13 @@
+
+program : statement_list
+statement_list : (statement) *
+
+statement : expression
+          | let_statement
+
+let_statement : LET IDENT ASSIGN expression
+
+expression : term ((PLUS | MINUS) term) *
+term : factor ((MUL | DIV) factor) *
+factor : INTEGER 
+       | LPAREN expression RPAREN
