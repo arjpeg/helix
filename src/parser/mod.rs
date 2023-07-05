@@ -42,13 +42,16 @@ impl Parser {
                 let res = self.parse_statement()?;
 
                 if self.pos != self.tokens.len() {
-                    dbg!(self.pos, self.tokens.len());
-                    dbg!(self.tokens.clone());
+                    return match self.peek().unwrap().token_kind {
+                        TokenKind::RightParen => Err(ParserError::UnmatchedClosingParen {
+                            paren: self.peek().unwrap().clone(),
+                        }),
 
-                    return Err(ParserError::UnexpectedToken {
-                        expected: "end of input".to_string(),
-                        found: self.peek().unwrap().clone(),
-                    });
+                        _ => Err(ParserError::UnexpectedToken {
+                            expected: "end of input".to_string(),
+                            found: self.peek().unwrap().clone(),
+                        }),
+                    };
                 }
 
                 Ok(res)
@@ -194,7 +197,7 @@ impl Parser {
             }
 
             TokenKind::Operator(op) => match op {
-                OperatorKind::Plus | OperatorKind::Minus | OperatorKind::Not => {
+                OperatorKind::Plus | OperatorKind::Minus | OperatorKind::Bang => {
                     let start = self.pos;
                     self.advance();
 
@@ -202,7 +205,7 @@ impl Parser {
 
                     Ok(AstNode {
                         kind: AstNodeKind::UnaryExpression {
-                            operator: op,
+                            op,
                             expr: Box::new(expr),
                         },
                         span: Span::new(start, self.pos),
@@ -260,7 +263,7 @@ impl Parser {
             let end = rhs.span.end;
 
             lhs = AstNode {
-                kind: AstNodeKind::BinaryExpr {
+                kind: AstNodeKind::BinaryExpression {
                     lhs: Box::new(lhs),
                     rhs: Box::new(rhs),
                     op: match op.token_kind {
@@ -341,7 +344,7 @@ mod tests {
 
         assert!(matches!(
             parser.parse().unwrap().kind,
-            AstNodeKind::BinaryExpr {
+            AstNodeKind::BinaryExpression {
                 // TODO: Make this work with Box::new or somehow
                 //       dereference the Box.
                 lhs: _,
@@ -357,13 +360,13 @@ mod tests {
         let mut parser = Parser::new(tokens);
 
         #[allow(illegal_floating_point_literal_pattern)]
-        if let AstNodeKind::BinaryExpr { lhs, rhs, op } = parser.parse().unwrap().kind {
+        if let AstNodeKind::BinaryExpression { lhs, rhs, op } = parser.parse().unwrap().kind {
             assert!(matches!(lhs.kind, AstNodeKind::NumberLiteral(1.)));
             assert!(matches!(op, OperatorKind::Plus));
 
             let AstNode { kind, span: _ } = *rhs;
 
-            if let AstNodeKind::BinaryExpr { lhs, rhs, op } = kind {
+            if let AstNodeKind::BinaryExpression { lhs, rhs, op } = kind {
                 assert!(matches!(lhs.kind, AstNodeKind::NumberLiteral(2.)));
                 assert!(matches!(rhs.kind, AstNodeKind::NumberLiteral(3.)));
                 assert!(matches!(op, OperatorKind::Star));
@@ -381,12 +384,12 @@ mod tests {
         let mut parser = Parser::new(tokens);
 
         #[allow(illegal_floating_point_literal_pattern)]
-        if let AstNodeKind::BinaryExpr { lhs, rhs, op } = parser.parse().unwrap().kind {
+        if let AstNodeKind::BinaryExpression { lhs, rhs, op } = parser.parse().unwrap().kind {
             assert!(matches!(op, OperatorKind::Star));
 
             let AstNode { kind, span: _ } = *lhs;
 
-            if let AstNodeKind::BinaryExpr { lhs, rhs, op } = kind {
+            if let AstNodeKind::BinaryExpression { lhs, rhs, op } = kind {
                 assert!(matches!(lhs.kind, AstNodeKind::NumberLiteral(1.)));
                 assert!(matches!(rhs.kind, AstNodeKind::NumberLiteral(2.)));
                 assert!(matches!(op, OperatorKind::Plus));
@@ -466,6 +469,42 @@ mod tests {
         assert!(matches!(
             parser.parse().unwrap_err(),
             ParserError::UnexpectedEof { .. }
+        ));
+    }
+
+    #[test]
+    fn test_unary_expr() {
+        let tokens = Lexer::new("-1").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap().kind,
+            AstNodeKind::UnaryExpression {
+                op: OperatorKind::Minus,
+                ..
+            }
+        ));
+
+        let tokens = Lexer::new("!1").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap().kind,
+            AstNodeKind::UnaryExpression {
+                op: OperatorKind::Bang,
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_unmatched_parentheses() {
+        let tokens = Lexer::new("(1 + 2))").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap_err(),
+            ParserError::UnmatchedClosingParen { .. }
         ));
     }
 }

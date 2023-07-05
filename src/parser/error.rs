@@ -16,4 +16,10 @@ pub enum ParserError {
         /// The expected token.
         expected: String,
     },
+
+    /// An unmatched closing parenthesis was found.
+    UnmatchedClosingParen {
+        /// The closing parenthesis.
+        paren: Token,
+    },
 }

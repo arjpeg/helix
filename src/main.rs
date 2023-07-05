@@ -108,6 +108,10 @@ fn format_error(input: String, error: Error) {
                 ),
                 Span::new(input.len() - 1, input.len()),
             ),
+            ParserError::UnmatchedClosingParen { paren } => (
+                "Found an unmatched closing parenthesis".to_string(),
+                paren.span,
+            ),
         },
     };
 

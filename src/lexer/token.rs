@@ -65,7 +65,7 @@ pub enum OperatorKind {
     Power,
 
     // The not operator, ie. !
-    Not,
+    Bang,
 
     // Assignment operator, ie. =
     Assign,

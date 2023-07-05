@@ -86,7 +86,7 @@ impl Lexer<'_> {
                     self.cursor.advance();
                     TokenKind::Operator(OperatorKind::NotEquals)
                 } else {
-                    TokenKind::Operator(OperatorKind::Not)
+                    TokenKind::Operator(OperatorKind::Bang)
                 }
             }
 
