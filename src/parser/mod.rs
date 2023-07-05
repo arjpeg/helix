@@ -42,6 +42,9 @@ impl Parser {
                 let res = self.parse_statement()?;
 
                 if self.pos != self.tokens.len() {
+                    dbg!(self.pos, self.tokens.len());
+                    dbg!(self.tokens.clone());
+
                     return Err(ParserError::UnexpectedToken {
                         expected: "end of input".to_string(),
                         found: self.peek().unwrap().clone(),
@@ -93,6 +96,7 @@ impl Parser {
         .clone();
 
         self.expect(TokenKind::Operator(OperatorKind::Assign))?;
+        self.advance();
 
         let expr = self.parse_expr()?;
 
@@ -216,13 +220,7 @@ impl Parser {
 
                 let expr = self.parse_expr()?;
 
-                if self.peek().unwrap().token_kind != TokenKind::RightParen {
-                    return Err(ParserError::UnexpectedToken {
-                        expected: "a right parenthesis".to_string(),
-                        found: self.peek().unwrap().clone(),
-                    });
-                }
-
+                self.expect(TokenKind::RightParen)?;
                 self.advance();
 
                 Ok(expr)
@@ -288,13 +286,10 @@ impl Parser {
     }
 
     /// Expects the current token to be of a certain kind.
-    /// If it is, it moves forward in the list of tokens.
     fn expect(&mut self, kind: TokenKind) -> ParserResult<()> {
         match self.peek() {
-            Some(token) if token.token_kind == kind => {
-                self.advance();
-                Ok(())
-            }
+            Some(token) if token.token_kind == kind => Ok(()),
+
             Some(token) => Err(ParserError::UnexpectedToken {
                 expected: format!("a {:?}", kind),
                 found: token.clone(),
@@ -303,5 +298,174 @@ impl Parser {
                 expected: format!("a {:?}", kind),
             }),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{
+        lexer::{
+            token::{OperatorKind, Token, TokenKind},
+            Lexer,
+        },
+        parser::{
+            ast::{AstNode, AstNodeKind},
+            error::ParserError,
+            Parser,
+        },
+    };
+
+    #[test]
+    fn test_empty() {
+        let tokens = vec![];
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(parser.parse().unwrap().kind, AstNodeKind::Empty));
+    }
+
+    #[test]
+    fn test_number() {
+        let tokens = Lexer::new("123").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap().kind,
+            AstNodeKind::NumberLiteral(..)
+        ));
+    }
+
+    #[test]
+    fn test_binary_expr() {
+        let tokens = Lexer::new("1 + 2").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap().kind,
+            AstNodeKind::BinaryExpr {
+                // TODO: Make this work with Box::new or somehow
+                //       dereference the Box.
+                lhs: _,
+                rhs: _,
+                op: OperatorKind::Plus
+            }
+        ));
+    }
+
+    #[test]
+    fn test_order_of_operations() {
+        let tokens = Lexer::new("1 + 2 * 3").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        #[allow(illegal_floating_point_literal_pattern)]
+        if let AstNodeKind::BinaryExpr { lhs, rhs, op } = parser.parse().unwrap().kind {
+            assert!(matches!(lhs.kind, AstNodeKind::NumberLiteral(1.)));
+            assert!(matches!(op, OperatorKind::Plus));
+
+            let AstNode { kind, span: _ } = *rhs;
+
+            if let AstNodeKind::BinaryExpr { lhs, rhs, op } = kind {
+                assert!(matches!(lhs.kind, AstNodeKind::NumberLiteral(2.)));
+                assert!(matches!(rhs.kind, AstNodeKind::NumberLiteral(3.)));
+                assert!(matches!(op, OperatorKind::Star));
+            } else {
+                assert!(false);
+            }
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn test_parentheses() {
+        let tokens = Lexer::new("(1 + 2) * 3").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        #[allow(illegal_floating_point_literal_pattern)]
+        if let AstNodeKind::BinaryExpr { lhs, rhs, op } = parser.parse().unwrap().kind {
+            assert!(matches!(op, OperatorKind::Star));
+
+            let AstNode { kind, span: _ } = *lhs;
+
+            if let AstNodeKind::BinaryExpr { lhs, rhs, op } = kind {
+                assert!(matches!(lhs.kind, AstNodeKind::NumberLiteral(1.)));
+                assert!(matches!(rhs.kind, AstNodeKind::NumberLiteral(2.)));
+                assert!(matches!(op, OperatorKind::Plus));
+            } else {
+                assert!(false);
+            }
+
+            let AstNode { kind, span: _ } = *rhs;
+
+            if let AstNodeKind::NumberLiteral(3.) = kind {
+            } else {
+                assert!(false);
+            }
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn test_assignment() {
+        let tokens = Lexer::new("let a = 1").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        #[allow(illegal_floating_point_literal_pattern)]
+        if let AstNodeKind::Assignment { name, value } = parser.parse().unwrap().kind {
+            assert_eq!(name, "a");
+            assert!(matches!(value.kind, AstNodeKind::NumberLiteral(1.)));
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn test_invalid_assignment() {
+        let tokens = Lexer::new("a = 1 + 2").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap_err(),
+            crate::parser::ParserError::UnexpectedToken { .. }
+        ));
+    }
+
+    #[test]
+    fn test_incomplete_bin_expr() {
+        let tokens = Lexer::new("1 +").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap_err(),
+            ParserError::UnexpectedEof { .. }
+        ));
+    }
+
+    #[test]
+    fn test_invalid_bin_expr() {
+        let tokens = Lexer::new("1 + / 2").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap_err(),
+            ParserError::UnexpectedToken {
+                found: Token {
+                    token_kind: TokenKind::Operator(OperatorKind::Slash),
+                    ..
+                },
+                ..
+            }
+        ));
+    }
+
+    #[test]
+    fn test_invalid_parentheses() {
+        let tokens = Lexer::new("(1 + 2").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        assert!(matches!(
+            parser.parse().unwrap_err(),
+            ParserError::UnexpectedEof { .. }
+        ));
     }
 }
