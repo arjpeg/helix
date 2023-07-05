@@ -69,6 +69,17 @@ pub enum OperatorKind {
 
     // Assignment operator, ie. =
     Assign,
+
+    // Comparison operators, ie. ==, !=, <, >, <=, >=
+    Equals,
+    NotEquals,
+    LessThan,
+    LessThanOrEqual,
+    GreaterThan,
+    GreaterThanOrEqual,
+
+    And,
+    Or,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

@@ -84,18 +84,59 @@ impl Lexer<'_> {
             Some('!') => {
                 if self.cursor.peek() == Some('=') {
                     self.cursor.advance();
-                    todo!();
+                    TokenKind::Operator(OperatorKind::NotEquals)
                 } else {
                     TokenKind::Operator(OperatorKind::Not)
                 }
             }
 
+            // Comparisons
             Some('=') => {
                 if self.cursor.peek() == Some('=') {
                     self.cursor.advance();
-                    todo!();
+                    TokenKind::Operator(OperatorKind::Equals)
                 } else {
                     TokenKind::Operator(OperatorKind::Assign)
+                }
+            }
+
+            Some('<') => {
+                if self.cursor.peek() == Some('=') {
+                    self.cursor.advance();
+                    TokenKind::Operator(OperatorKind::LessThanOrEqual)
+                } else {
+                    TokenKind::Operator(OperatorKind::LessThan)
+                }
+            }
+
+            Some('>') => {
+                if self.cursor.peek() == Some('=') {
+                    self.cursor.advance();
+                    TokenKind::Operator(OperatorKind::GreaterThanOrEqual)
+                } else {
+                    TokenKind::Operator(OperatorKind::GreaterThan)
+                }
+            }
+
+            Some('&') => {
+                if self.cursor.peek() == Some('&') {
+                    self.cursor.advance();
+                    TokenKind::Operator(OperatorKind::And)
+                } else {
+                    return Err(LexerError::UnknownSymbol {
+                        range: (start..self.cursor.pos()).into(),
+                    });
+                }
+            }
+
+            Some('|') => {
+                if self.cursor.peek() == Some('|') {
+                    self.cursor.advance();
+                    TokenKind::Operator(OperatorKind::Or)
+                } else {
+                    return Err(LexerError::UnknownSymbol {
+                        range: (start..self.cursor.pos()).into(),
+                    });
                 }
             }
 

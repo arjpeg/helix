@@ -107,8 +107,33 @@ impl Parser {
         })
     }
 
-    /// Parses an expression. (TERM) (PLUS|MINUS TERM)*
+    /// Parses an expression. (COMP_EXPR) (EQ|NEQ COMP_EXPR)*
     fn parse_expr(&mut self) -> ParserResult<AstNode> {
+        self.parse_binary_expr(
+            Self::parse_comp_expr,
+            &[OperatorKind::And, OperatorKind::Or],
+            None::<fn(&mut Self) -> ParserResult<AstNode>>,
+        )
+    }
+
+    /// Parses a comparison expression. (ARITH_EXPR) (LT|GT|LTE|GTE ARITH_EXPR)*
+    fn parse_comp_expr(&mut self) -> ParserResult<AstNode> {
+        self.parse_binary_expr(
+            Self::parse_arith_expr,
+            &[
+                OperatorKind::Equals,
+                OperatorKind::NotEquals,
+                OperatorKind::LessThan,
+                OperatorKind::GreaterThan,
+                OperatorKind::LessThanOrEqual,
+                OperatorKind::GreaterThanOrEqual,
+            ],
+            None::<fn(&mut Self) -> ParserResult<AstNode>>,
+        )
+    }
+
+    /// Parses an expression. (TERM) (PLUS|MINUS TERM)*
+    fn parse_arith_expr(&mut self) -> ParserResult<AstNode> {
         self.parse_binary_expr(
             Self::parse_term,
             &[OperatorKind::Plus, OperatorKind::Minus],
