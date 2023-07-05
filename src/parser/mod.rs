@@ -507,4 +507,33 @@ mod tests {
             ParserError::UnmatchedClosingParen { .. }
         ));
     }
+
+    #[test]
+    fn test_conditional_exprs() {
+        let tokens = Lexer::new("1 + 3 > 2 && 1 < 2").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        #[allow(illegal_floating_point_literal_pattern)]
+        if let AstNodeKind::BinaryExpression { lhs, rhs, op } = parser.parse().unwrap().kind {
+            assert!(matches!(
+                lhs.kind,
+                AstNodeKind::BinaryExpression {
+                    lhs: _,
+                    rhs: _,
+                    op: OperatorKind::GreaterThan
+                }
+            ));
+            assert!(matches!(
+                rhs.kind,
+                AstNodeKind::BinaryExpression {
+                    lhs: _,
+                    rhs: _,
+                    op: OperatorKind::LessThan
+                }
+            ));
+            assert!(matches!(op, OperatorKind::And));
+        } else {
+            assert!(false);
+        }
+    }
 }
