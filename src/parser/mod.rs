@@ -114,7 +114,7 @@ impl Parser {
         })
     }
 
-    /// Parses an expression. (COMP_EXPR) (EQ|NEQ COMP_EXPR)*
+    /// Parses an expression. (COMP_EXPR) (AND|OR COMP_EXPR)*
     fn parse_expr(&mut self) -> ParserResult<AstNode> {
         self.parse_binary_expr(
             Self::parse_comp_expr,
@@ -123,7 +123,7 @@ impl Parser {
         )
     }
 
-    /// Parses a comparison expression. (ARITH_EXPR) (LT|GT|LTE|GTE ARITH_EXPR)*
+    /// Parses a comparison expression. (ARITH_EXPR) (LT|GT|LTE|GTE|EQ|NEQ  ARITH_EXPR)*
     fn parse_comp_expr(&mut self) -> ParserResult<AstNode> {
         self.parse_binary_expr(
             Self::parse_arith_expr,
