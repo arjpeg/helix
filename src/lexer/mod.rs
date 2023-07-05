@@ -79,7 +79,7 @@ impl Lexer<'_> {
             Some('-') => TokenKind::Operator(OperatorKind::Minus),
             Some('*') => TokenKind::Operator(OperatorKind::Star),
             Some('/') => TokenKind::Operator(OperatorKind::Slash),
-            Some('^') => TokenKind::Operator(OperatorKind::Pow),
+            Some('^') => TokenKind::Operator(OperatorKind::Power),
 
             Some('!') => {
                 if self.cursor.peek() == Some('=') {
@@ -216,5 +216,144 @@ impl Lexer<'_> {
                 range: (start..self.cursor.pos()).into(),
             })
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::lexer::{
+        error::LexerError,
+        token::{CommandType, KeywordKind, OperatorKind, TokenKind},
+        Lexer,
+    };
+
+    #[test]
+    fn test_empty() {
+        let mut lexer = Lexer::new("");
+        assert_eq!(lexer.lex().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_whitespace() {
+        let mut lexer = Lexer::new(" \t\n\r");
+        assert_eq!(lexer.lex().unwrap().len(), 0);
+    }
+
+    #[test]
+    fn test_numbers() {
+        let mut lexer = Lexer::new("123 456.789 0.1 32");
+        let tokens = lexer.lex().unwrap();
+
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[0].token_kind, TokenKind::Number(123.0));
+        assert_eq!(tokens[1].token_kind, TokenKind::Number(456.789));
+        assert_eq!(tokens[2].token_kind, TokenKind::Number(0.1));
+        assert_eq!(tokens[3].token_kind, TokenKind::Number(32.0));
+    }
+
+    #[test]
+    fn test_invalid_numbers() {
+        let mut lexer = Lexer::new("123.123.456.789");
+        let tokens = lexer.lex();
+
+        assert!(tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::TooManyDots { .. }));
+    }
+
+    #[test]
+    fn test_commands() {
+        let mut lexer = Lexer::new("#quit");
+        let tokens = lexer.lex().unwrap();
+
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_kind, TokenKind::Command(CommandType::Quit));
+    }
+
+    #[test]
+    fn test_invalid_commands() {
+        let mut lexer = Lexer::new("#invalid");
+        let tokens = lexer.lex();
+
+        assert!(
+            tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::UnknownCommand { .. })
+        );
+    }
+
+    #[test]
+    fn test_operators() {
+        let mut lexer = Lexer::new("+-*/^");
+        let tokens = lexer.lex().unwrap();
+
+        assert_eq!(tokens.len(), 5);
+        assert_eq!(
+            tokens[0].token_kind,
+            TokenKind::Operator(OperatorKind::Plus)
+        );
+        assert_eq!(
+            tokens[1].token_kind,
+            TokenKind::Operator(OperatorKind::Minus)
+        );
+        assert_eq!(
+            tokens[2].token_kind,
+            TokenKind::Operator(OperatorKind::Star)
+        );
+        assert_eq!(
+            tokens[3].token_kind,
+            TokenKind::Operator(OperatorKind::Slash)
+        );
+        assert_eq!(
+            tokens[4].token_kind,
+            TokenKind::Operator(OperatorKind::Power)
+        );
+    }
+
+    #[test]
+    fn test_identifiers() {
+        let mut lexer = Lexer::new("foo bar baz");
+        let tokens = lexer.lex().unwrap();
+
+        assert_eq!(tokens.len(), 3);
+        assert_eq!(
+            tokens[0].token_kind,
+            TokenKind::Identifier {
+                name: "foo".to_string()
+            }
+        );
+        assert_eq!(
+            tokens[1].token_kind,
+            TokenKind::Identifier {
+                name: "bar".to_string()
+            }
+        );
+        assert_eq!(
+            tokens[2].token_kind,
+            TokenKind::Identifier {
+                name: "baz".to_string()
+            }
+        );
+    }
+
+    #[test]
+    fn test_keywords() {
+        let mut lexer = Lexer::new("let");
+        let tokens = lexer.lex().unwrap();
+
+        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens[0].token_kind, TokenKind::Keyword(KeywordKind::Let));
+    }
+
+    #[test]
+    fn test_invalid_symbols() {
+        let mut lexer = Lexer::new("foo bar baz $");
+        let tokens = lexer.lex();
+
+        assert!(tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::UnknownSymbol { .. }));
+    }
+
+    #[test]
+    fn test_invalid_unicode() {
+        let mut lexer = Lexer::new("foo bar baz \u{1F4A9}");
+        let tokens = lexer.lex();
+
+        assert!(tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::UnknownSymbol { .. }));
     }
 }

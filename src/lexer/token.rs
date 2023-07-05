@@ -62,7 +62,7 @@ pub enum OperatorKind {
     Minus,
     Star,
     Slash,
-    Pow,
+    Power,
 
     // The not operator, ie. !
     Not,

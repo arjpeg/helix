@@ -154,7 +154,7 @@ impl Parser {
     fn parse_factor(&mut self) -> ParserResult<AstNode> {
         self.parse_binary_expr(
             Self::parse_atom,
-            &[OperatorKind::Pow],
+            &[OperatorKind::Power],
             Some(Self::parse_factor),
         )
     }
