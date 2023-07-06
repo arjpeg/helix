@@ -32,28 +32,28 @@ impl Interpreter {
 
     /// Interprets the AST.
     fn interpret(ast: AstNode) -> InterpreterResult<Value> {
-        return match ast.kind {
+        match ast.kind {
             AstNodeKind::NumberLiteral(number) => Ok(Value {
                 kind: ValueKind::Number(number),
                 span: ast.span,
             }),
 
             AstNodeKind::BinaryExpression { lhs, op, rhs } => {
-                Ok(Interpreter::interpret_binary_expr(lhs, op, rhs)?)
+                Ok(Interpreter::interpret_binary_expr(*lhs, op, *rhs)?)
             }
 
             _ => todo!(),
-        };
+        }
     }
 
     /// Interprets a binary expression.
     fn interpret_binary_expr(
-        lhs: Box<AstNode>,
+        lhs: AstNode,
         op: OperatorKind,
-        rhs: Box<AstNode>,
+        rhs: AstNode,
     ) -> InterpreterResult<Value> {
-        let lhs_value = Interpreter::interpret(*lhs)?;
-        let rhs_value = Interpreter::interpret(*rhs)?;
+        let lhs_value = Interpreter::interpret(lhs)?;
+        let rhs_value = Interpreter::interpret(rhs)?;
 
         use OperatorKind::*;
 
@@ -63,6 +63,18 @@ impl Interpreter {
             Star => lhs_value.multiply(rhs_value),
             Slash => lhs_value.divide(rhs_value),
             Power => lhs_value.power(rhs_value),
+
+            Equals => lhs_value.equals(rhs_value),
+            NotEquals => lhs_value.equals(rhs_value).map(|value| Value {
+                kind: ValueKind::Boolean(!value.is_truthy()),
+                span: value.span,
+            }),
+
+            LessThan => lhs_value.less_than(rhs_value),
+            LessThanOrEqual => lhs_value.less_than_or_equal(rhs_value),
+
+            GreaterThan => rhs_value.less_than(lhs_value),
+            GreaterThanOrEqual => rhs_value.less_than_or_equal(lhs_value),
 
             _ => todo!(),
         }

@@ -5,11 +5,11 @@ use crate::{interpreter, lexer, parser};
 #[derive(Debug, Clone)]
 pub enum Error {
     /// An error that occurred during lexing.
-    LexerError(lexer::error::LexerError),
+    Lexer(lexer::error::LexerError),
 
     /// An error that occurred during parsing.
-    ParserError(parser::error::ParserError),
+    Parser(parser::error::ParserError),
 
     /// An error that occurred during parsing.
-    InterpreterError(interpreter::error::InterpreterError),
+    Interpreter(interpreter::error::InterpreterError),
 }

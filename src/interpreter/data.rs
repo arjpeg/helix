@@ -100,4 +100,16 @@ impl Value {
     impl_binary_op!(power, Power, {
         (Number(lhs), Number(rhs)) => Ok(Number(lhs.powf(rhs))),
     });
+
+    impl_binary_op!(less_than, LessThan, {
+        (Number(lhs), Number(rhs)) => Ok(Boolean(lhs < rhs)),
+    });
+
+    impl_binary_op!(less_than_or_equal, LessThanOrEqual, {
+        (Number(lhs), Number(rhs)) => Ok(Boolean(lhs <= rhs)),
+    });
+
+    impl_binary_op!(equals, Equals, {
+        (Number(lhs), Number(rhs)) => Ok(Boolean(lhs == rhs)),
+    });
 }

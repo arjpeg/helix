@@ -20,7 +20,7 @@ use crate::{
 
 fn run(code: &str) -> Result<(), Error> {
     let mut lexer = Lexer::new(code);
-    let tokens = lexer.lex().map_err(Error::LexerError)?;
+    let tokens = lexer.lex().map_err(Error::Lexer)?;
 
     if tokens.is_empty() {
         return Ok(());
@@ -34,12 +34,12 @@ fn run(code: &str) -> Result<(), Error> {
     // println!("{:#?}", tokens);
 
     let mut parser = Parser::new(tokens);
-    let ast = parser.parse().map_err(Error::ParserError)?;
+    let ast = parser.parse().map_err(Error::Parser)?;
 
-    println!("{:#?}", ast);
+    // println!("{:#?}", ast);
 
     let interpreter = Interpreter::new(ast);
-    let result = interpreter.start().map_err(Error::InterpreterError)?;
+    let result = interpreter.start().map_err(Error::Interpreter)?;
 
     println!("{:?}", result.kind);
 
@@ -87,7 +87,7 @@ fn handle_command(command: CommandType) {
 fn format_error(input: String, error: Error) {
     let (message, range) = match error {
         // Lexer errors
-        Error::LexerError(error) => match error {
+        Error::Lexer(error) => match error {
             LexerError::TooManyDots { range } => (
                 "A number cannot contain more than one decimal place.".to_string(),
                 range,
@@ -101,7 +101,7 @@ fn format_error(input: String, error: Error) {
             }
         },
         // Parser errors
-        Error::ParserError(error) => match error {
+        Error::Parser(error) => match error {
             ParserError::UnexpectedToken { found, expected } => (
                 format!(
                     "Expected {}, but found a token of kind {:?}",
@@ -122,7 +122,7 @@ fn format_error(input: String, error: Error) {
             ),
         },
         // Interpreter errors
-        Error::InterpreterError(error) => match error {
+        Error::Interpreter(error) => match error {
             InterpreterError::InvalidBinaryExpression {
                 operator,
                 lhs,
