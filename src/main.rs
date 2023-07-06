@@ -1,13 +1,16 @@
 mod errors;
 mod input;
+mod interpreter;
 mod lexer;
 mod parser;
 
 use errors::Error;
+use interpreter::Interpreter;
 use lexer::{error::LexerError, Lexer};
 use owo_colors::OwoColorize;
 
 use crate::{
+    interpreter::error::InterpreterError,
     lexer::{
         span::Span,
         token::{CommandType, TokenKind},
@@ -33,7 +36,12 @@ fn run(code: &str) -> Result<(), Error> {
     let mut parser = Parser::new(tokens);
     let ast = parser.parse().map_err(Error::ParserError)?;
 
-    println!("{:#?}", ast);
+    // println!("{:#?}", ast);
+
+    let interpreter = Interpreter::new(ast);
+    let result = interpreter.start().map_err(Error::InterpreterError)?;
+
+    println!("{:?}", result);
 
     Ok(())
 }
@@ -111,6 +119,16 @@ fn format_error(input: String, error: Error) {
             ParserError::UnmatchedClosingParen { paren } => (
                 "Found an unmatched closing parenthesis".to_string(),
                 paren.span,
+            ),
+        },
+        // Interpreter errors
+        Error::InterpreterError(error) => match error {
+            InterpreterError::InvalidBinaryExpression { operator, lhs, rhs } => (
+                format!(
+                    "Cannot combine values of type {:?} and {:?} through the operator {:?}",
+                    lhs, rhs, operator
+                ),
+                Span::new(0, 0),
             ),
         },
     };
