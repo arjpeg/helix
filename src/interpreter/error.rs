@@ -20,4 +20,10 @@ pub enum InterpreterError {
         ///The span of the binary expression.
         span: Span,
     },
+
+    /// A division by zero occurred.
+    DivisionByZero {
+        ///The span of the binary expression.
+        span: Span,
+    },
 }

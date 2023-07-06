@@ -1,7 +1,7 @@
+use crate::interpreter::error::InterpreterError;
 use crate::lexer::span::Span;
 use crate::lexer::token::OperatorKind;
 
-use super::error::InterpreterError::*;
 use super::InterpreterResult;
 
 /// A generic data type.
@@ -29,22 +29,28 @@ pub enum ValueKind {
 }
 
 macro_rules! impl_binary_op {
-    ($name:ident $operator:ident { $(($lhs:pat, $rhs:pat) => $body:expr),* $(,)? }) => {
+    ($name:ident, $operator:ident, { $(($lhs:pat, $rhs:pat $(, $span:ident)? $(,)?) => $body:expr),* $(,)? }) => {
         pub fn $name(&self, other: Value) -> InterpreterResult<Value> {
             #[allow(unused_imports)]
             use ValueKind::*;
 
+            let expr_span: Span = (self.span.start..other.span.end).into();
+
             match (self.clone().kind, other.clone().kind) {
                 $(
-                    // If $body returns Ok(ValueKind), then wrap it in a Value.
-                    // Otherwise, return the error.
-                    ($lhs, $rhs) => $body.map(|kind| Value {
-                        kind,
-                        span: (self.span.start..other.span.end).into(),
-                    }),
+                    ($lhs, $rhs) => {
+                        $(
+                            let $span = expr_span.clone();
+                        )?
+
+                        $body.map(|kind| Value {
+                            kind,
+                            span: expr_span.clone(),
+                        })
+                    },
                 )*
 
-                _ => Err(InvalidBinaryExpression {
+                _ => Err(InterpreterError::InvalidBinaryExpression {
                     operator: OperatorKind::$operator,
                     lhs: self.clone(),
                     rhs: other.clone(),
@@ -68,23 +74,30 @@ impl Value {
         }
     }
 
-    impl_binary_op!(add Plus {
+    // Binary Operations
+    impl_binary_op!(add, Plus, {
         (Number(lhs), Number(rhs)) => Ok(Number(lhs + rhs)),
     });
 
-    impl_binary_op!(subtract Minus {
-        // (Number(lhs), Number(rhs)) => Ok(Number(lhs - rhs)),
+    impl_binary_op!(subtract, Minus, {
+        (Number(lhs), Number(rhs)) => Ok(Number(lhs - rhs)),
     });
 
-    impl_binary_op!(multiply Star {
+    impl_binary_op!(multiply, Star, {
         (Number(lhs), Number(rhs)) => Ok(Number(lhs * rhs)),
     });
 
-    impl_binary_op!(divide Slash {
-        (Number(lhs), Number(rhs)) => Ok(Number(lhs / rhs)),
+    impl_binary_op!(divide, Slash, {
+        (Number(lhs), Number(rhs), span) => {
+            if rhs == 0.0 {
+                Err(InterpreterError::DivisionByZero { span })
+            } else {
+                Ok(Number(lhs / rhs))
+            }
+        },
     });
 
-    impl_binary_op!(power Power {
+    impl_binary_op!(power, Power, {
         (Number(lhs), Number(rhs)) => Ok(Number(lhs.powf(rhs))),
     });
 }

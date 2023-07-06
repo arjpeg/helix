@@ -41,7 +41,7 @@ fn run(code: &str) -> Result<(), Error> {
     let interpreter = Interpreter::new(ast);
     let result = interpreter.start().map_err(Error::InterpreterError)?;
 
-    println!("{:?}", result);
+    println!("{:?}", result.kind);
 
     Ok(())
 }
@@ -135,6 +135,7 @@ fn format_error(input: String, error: Error) {
                 ),
                 span,
             ),
+            InterpreterError::DivisionByZero { span } => ("Division by zero".to_string(), span),
         },
     };
 
