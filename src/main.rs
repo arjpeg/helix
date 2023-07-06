@@ -18,7 +18,7 @@ use crate::{
     parser::{error::ParserError, Parser},
 };
 
-fn run(code: &str) -> Result<(), Error> {
+fn run(code: &str, interpreter: &mut Interpreter) -> Result<(), Error> {
     let mut lexer = Lexer::new(code);
     let tokens = lexer.lex().map_err(Error::Lexer)?;
 
@@ -38,8 +38,7 @@ fn run(code: &str) -> Result<(), Error> {
 
     // println!("{:#?}", ast);
 
-    let interpreter = Interpreter::new(ast);
-    let result = interpreter.start().map_err(Error::Interpreter)?;
+    let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
 
     println!("{:?}", result.kind);
 
@@ -49,9 +48,11 @@ fn run(code: &str) -> Result<(), Error> {
 fn main() {
     input::print_intro();
 
+    let mut interpreter = Interpreter::new(None);
+
     loop {
         let input = input::get_input();
-        let result = run(&input);
+        let result = run(&input, &mut interpreter);
 
         if let Err(err) = result {
             format_error(input, err);
@@ -136,6 +137,11 @@ fn format_error(input: String, error: Error) {
                 span,
             ),
             InterpreterError::DivisionByZero { span } => ("Division by zero".to_string(), span),
+
+            InterpreterError::UndefinedVariable { name, span } => (
+                format!("Can't find variable {} in the current scope", name),
+                span,
+            ),
         },
     };
 

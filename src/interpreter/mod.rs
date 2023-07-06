@@ -1,6 +1,8 @@
 mod data;
 pub mod error;
 
+use std::collections::HashMap;
+
 use crate::{
     lexer::token::OperatorKind,
     parser::ast::{AstNode, AstNodeKind},
@@ -14,7 +16,10 @@ use self::{
 /// A struct that represents an interpreter.
 pub struct Interpreter {
     /// The AST that the interpreter will interpret.
-    pub ast: AstNode,
+    pub ast: Option<AstNode>,
+
+    /// The variables in context.
+    pub variables: HashMap<String, Value>,
 }
 
 // A type alias for the result of the interpreter.
@@ -22,16 +27,24 @@ type InterpreterResult<T> = Result<T, InterpreterError>;
 
 impl Interpreter {
     /// Creates a new interpreter.
-    pub fn new(ast: AstNode) -> Self {
-        Self { ast }
+    pub fn new(ast: Option<AstNode>) -> Self {
+        Self {
+            ast,
+            variables: HashMap::new(),
+        }
     }
 
-    pub fn start(self) -> InterpreterResult<Value> {
-        Interpreter::interpret(self.ast)
+    #[allow(dead_code)]
+    pub fn start(mut self) -> InterpreterResult<Value> {
+        self.interpret(
+            self.ast
+                .clone()
+                .expect("can't start interpreter without ast"),
+        )
     }
 
     /// Interprets the AST.
-    fn interpret(ast: AstNode) -> InterpreterResult<Value> {
+    pub fn interpret(&mut self, ast: AstNode) -> InterpreterResult<Value> {
         match ast.kind {
             AstNodeKind::NumberLiteral(number) => Ok(Value {
                 kind: ValueKind::Number(number),
@@ -39,7 +52,23 @@ impl Interpreter {
             }),
 
             AstNodeKind::BinaryExpression { lhs, op, rhs } => {
-                Ok(Interpreter::interpret_binary_expr(*lhs, op, *rhs)?)
+                Ok(self.interpret_binary_expr(*lhs, op, *rhs)?)
+            }
+
+            AstNodeKind::Assignment { name, value } => {
+                let value = self.interpret(*value)?;
+                self.variables.insert(name, value.clone());
+
+                Ok(value)
+            }
+
+            AstNodeKind::VariableReference(name) => {
+                Ok(self.variables.get(&name).cloned().ok_or_else(|| {
+                    InterpreterError::UndefinedVariable {
+                        name,
+                        span: ast.span,
+                    }
+                })?)
             }
 
             _ => todo!(),
@@ -48,12 +77,13 @@ impl Interpreter {
 
     /// Interprets a binary expression.
     fn interpret_binary_expr(
+        &mut self,
         lhs: AstNode,
         op: OperatorKind,
         rhs: AstNode,
     ) -> InterpreterResult<Value> {
-        let lhs_value = Interpreter::interpret(lhs)?;
-        let rhs_value = Interpreter::interpret(rhs)?;
+        let lhs_value = self.interpret(lhs)?;
+        let rhs_value = self.interpret(rhs)?;
 
         use OperatorKind::*;
 

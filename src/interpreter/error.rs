@@ -26,4 +26,13 @@ pub enum InterpreterError {
         ///The span of the binary expression.
         span: Span,
     },
+
+    /// An attempt to access a variable that does not exist occurred.
+    UndefinedVariable {
+        /// The name of the variable that does not exist.
+        name: String,
+
+        /// The span of the variable.
+        span: Span,
+    },
 }
