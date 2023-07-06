@@ -30,7 +30,7 @@ pub enum ValueKind {
 
 macro_rules! impl_binary_op {
     ($name:ident, $operator:ident, { $(($lhs:pat, $rhs:pat $(, $span:ident)? $(,)?) => $body:expr),* $(,)? }) => {
-        pub fn $name(&self, other: Value) -> InterpreterResult<Value> {
+        pub fn $name(&self, other: &Value) -> InterpreterResult<Value> {
             #[allow(unused_imports)]
             use ValueKind::*;
 
@@ -107,6 +107,14 @@ impl Value {
 
     impl_binary_op!(less_than_or_equal, LessThanOrEqual, {
         (Number(lhs), Number(rhs)) => Ok(Boolean(lhs <= rhs)),
+    });
+
+    impl_binary_op!(greater_than, GreaterThan, {
+        (Number(lhs), Number(rhs)) => Ok(Boolean(lhs > rhs)),
+    });
+
+    impl_binary_op!(greater_than_or_equal, GreaterThanOrEqual, {
+        (Number(lhs), Number(rhs)) => Ok(Boolean(lhs >= rhs)),
     });
 
     impl_binary_op!(equals, Equals, {

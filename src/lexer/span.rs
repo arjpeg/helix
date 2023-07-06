@@ -16,6 +16,7 @@ impl Span {
 
     /// Returns the length of the span.
     pub fn len(&self) -> usize {
+        dbg!(self.end, self.start);
         self.end - self.start
     }
 }
