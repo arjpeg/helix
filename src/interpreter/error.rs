@@ -16,7 +16,8 @@ pub enum InterpreterError {
 
         /// The right hand side of the binary expression.
         rhs: Value,
-        //FIXME: The span of the binary expression.
-        // span: Span,
+
+        ///The span of the binary expression.
+        span: Span,
     },
 }

@@ -36,7 +36,7 @@ fn run(code: &str) -> Result<(), Error> {
     let mut parser = Parser::new(tokens);
     let ast = parser.parse().map_err(Error::ParserError)?;
 
-    // println!("{:#?}", ast);
+    println!("{:#?}", ast);
 
     let interpreter = Interpreter::new(ast);
     let result = interpreter.start().map_err(Error::InterpreterError)?;
@@ -123,12 +123,17 @@ fn format_error(input: String, error: Error) {
         },
         // Interpreter errors
         Error::InterpreterError(error) => match error {
-            InterpreterError::InvalidBinaryExpression { operator, lhs, rhs } => (
+            InterpreterError::InvalidBinaryExpression {
+                operator,
+                lhs,
+                rhs,
+                span,
+            } => (
                 format!(
-                    "Cannot combine values of type {:?} and {:?} through the operator {:?}",
-                    lhs, rhs, operator
+                    "Cannot use the operator {:?} between values of type {:?} and {:?}",
+                    operator, lhs.kind, rhs.kind,
                 ),
-                Span::new(0, 0),
+                span,
             ),
         },
     };
