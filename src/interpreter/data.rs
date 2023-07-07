@@ -1,3 +1,5 @@
+use std::fmt;
+
 use crate::interpreter::error::InterpreterError;
 use crate::lexer::span::Span;
 use crate::lexer::token::OperatorKind;
@@ -120,4 +122,16 @@ impl Value {
     impl_binary_op!(equals, Equals, {
         (Number(lhs), Number(rhs)) => Ok(Boolean(lhs == rhs)),
     });
+}
+
+impl fmt::Display for ValueKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        use ValueKind::*;
+
+        match self {
+            Number(number) => write!(f, "{}", number),
+            Boolean(boolean) => write!(f, "{}", boolean),
+            Null => write!(f, "null"),
+        }
+    }
 }

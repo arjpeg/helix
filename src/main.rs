@@ -36,11 +36,11 @@ fn run(code: &str, interpreter: &mut Interpreter) -> Result<(), Error> {
     let mut parser = Parser::new(tokens);
     let ast = parser.parse().map_err(Error::Parser)?;
 
-    println!("{:#?}", ast);
+    // println!("{:#?}", ast);
 
-    // let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
+    let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
 
-    // println!("{:?}", result.kind);
+    println!("{}", result.kind);
 
     Ok(())
 }
