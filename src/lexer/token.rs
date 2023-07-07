@@ -110,6 +110,7 @@ pub enum KeywordKind {
     If,
     Else,
     Print,
+    While,
 }
 
 impl KeywordKind {
@@ -119,6 +120,7 @@ impl KeywordKind {
             "if" => Some(KeywordKind::If),
             "else" => Some(KeywordKind::Else),
             "print" => Some(KeywordKind::Print),
+            "while" => Some(KeywordKind::While),
             _ => None,
         }
     }

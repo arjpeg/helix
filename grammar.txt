@@ -6,15 +6,20 @@ statement : expression
           | let_statement
           | if_statement
           | print_statement
+          | while_statement
+
+block : LBRACE statement_list RBRACE
 
 let_statement : LET IDENT ASSIGN expression
 
 print_statement : PRINT expression
                 | PRINT LPAREN expression RPAREN
 
-if_statement | IF expression LBRACE statement_list RBRACE (else_statement)?
-else_statement : ELSE LBRACE statement_list RBRACE
+if_statement | IF expression LBRACE BLOCK (else_statement)?
+else_statement : ELSE LBRACE BLOCK
                : ELSE if_statement
+
+while_statement : WHILE expression LBRACE BLOCK
 
 expression : comparison_expr ((AND | OR) comparison_expr) *
 comparison_expr : arith_expression ((EQ | NEQ | LT | LEQ | GT | GEQ) arith_expression) *

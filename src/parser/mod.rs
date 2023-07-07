@@ -92,6 +92,7 @@ impl Parser {
                 KeywordKind::Let => self.parse_assignment(),
                 KeywordKind::If => self.parse_if(),
                 KeywordKind::Print => self.parse_print(),
+                KeywordKind::While => self.parse_while(),
 
                 _ => {
                     return Err(ParserError::UnexpectedToken {
@@ -262,6 +263,25 @@ impl Parser {
         Ok(AstNode {
             kind: AstNodeKind::Else {
                 body: Box::new(else_body),
+            },
+            span: Span::new(start, end),
+        })
+    }
+
+    /// Parses a while statement. (WHILE EXPR BLOCK)
+    fn parse_while(&mut self) -> ParserResult<AstNode> {
+        let start = self.pos;
+        self.advance();
+
+        let condition = self.parse_expr()?;
+        let body = self.parse_block()?;
+
+        let end = self.pos;
+
+        Ok(AstNode {
+            kind: AstNodeKind::While {
+                condition: Box::new(condition),
+                body: Box::new(body),
             },
             span: Span::new(start, end),
         })

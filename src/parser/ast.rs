@@ -73,4 +73,10 @@ pub enum AstNodeKind {
 
     /// A print statement
     Print { expression: Box<AstNode> },
+
+    /// A while loop
+    While {
+        condition: Box<AstNode>,
+        body: Box<AstNode>,
+    },
 }

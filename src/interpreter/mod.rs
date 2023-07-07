@@ -82,7 +82,7 @@ impl Interpreter {
             }
 
             AstNodeKind::VariableReference(name) => {
-                Ok(self.variables.get(&name).cloned().ok_or_else(|| {
+                Ok(self.variables.get(&name).cloned().ok_or({
                     InterpreterError::UndefinedVariable {
                         name,
                         span: ast.span,
@@ -132,6 +132,19 @@ impl Interpreter {
                     kind: ValueKind::Null,
                     span: ast.span,
                 })
+            }
+
+            AstNodeKind::While { condition, body } => {
+                let mut last_value = Value {
+                    kind: ValueKind::Null,
+                    span: ast.span,
+                };
+
+                while self.interpret(*condition.clone())?.is_truthy() {
+                    last_value = self.interpret(*body.clone())?;
+                }
+
+                Ok(last_value)
             }
 
             AstNodeKind::Empty => Ok(Value {

@@ -20,7 +20,7 @@ use crate::{
     parser::{error::ParserError, Parser},
 };
 
-fn run(code: &str, interpreter: &mut Interpreter) -> Result<(), Error> {
+fn run(code: &str, interpreter: &mut Interpreter, in_repl: bool) -> Result<(), Error> {
     let mut lexer = Lexer::new(code);
     let tokens = lexer.lex().map_err(Error::Lexer)?;
 
@@ -43,9 +43,11 @@ fn run(code: &str, interpreter: &mut Interpreter) -> Result<(), Error> {
     let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
 
     // if the result isn't Null, print it
-    match result.kind {
-        ValueKind::Null => {}
-        _ => println!("{}", result.kind),
+    if in_repl {
+        match result.kind {
+            ValueKind::Null => {}
+            _ => println!("{}", result.kind),
+        }
     }
 
     Ok(())
@@ -58,7 +60,7 @@ fn repl() {
 
     loop {
         let input = input::get_input();
-        let result = run(&input, &mut interpreter);
+        let result = run(&input, &mut interpreter, true);
 
         if let Err(err) = result {
             format_error(input, err);
@@ -73,7 +75,7 @@ fn main() {
 
         for file in std::env::args().skip(1) {
             let code = std::fs::read_to_string(&file).unwrap();
-            let result = run(&code, &mut interpreter);
+            let result = run(&code, &mut interpreter, false);
 
             if let Err(err) = result {
                 format_error(code, err);
