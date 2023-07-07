@@ -21,6 +21,18 @@ pub enum InterpreterError {
         span: Span,
     },
 
+    /// An invalid unary expression was encountered.
+    InvalidUnaryExpression {
+        /// The operator that was used.
+        operator: OperatorKind,
+
+        /// The expression that was used.
+        expr: Value,
+
+        ///The span of the unary expression.
+        span: Span,
+    },
+
     /// A division by zero occurred.
     DivisionByZero {
         ///The span of the binary expression.

@@ -164,6 +164,18 @@ fn format_error(input: String, error: Error) {
                 ),
                 span,
             ),
+            InterpreterError::InvalidUnaryExpression {
+                operator,
+                expr,
+                span,
+            } => (
+                format!(
+                    "Cannot use the operator {:?} on a value of type {:?}",
+                    operator, expr.kind
+                ),
+                span,
+            ),
+
             InterpreterError::DivisionByZero { span } => ("Division by zero".to_string(), span),
 
             InterpreterError::UndefinedVariable { name, span } => (

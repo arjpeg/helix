@@ -66,6 +66,38 @@ macro_rules! impl_binary_op {
     };
 }
 
+macro_rules! impl_unary_op {
+    ($name:ident, $operator:ident, { $(($lhs:pat $(, $span:ident)? $(,)?) => $body:expr),* $(,)? }) => {
+        pub fn $name(&self) -> InterpreterResult<Value> {
+            #[allow(unused_imports)]
+            use ValueKind::*;
+
+            let expr_span: Span = self.span;
+
+            match (self.clone().kind) {
+                $(
+                    $lhs => {
+                        $(
+                            let $span = expr_span.clone();
+                        )?
+
+                        $body.map(|kind| Value {
+                            kind,
+                            span: expr_span.clone(),
+                        })
+                    },
+                )*
+
+                _ => Err(InterpreterError::InvalidUnaryExpression {
+                    operator: OperatorKind::$operator,
+                    expr: self.clone(),
+                    span: (self.span.start-1..self.span.end).into(),
+                }),
+            }
+        }
+    };
+}
+
 impl Value {
     /// Returns whether or not the value is truthy.
     #[allow(dead_code)]
@@ -107,6 +139,10 @@ impl Value {
 
     impl_binary_op!(power, Power, {
         (Number(lhs), Number(rhs)) => Ok(Number(lhs.powf(rhs))),
+    });
+
+    impl_unary_op!(negate, Minus, {
+        (Number(lhs)) => Ok(Number(-lhs)),
     });
 
     impl_binary_op!(less_than, LessThan, {

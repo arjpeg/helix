@@ -60,6 +60,20 @@ impl Interpreter {
                 Ok(self.interpret_binary_expr(*lhs, op, *rhs)?)
             }
 
+            AstNodeKind::UnaryExpression { op, expr } => {
+                let expr = self.interpret(*expr)?;
+
+                use OperatorKind::*;
+                match op {
+                    Minus => expr.negate(),
+                    Bang => Ok(Value {
+                        kind: ValueKind::Boolean(!expr.is_truthy()),
+                        span: ast.span,
+                    }),
+                    _ => unreachable!(),
+                }
+            }
+
             AstNodeKind::Assignment { name, value } => {
                 let value = self.interpret(*value)?;
                 self.variables.insert(name, value.clone());
@@ -120,7 +134,10 @@ impl Interpreter {
                 })
             }
 
-            _ => todo!(),
+            AstNodeKind::Empty => Ok(Value {
+                kind: ValueKind::Null,
+                span: ast.span,
+            }),
         }
     }
 
