@@ -5,8 +5,12 @@ statement_list : (statement) *
 statement : expression
           | let_statement
           | if_statement
+          | print_statement
 
 let_statement : LET IDENT ASSIGN expression
+
+print_statement : PRINT expression
+                | PRINT LPAREN expression RPAREN
 
 if_statement | IF expression LBRACE statement_list RBRACE (else_statement)?
 else_statement : ELSE LBRACE statement_list RBRACE

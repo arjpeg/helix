@@ -91,6 +91,7 @@ impl Parser {
             TokenKind::Keyword(keyword) => match keyword {
                 KeywordKind::Let => self.parse_assignment(),
                 KeywordKind::If => self.parse_if(),
+                KeywordKind::Print => self.parse_print(),
 
                 _ => {
                     return Err(ParserError::UnexpectedToken {
@@ -174,6 +175,41 @@ impl Parser {
             kind: AstNodeKind::Assignment {
                 name: ident,
                 value: Box::new(expr),
+            },
+            span: Span::new(start, end),
+        })
+    }
+
+    /// Parses a print statement. (PRINT EXPR)
+    fn parse_print(&mut self) -> ParserResult<AstNode> {
+        let start = self.pos;
+
+        self.advance();
+
+        let found_left_paren = matches!(
+            self.peek(),
+            Some(Token {
+                token_kind: TokenKind::LeftParen,
+                ..
+            }),
+        );
+
+        if found_left_paren {
+            self.advance();
+        }
+
+        let expr = self.parse_expr()?;
+
+        if found_left_paren {
+            self.expect(TokenKind::RightParen)?;
+            self.advance();
+        }
+
+        let end = self.pos;
+
+        Ok(AstNode {
+            kind: AstNodeKind::Print {
+                expression: Box::new(expr),
             },
             span: Span::new(start, end),
         })

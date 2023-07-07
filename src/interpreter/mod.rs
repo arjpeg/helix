@@ -1,4 +1,4 @@
-mod data;
+pub mod data;
 pub mod error;
 
 use std::collections::HashMap;
@@ -69,6 +69,16 @@ impl Interpreter {
                         span: ast.span,
                     }
                 })?)
+            }
+
+            AstNodeKind::Print { expression } => {
+                let value = self.interpret(*expression)?;
+                println!("{}", value.kind);
+
+                Ok(Value {
+                    kind: ValueKind::Null,
+                    span: ast.span,
+                })
             }
 
             _ => todo!(),

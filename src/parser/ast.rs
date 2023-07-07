@@ -67,4 +67,7 @@ pub enum AstNodeKind {
         /// The body of the else expression
         body: Box<AstNode>,
     },
+
+    /// A print statement
+    Print { expression: Box<AstNode> },
 }

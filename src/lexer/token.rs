@@ -106,6 +106,7 @@ pub enum KeywordKind {
     Let,
     If,
     Else,
+    Print,
 }
 
 impl KeywordKind {
@@ -114,6 +115,7 @@ impl KeywordKind {
             "let" => Some(KeywordKind::Let),
             "if" => Some(KeywordKind::If),
             "else" => Some(KeywordKind::Else),
+            "print" => Some(KeywordKind::Print),
             _ => None,
         }
     }

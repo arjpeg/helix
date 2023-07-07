@@ -9,6 +9,8 @@ use interpreter::Interpreter;
 use lexer::{error::LexerError, Lexer};
 use owo_colors::OwoColorize;
 
+use interpreter::data::ValueKind;
+
 use crate::{
     interpreter::error::InterpreterError,
     lexer::{
@@ -40,7 +42,11 @@ fn run(code: &str, interpreter: &mut Interpreter) -> Result<(), Error> {
 
     let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
 
-    println!("{}", result.kind);
+    // if the result isn't Null, print it
+    match result.kind {
+        ValueKind::Null => {}
+        _ => println!("{}", result.kind),
+    }
 
     Ok(())
 }
