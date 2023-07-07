@@ -71,6 +71,40 @@ impl Interpreter {
                 })?)
             }
 
+            AstNodeKind::Block { expressions } => {
+                let mut last_value = Value {
+                    kind: ValueKind::Null,
+                    span: ast.span,
+                };
+
+                for expression in expressions {
+                    last_value = self.interpret(expression)?;
+                }
+
+                Ok(last_value)
+            }
+
+            AstNodeKind::If {
+                condition,
+                body,
+                else_branch,
+            } => {
+                let condition = self.interpret(*condition)?;
+
+                if condition.is_truthy() {
+                    self.interpret(*body)
+                } else if let Some(else_branch) = else_branch {
+                    self.interpret(*else_branch)
+                } else {
+                    Ok(Value {
+                        kind: ValueKind::Boolean(false),
+                        span: ast.span,
+                    })
+                }
+            }
+
+            AstNodeKind::Else { body } => self.interpret(*body),
+
             AstNodeKind::Print { expression } => {
                 let value = self.interpret(*expression)?;
                 println!("{}", value.kind);
