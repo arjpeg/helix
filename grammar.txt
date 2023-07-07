@@ -4,8 +4,13 @@ statement_list : (statement) *
 
 statement : expression
           | let_statement
+          | if_statement
 
 let_statement : LET IDENT ASSIGN expression
+
+if_statement | IF expression LBRACE statement_list RBRACE (else_statement)?
+else_statement : ELSE LBRACE statement_list RBRACE
+               : ELSE if_statement
 
 expression : comparison_expr ((AND | OR) comparison_expr) *
 comparison_expr : arith_expression ((EQ | NEQ | LT | LEQ | GT | GEQ) arith_expression) *

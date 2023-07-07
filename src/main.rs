@@ -36,16 +36,16 @@ fn run(code: &str, interpreter: &mut Interpreter) -> Result<(), Error> {
     let mut parser = Parser::new(tokens);
     let ast = parser.parse().map_err(Error::Parser)?;
 
-    // println!("{:#?}", ast);
+    println!("{:#?}", ast);
 
-    let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
+    // let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
 
-    println!("{:?}", result.kind);
+    // println!("{:?}", result.kind);
 
     Ok(())
 }
 
-fn main() {
+fn repl() {
     input::print_intro();
 
     let mut interpreter = Interpreter::new(None);
@@ -58,6 +58,26 @@ fn main() {
             format_error(input, err);
         }
     }
+}
+
+fn main() {
+    // If there are any arguments, run the file
+    if std::env::args().len() > 1 {
+        let mut interpreter = Interpreter::new(None);
+
+        for file in std::env::args().skip(1) {
+            let code = std::fs::read_to_string(&file).unwrap();
+            let result = run(&code, &mut interpreter);
+
+            if let Err(err) = result {
+                format_error(code, err);
+            }
+        }
+
+        return;
+    }
+
+    repl();
 }
 
 fn handle_command(command: CommandType) {

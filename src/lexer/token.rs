@@ -47,6 +47,10 @@ pub enum TokenKind {
     LeftParen,
     RightParen,
 
+    // Left and right curly braces, ie. {, }
+    LeftBrace,
+    RightBrace,
+
     // An identifier, ie. a variable name
     Identifier {
         name: String,
@@ -100,12 +104,16 @@ impl CommandType {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum KeywordKind {
     Let,
+    If,
+    Else,
 }
 
 impl KeywordKind {
     pub fn get_keyword(lexeme: &str) -> Option<KeywordKind> {
         match lexeme {
             "let" => Some(KeywordKind::Let),
+            "if" => Some(KeywordKind::If),
+            "else" => Some(KeywordKind::Else),
             _ => None,
         }
     }

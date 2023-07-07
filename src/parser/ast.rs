@@ -29,6 +29,12 @@ pub enum AstNodeKind {
         expr: Box<AstNode>,
     },
 
+    /// A block expression, such as `{ 1 + 1 }`
+    Block {
+        /// The expressions inside the block
+        expressions: Vec<AstNode>,
+    },
+
     /// A number literal, such as `1`
     NumberLiteral(f64),
 
@@ -44,5 +50,21 @@ pub enum AstNodeKind {
         name: String,
         /// The value being assigned
         value: Box<AstNode>,
+    },
+
+    /// An if statement. The `else` branch is optional
+    If {
+        /// The condition of the if expression
+        condition: Box<AstNode>,
+        /// The body of the if expression
+        body: Box<AstNode>,
+        /// The else branch of the if expression
+        else_branch: Option<Box<AstNode>>,
+    },
+
+    /// An else statement
+    Else {
+        /// The body of the else expression
+        body: Box<AstNode>,
     },
 }

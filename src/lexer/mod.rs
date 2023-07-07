@@ -144,6 +144,10 @@ impl Lexer<'_> {
             Some('(') => TokenKind::LeftParen,
             Some(')') => TokenKind::RightParen,
 
+            // Braces
+            Some('{') => TokenKind::LeftBrace,
+            Some('}') => TokenKind::RightBrace,
+
             // Identifiers
             Some(c) if c.is_ascii_alphabetic() || c == '_' => {
                 self.cursor
