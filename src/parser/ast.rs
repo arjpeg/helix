@@ -38,6 +38,9 @@ pub enum AstNodeKind {
     /// A number literal, such as `1`
     NumberLiteral(f64),
 
+    /// A string literal, such as `"hello"`
+    StringLiteral(String),
+
     /// A variable reference, such as `x`
     VariableReference(String),
 

@@ -23,7 +23,8 @@ arith_expression : term ((PLUS | MINUS) term) *
 term : factor ((MUL | DIV) factor) *
 factor : atom (POW factor) *
 
-atom : INTEGER 
-       | IDENT
-       | (PLUS | MINUS | NOT) atom
-       | LPAREN expression RPAREN
+atom : NUMBER
+     | STRING 
+     | IDENT
+     | (PLUS | MINUS | NOT) atom
+     | LPAREN expression RPAREN

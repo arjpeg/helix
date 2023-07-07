@@ -340,6 +340,15 @@ impl Parser {
                 })
             }
 
+            TokenKind::String(string) => {
+                self.advance();
+
+                Ok(AstNode {
+                    kind: AstNodeKind::StringLiteral(string),
+                    span: token.span,
+                })
+            }
+
             TokenKind::Identifier { name } => {
                 self.advance();
 

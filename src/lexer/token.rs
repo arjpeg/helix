@@ -34,6 +34,9 @@ pub enum TokenKind {
     // A number literal
     Number(f64),
 
+    // A string literal
+    String(String),
+
     // Any whitespace characters (ie. space, tab, newline, etc)
     Whitespace,
 

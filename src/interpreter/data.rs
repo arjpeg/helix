@@ -23,6 +23,9 @@ pub enum ValueKind {
     /// A number.
     Number(f64),
 
+    /// A string.
+    String(String),
+
     /// A boolean.
     Boolean(bool),
 
@@ -69,9 +72,10 @@ impl Value {
     pub fn is_truthy(&self) -> bool {
         use ValueKind::*;
 
-        match self.kind {
+        match self.kind.clone() {
             Number(number) => number != 0.0,
             Boolean(boolean) => boolean,
+            String(string) => !string.is_empty(),
             Null => false,
         }
     }
@@ -79,6 +83,7 @@ impl Value {
     // Binary Operations
     impl_binary_op!(add, Plus, {
         (Number(lhs), Number(rhs)) => Ok(Number(lhs + rhs)),
+        (String(lhs), String(rhs)) => Ok(String(lhs + &rhs)),
     });
 
     impl_binary_op!(subtract, Minus, {
@@ -87,6 +92,7 @@ impl Value {
 
     impl_binary_op!(multiply, Star, {
         (Number(lhs), Number(rhs)) => Ok(Number(lhs * rhs)),
+        (String(lhs), Number(rhs)) => Ok(String(lhs.repeat(rhs as usize)))
     });
 
     impl_binary_op!(divide, Slash, {
@@ -128,8 +134,9 @@ impl fmt::Display for ValueKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         use ValueKind::*;
 
-        match self {
+        match self.clone() {
             Number(number) => write!(f, "{}", number),
+            String(string) => write!(f, "{}", string),
             Boolean(boolean) => write!(f, "{}", boolean),
             Null => write!(f, "null"),
         }

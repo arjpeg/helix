@@ -51,6 +51,11 @@ impl Interpreter {
                 span: ast.span,
             }),
 
+            AstNodeKind::StringLiteral(string) => Ok(Value {
+                kind: ValueKind::String(string),
+                span: ast.span,
+            }),
+
             AstNodeKind::BinaryExpression { lhs, op, rhs } => {
                 Ok(self.interpret_binary_expr(*lhs, op, *rhs)?)
             }

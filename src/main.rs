@@ -122,9 +122,11 @@ fn format_error(input: String, error: Error) {
             LexerError::UnknownSymbol { range } => {
                 (format!("Unknown symbol '{}'", &input[range]), range)
             }
-
             LexerError::UnknownCommand { range } => {
                 (format!("Unknown command '{}'", &input[range]), range)
+            }
+            LexerError::UnterminatedString { range } => {
+                ("Unterminated string literal".to_string(), range)
             }
         },
         // Parser errors

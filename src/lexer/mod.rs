@@ -74,6 +74,23 @@ impl Lexer<'_> {
                 TokenKind::Number(lexeme.parse().unwrap())
             }
 
+            // Strings
+            Some('"') => {
+                self.cursor.advance_while(|c| c != '"');
+
+                if self.cursor.peek() != Some('"') {
+                    return Err(LexerError::UnterminatedString {
+                        range: (start..self.cursor.pos()).into(),
+                    });
+                }
+
+                let lexeme = &self.input[start + 1..self.cursor.pos()];
+
+                self.cursor.advance();
+
+                TokenKind::String(lexeme.to_string())
+            }
+
             // Operators
             Some('+') => TokenKind::Operator(OperatorKind::Plus),
             Some('-') => TokenKind::Operator(OperatorKind::Minus),

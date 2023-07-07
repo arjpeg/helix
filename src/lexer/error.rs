@@ -11,4 +11,7 @@ pub enum LexerError {
 
     /// When the input contains an unknown command.
     UnknownCommand { range: Span },
+
+    /// A string was not terminated.
+    UnterminatedString { range: Span },
 }
