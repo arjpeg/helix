@@ -1,6 +1,7 @@
-print {
-    let x = 1
-    let y = 2
+let a = 10
 
-    x + y
-} + 6.6
+while (a > 0) {
+    print a
+    let a -= 1
+}
+

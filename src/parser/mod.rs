@@ -140,7 +140,7 @@ impl Parser {
         })
     }
 
-    /// Parses an assignment statement. (LET IDENT ASSIGN EXPR)
+    /// Parses an assignment statement. (LET IDENT (OP)? ASSIGN EXPR)
     fn parse_assignment(&mut self) -> ParserResult<AstNode> {
         let start = self.pos;
 
@@ -168,6 +168,24 @@ impl Parser {
         }
         .clone();
 
+        let binary_assign_op = match self.clone().peek() {
+            Some(t) => match &t.token_kind {
+                TokenKind::Operator(op) => match op {
+                    OperatorKind::Plus
+                    | OperatorKind::Minus
+                    | OperatorKind::Star
+                    | OperatorKind::Slash
+                    | OperatorKind::Power => {
+                        self.advance();
+                        Some(op.clone())
+                    }
+                    _ => None,
+                },
+                _ => None,
+            },
+            None => None,
+        };
+
         self.expect(TokenKind::Operator(OperatorKind::Assign))?;
         self.advance();
 
@@ -175,13 +193,33 @@ impl Parser {
 
         let end = self.pos;
 
-        Ok(AstNode {
-            kind: AstNodeKind::Assignment {
-                name: ident,
-                value: Box::new(expr),
-            },
-            span: Span::new(start, end),
-        })
+        match binary_assign_op {
+            Some(op) => Ok(AstNode {
+                kind: AstNodeKind::Assignment {
+                    name: ident.clone(),
+                    value: Box::new(AstNode {
+                        kind: AstNodeKind::BinaryExpression {
+                            op,
+                            lhs: Box::new(AstNode {
+                                kind: AstNodeKind::VariableReference(ident),
+                                span: Span::new(start, end),
+                            }),
+                            rhs: Box::new(expr),
+                        },
+                        span: Span::new(start, end),
+                    }),
+                },
+                span: Span::new(start, end),
+            }),
+
+            None => Ok(AstNode {
+                kind: AstNodeKind::Assignment {
+                    name: ident,
+                    value: Box::new(expr),
+                },
+                span: Span::new(start, end),
+            }),
+        }
     }
 
     /// Parses a print statement. (PRINT EXPR)
