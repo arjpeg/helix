@@ -101,6 +101,9 @@ impl Parser {
                     })
                 }
             },
+
+            TokenKind::LeftBrace => self.parse_block(),
+
             _ => self.parse_expr(),
         }
     }
@@ -368,6 +371,8 @@ impl Parser {
                     span: token.span,
                 })
             }
+
+            TokenKind::LeftBrace => self.parse_block(),
 
             TokenKind::Identifier { name } => {
                 self.advance();
