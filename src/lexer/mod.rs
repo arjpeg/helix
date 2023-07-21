@@ -58,8 +58,9 @@ impl Lexer<'_> {
 
         let kind = match c {
             // Whitespace
-            Some(c) if c.is_ascii_whitespace() => {
-                self.cursor.advance_while(|c| c.is_ascii_whitespace());
+            Some(c) if c.is_ascii_whitespace() || c == ';' => {
+                self.cursor
+                    .advance_while(|c| c.is_ascii_whitespace() || c == ';');
 
                 TokenKind::Whitespace
             }
