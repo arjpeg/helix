@@ -151,6 +151,21 @@ impl Interpreter {
                 kind: ValueKind::Null,
                 span: ast.span,
             }),
+
+            AstNodeKind::FunctionDefinition { params, body, name } => {
+                let value = Value {
+                    kind: ValueKind::Function {
+                        name: name.clone(),
+                        parameters: params,
+                        body: *body,
+                    },
+                    span: ast.span,
+                };
+
+                self.variables.insert(name, value.clone());
+
+                Ok(value)
+            }
         }
     }
 

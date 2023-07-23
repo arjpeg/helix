@@ -79,4 +79,12 @@ pub enum AstNodeKind {
         condition: Box<AstNode>,
         body: Box<AstNode>,
     },
+
+    /// A function statement
+    /// (Not a function expression)
+    FunctionDefinition {
+        params: Vec<String>,
+        body: Box<AstNode>,
+        name: String,
+    },
 }

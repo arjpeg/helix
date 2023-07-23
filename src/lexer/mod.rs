@@ -108,6 +108,8 @@ impl Lexer<'_> {
                 }
             }
 
+            Some(',') => TokenKind::Comma,
+
             // Comparisons
             Some('=') => {
                 if self.cursor.peek() == Some('=') {

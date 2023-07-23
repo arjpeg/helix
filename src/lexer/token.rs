@@ -46,6 +46,8 @@ pub enum TokenKind {
     // An operator, such as +, -, *, /, etc.
     Operator(OperatorKind),
 
+    Comma,
+
     // Parenthesis, ie. (, )
     LeftParen,
     RightParen,
@@ -111,6 +113,7 @@ pub enum KeywordKind {
     Else,
     Print,
     While,
+    Function,
 }
 
 impl KeywordKind {
@@ -121,6 +124,7 @@ impl KeywordKind {
             "else" => Some(KeywordKind::Else),
             "print" => Some(KeywordKind::Print),
             "while" => Some(KeywordKind::While),
+            "fn" => Some(KeywordKind::Function),
             _ => None,
         }
     }

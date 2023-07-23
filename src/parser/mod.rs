@@ -93,6 +93,7 @@ impl Parser {
                 KeywordKind::If => self.parse_if(),
                 KeywordKind::Print => self.parse_print(),
                 KeywordKind::While => self.parse_while(),
+                KeywordKind::Function => self.parse_function(),
 
                 _ => {
                     return Err(ParserError::UnexpectedToken {
@@ -112,7 +113,7 @@ impl Parser {
     fn parse_block(&mut self) -> ParserResult<AstNode> {
         let start = self.pos;
 
-        self.expect(TokenKind::LeftBrace)?;
+        self.expect(&[TokenKind::LeftBrace])?;
         self.advance();
 
         let mut statements = Vec::new();
@@ -127,7 +128,7 @@ impl Parser {
             statements.push(self.parse_statement()?);
         }
 
-        self.expect(TokenKind::RightBrace)?;
+        self.expect(&[TokenKind::RightBrace])?;
         self.advance();
 
         let end = self.pos;
@@ -186,7 +187,7 @@ impl Parser {
             None => None,
         };
 
-        self.expect(TokenKind::Operator(OperatorKind::Assign))?;
+        self.expect(&[TokenKind::Operator(OperatorKind::Assign)])?;
         self.advance();
 
         let expr = self.parse_expr()?;
@@ -243,7 +244,7 @@ impl Parser {
         let expr = self.parse_expr()?;
 
         if found_left_paren {
-            self.expect(TokenKind::RightParen)?;
+            self.expect(&[TokenKind::RightParen])?;
             self.advance();
         }
 
@@ -252,6 +253,73 @@ impl Parser {
         Ok(AstNode {
             kind: AstNodeKind::Print {
                 expression: Box::new(expr),
+            },
+            span: Span::new(start, end),
+        })
+    }
+
+    /// Parses a function declaration. (FUNCTION IDENT LBRACE STATEMENT* RBRACE)
+    fn parse_function(&mut self) -> ParserResult<AstNode> {
+        let start = self.pos;
+
+        self.expect(&[TokenKind::Keyword(KeywordKind::Function)])?;
+        self.advance();
+
+        let name = match self.peek() {
+            Some(Token {
+                token_kind: TokenKind::Identifier { name },
+                ..
+            }) => name.clone(),
+            _ => {
+                return Err(ParserError::UnexpectedToken {
+                    expected: "an identifier as the function name".to_string(),
+                    found: self.peek().unwrap().clone(),
+                })
+            }
+        };
+        self.advance();
+
+        self.expect(&[TokenKind::LeftParen])?;
+        self.advance();
+
+        let mut params = Vec::new();
+
+        while let Some(Token {
+            token_kind: TokenKind::Identifier { name },
+            ..
+        }) = self.clone().peek()
+        {
+            params.push(name.clone());
+            self.advance();
+
+            self.expect(&[TokenKind::Comma, TokenKind::RightParen])?;
+
+            if matches!(
+                self.clone().peek(),
+                Some(Token {
+                    token_kind: TokenKind::RightParen,
+                    ..
+                })
+            ) {
+                break;
+            }
+
+            self.advance();
+        }
+
+        // Just a sanity check, as the above loop should always break
+        self.expect(&[TokenKind::RightParen])?;
+        self.advance();
+
+        let body = self.parse_block()?;
+
+        let end = self.pos;
+
+        Ok(AstNode {
+            kind: AstNodeKind::FunctionDefinition {
+                params,
+                name: name.clone(),
+                body: Box::new(body),
             },
             span: Span::new(start, end),
         })
@@ -288,7 +356,7 @@ impl Parser {
     /// Parses an else statement. (ELSE BLOCK) | (ELSE if_statement)
     fn parse_else(&mut self) -> ParserResult<AstNode> {
         let start = self.pos;
-        self.expect(TokenKind::Keyword(KeywordKind::Else))?;
+        self.expect(&[TokenKind::Keyword(KeywordKind::Else)])?;
         self.advance();
 
         let else_body = match self.peek() {
@@ -448,7 +516,7 @@ impl Parser {
 
                 let expr = self.parse_expr()?;
 
-                self.expect(TokenKind::RightParen)?;
+                self.expect(&[TokenKind::RightParen])?;
                 self.advance();
 
                 Ok(expr)
@@ -516,16 +584,30 @@ impl Parser {
     }
 
     /// Expects the current token to be of a certain kind.
-    fn expect(&mut self, kind: TokenKind) -> ParserResult<()> {
+    fn expect(&mut self, kinds: &[TokenKind]) -> ParserResult<()> {
+        let kinds_str = {
+            let mut kinds_str = String::new();
+
+            for (idx, kind) in kinds.iter().enumerate() {
+                if idx == kinds.len() - 1 {
+                    kinds_str.push_str(&format!("{:?}", kind));
+                } else {
+                    kinds_str.push_str(&format!("{:?}, ", kind));
+                }
+            }
+
+            kinds_str
+        };
+
         match self.peek() {
-            Some(token) if token.token_kind == kind => Ok(()),
+            Some(token) if kinds.contains(&token.token_kind) => Ok(()),
 
             Some(token) => Err(ParserError::UnexpectedToken {
-                expected: format!("a {:?}", kind),
+                expected: format!("a {}", kinds_str),
                 found: token.clone(),
             }),
             None => Err(ParserError::UnexpectedEof {
-                expected: format!("a {:?}", kind),
+                expected: format!("a {:?}", kinds_str),
             }),
         }
     }

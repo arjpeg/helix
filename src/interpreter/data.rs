@@ -3,6 +3,7 @@ use std::fmt;
 use crate::interpreter::error::InterpreterError;
 use crate::lexer::span::Span;
 use crate::lexer::token::OperatorKind;
+use crate::parser::ast::AstNode;
 
 use super::InterpreterResult;
 
@@ -28,6 +29,13 @@ pub enum ValueKind {
 
     /// A boolean.
     Boolean(bool),
+
+    /// A function.
+    Function {
+        name: String,
+        parameters: Vec<String>,
+        body: AstNode,
+    },
 
     /// Nothing.
     Null,
@@ -108,6 +116,7 @@ impl Value {
             Number(number) => number != 0.0,
             Boolean(boolean) => boolean,
             String(string) => !string.is_empty(),
+            Function { .. } => true,
             Null => false,
         }
     }
@@ -174,6 +183,11 @@ impl fmt::Display for ValueKind {
             Number(number) => write!(f, "{}", number),
             String(string) => write!(f, "{}", string),
             Boolean(boolean) => write!(f, "{}", boolean),
+            Function {
+                name, parameters, ..
+            } => {
+                write!(f, "function {name}({})", parameters.join(", "))
+            }
             Null => write!(f, "null"),
         }
     }

@@ -7,13 +7,15 @@ statement : expression
           | if_statement
           | print_statement
           | while_statement
+          | function_statement
 
 block : LBRACE statement_list RBRACE
 
 let_statement : LET IDENT ASSIGN expression
 
+function_statement : FUNCTION IDENT LPAREN (IDENT (COMMA IDENT) *)? RPAREN BLOCK
+
 print_statement : PRINT expression
-                | PRINT LPAREN expression RPAREN
 
 if_statement | IF expression LBRACE BLOCK (else_statement)?
 else_statement : ELSE LBRACE BLOCK
