@@ -41,8 +41,21 @@ impl Lexer<'_> {
         }
 
         while let Some(token) = self.next_token()? {
+            if let TokenKind::RightBrace = token.token_kind {
+                tokens.push(Token::new(
+                    (self.cursor.pos()..self.cursor.pos()).into(),
+                    TokenKind::Newline,
+                ));
+            }
+
             tokens.push(token);
         }
+
+        // Push one last newline token
+        tokens.push(Token::new(
+            (self.cursor.pos()..self.cursor.pos()).into(),
+            TokenKind::Newline,
+        ));
 
         Ok(tokens
             .iter()
@@ -57,10 +70,12 @@ impl Lexer<'_> {
         let c = self.cursor.advance();
 
         let kind = match c {
+            // Newline or semicolon
+            Some('\n') | Some(';') => TokenKind::Newline,
+
             // Whitespace
-            Some(c) if c.is_ascii_whitespace() || c == ';' => {
-                self.cursor
-                    .advance_while(|c| c.is_ascii_whitespace() || c == ';');
+            Some(c) if c.is_ascii_whitespace() => {
+                self.cursor.advance_while(|c| c.is_ascii_whitespace());
 
                 TokenKind::Whitespace
             }
@@ -254,13 +269,13 @@ mod tests {
     #[test]
     fn test_empty() {
         let mut lexer = Lexer::new("");
-        assert_eq!(lexer.lex().unwrap().len(), 0);
+        assert_eq!(lexer.lex().unwrap().len(), 1);
     }
 
     #[test]
     fn test_whitespace() {
         let mut lexer = Lexer::new(" \t\n\r");
-        assert_eq!(lexer.lex().unwrap().len(), 0);
+        assert_eq!(lexer.lex().unwrap().len(), 1);
     }
 
     #[test]
@@ -268,7 +283,7 @@ mod tests {
         let mut lexer = Lexer::new("123 456.789 0.1 32");
         let tokens = lexer.lex().unwrap();
 
-        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].token_kind, TokenKind::Number(123.0));
         assert_eq!(tokens[1].token_kind, TokenKind::Number(456.789));
         assert_eq!(tokens[2].token_kind, TokenKind::Number(0.1));
@@ -307,7 +322,7 @@ mod tests {
         let mut lexer = Lexer::new("+-*/^");
         let tokens = lexer.lex().unwrap();
 
-        assert_eq!(tokens.len(), 5);
+        assert_eq!(tokens.len(), 6);
         assert_eq!(
             tokens[0].token_kind,
             TokenKind::Operator(OperatorKind::Plus)
@@ -335,7 +350,7 @@ mod tests {
         let mut lexer = Lexer::new("foo bar baz");
         let tokens = lexer.lex().unwrap();
 
-        assert_eq!(tokens.len(), 3);
+        assert_eq!(tokens.len(), 4);
         assert_eq!(
             tokens[0].token_kind,
             TokenKind::Identifier {
@@ -354,15 +369,23 @@ mod tests {
                 name: "baz".to_string()
             }
         );
+        assert_eq!(tokens[3].token_kind, TokenKind::Newline);
     }
 
     #[test]
     fn test_keywords() {
-        let mut lexer = Lexer::new("let");
+        let mut lexer = Lexer::new("let fn if else");
         let tokens = lexer.lex().unwrap();
 
-        assert_eq!(tokens.len(), 1);
+        assert_eq!(tokens.len(), 5);
         assert_eq!(tokens[0].token_kind, TokenKind::Keyword(KeywordKind::Let));
+        assert_eq!(
+            tokens[1].token_kind,
+            TokenKind::Keyword(KeywordKind::Function)
+        );
+        assert_eq!(tokens[2].token_kind, TokenKind::Keyword(KeywordKind::If));
+        assert_eq!(tokens[3].token_kind, TokenKind::Keyword(KeywordKind::Else));
+        assert_eq!(tokens[4].token_kind, TokenKind::Newline);
     }
 
     #[test]

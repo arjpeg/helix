@@ -63,6 +63,9 @@ pub enum TokenKind {
 
     // A keyword, ie. let, if, else, etc.
     Keyword(KeywordKind),
+
+    // A newline or semicolon
+    Newline,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

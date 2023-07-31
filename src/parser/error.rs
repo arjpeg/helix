@@ -1,4 +1,4 @@
-use crate::lexer::token::Token;
+use crate::lexer::{span::Span, token::Token};
 
 /// An error that occurred during parsing.
 #[derive(Debug, Clone)]
@@ -15,6 +15,11 @@ pub enum ParserError {
     UnexpectedEof {
         /// The expected token.
         expected: String,
+    },
+
+    UnexpectedNewline {
+        expected: String,
+        span: Span,
     },
 
     /// An unmatched closing parenthesis was found.

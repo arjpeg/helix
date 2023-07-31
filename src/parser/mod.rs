@@ -35,7 +35,7 @@ impl Parser {
     pub fn parse(&mut self) -> ParserResult<AstNode> {
         match self.tokens.len() {
             0 => Ok(AstNode {
-                kind: AstNodeKind::Empty,
+                kind: AstNodeKind::NoOp,
                 span: Span::new(0, 0),
             }),
             _ => {
@@ -66,7 +66,13 @@ impl Parser {
         let mut statements = Vec::new();
 
         while self.peek().is_some() {
-            statements.push(self.parse_statement()?);
+            let statement = self.parse_statement()?;
+
+            if matches!(statement.kind, AstNodeKind::NoOp) {
+                continue;
+            }
+
+            statements.push(statement);
         }
 
         let end = self.pos;
@@ -86,27 +92,42 @@ impl Parser {
     /// Parses a statement
     fn parse_statement(&mut self) -> ParserResult<AstNode> {
         // Check against the current token
+        let res = match self.peek() {
+            None => Err(ParserError::UnexpectedEof {
+                expected: "a statement".to_string(),
+            }),
 
-        match self.peek().unwrap().token_kind {
-            TokenKind::Keyword(keyword) => match keyword {
-                KeywordKind::Let => self.parse_assignment(),
-                KeywordKind::If => self.parse_if(),
-                KeywordKind::Print => self.parse_print(),
-                KeywordKind::While => self.parse_while(),
-                KeywordKind::Function => self.parse_function(),
+            Some(tok) => match tok.token_kind {
+                TokenKind::Newline => Ok(AstNode {
+                    kind: AstNodeKind::NoOp,
+                    span: tok.span.clone(),
+                }),
 
-                _ => {
-                    return Err(ParserError::UnexpectedToken {
-                        expected: "a statement".to_string(),
-                        found: self.peek().unwrap().clone(),
-                    })
-                }
+                TokenKind::Keyword(keyword) => match keyword {
+                    KeywordKind::Let => self.parse_assignment(),
+                    KeywordKind::If => self.parse_if(),
+                    KeywordKind::Print => self.parse_print(),
+                    KeywordKind::While => self.parse_while(),
+                    KeywordKind::Function => self.parse_function(),
+
+                    _ => {
+                        return Err(ParserError::UnexpectedToken {
+                            expected: "a statement".to_string(),
+                            found: self.peek().unwrap().clone(),
+                        })
+                    }
+                },
+
+                TokenKind::LeftBrace => self.parse_block(),
+
+                _ => self.parse_expr(),
             },
+        };
 
-            TokenKind::LeftBrace => self.parse_block(),
+        self.expect(&[TokenKind::Newline])?;
+        self.advance();
 
-            _ => self.parse_expr(),
-        }
+        res
     }
 
     /// Parses a block. (LBRACE STATEMENT* RBRACE)
@@ -524,6 +545,11 @@ impl Parser {
 
             TokenKind::RightParen => Err(ParserError::UnmatchedClosingParen { paren: token }),
 
+            TokenKind::Newline => Err(ParserError::UnexpectedNewline {
+                expected: "a number literal or a left parenthesis".to_string(),
+                span: token.span,
+            }),
+
             _ => Err(ParserError::UnexpectedToken {
                 expected: "a number literal or a left parenthesis".to_string(),
                 found: token,
@@ -602,10 +628,26 @@ impl Parser {
         match self.peek() {
             Some(token) if kinds.contains(&token.token_kind) => Ok(()),
 
+            Some(Token {
+                token_kind: TokenKind::Newline,
+                span,
+            }) => Err(ParserError::UnexpectedNewline {
+                expected: format!("a {:?}", kinds_str),
+                span: span.clone(),
+            }),
+
+            Some(Token {
+                token_kind: TokenKind::RightParen,
+                ..
+            }) => Err(ParserError::UnmatchedClosingParen {
+                paren: self.peek().unwrap().clone(),
+            }),
+
             Some(token) => Err(ParserError::UnexpectedToken {
                 expected: format!("a {}", kinds_str),
                 found: token.clone(),
             }),
+
             None => Err(ParserError::UnexpectedEof {
                 expected: format!("a {:?}", kinds_str),
             }),
@@ -632,7 +674,7 @@ mod tests {
         let tokens = vec![];
         let mut parser = Parser::new(tokens);
 
-        assert!(matches!(parser.parse().unwrap().kind, AstNodeKind::Empty));
+        assert!(matches!(parser.parse().unwrap().kind, AstNodeKind::NoOp));
     }
 
     #[test]
@@ -654,8 +696,6 @@ mod tests {
         assert!(matches!(
             parser.parse().unwrap().kind,
             AstNodeKind::BinaryExpression {
-                // TODO: Make this work with Box::new or somehow
-                //       dereference the Box.
                 lhs: _,
                 rhs: _,
                 op: OperatorKind::Plus
@@ -749,7 +789,7 @@ mod tests {
 
         assert!(matches!(
             parser.parse().unwrap_err(),
-            ParserError::UnexpectedEof { .. }
+            ParserError::UnexpectedNewline { .. }
         ));
     }
 
@@ -777,7 +817,7 @@ mod tests {
 
         assert!(matches!(
             parser.parse().unwrap_err(),
-            ParserError::UnexpectedEof { .. }
+            ParserError::UnexpectedNewline { .. }
         ));
     }
 
@@ -921,33 +961,35 @@ if (1 + 3 > 2) {
         let mut parser = Parser::new(tokens);
 
         #[allow(illegal_floating_point_literal_pattern)]
-        if let AstNodeKind::If {
-            condition,
-            body,
-            else_branch,
-        } = parser.parse().unwrap().kind
-        {
-            assert!(matches!(
-                condition.kind,
-                AstNodeKind::BinaryExpression {
-                    lhs: _,
-                    rhs: _,
-                    op: OperatorKind::GreaterThan
-                }
-            ));
-            assert!(matches!(body.kind, AstNodeKind::Block { .. }));
+        if let AstNodeKind::Block { expressions } = parser.parse().unwrap().kind {
+            if let AstNodeKind::If {
+                condition,
+                body,
+                else_branch,
+            } = &expressions[1].kind
+            {
+                assert!(matches!(
+                    condition.kind,
+                    AstNodeKind::BinaryExpression {
+                        lhs: _,
+                        rhs: _,
+                        op: OperatorKind::GreaterThan
+                    }
+                ));
+                assert!(matches!(body.kind, AstNodeKind::Block { .. }));
 
-            if let Some(else_branch) = else_branch {
-                if let AstNodeKind::Else { body } = else_branch.kind {
-                    assert!(matches!(body.kind, AstNodeKind::If { .. }));
+                if let Some(else_branch) = else_branch {
+                    if let AstNodeKind::Else { body } = &else_branch.kind {
+                        assert!(matches!(body.kind, AstNodeKind::If { .. }));
+                    } else {
+                        assert!(false);
+                    }
                 } else {
                     assert!(false);
                 }
             } else {
                 assert!(false);
             }
-        } else {
-            assert!(false);
         }
     }
 }

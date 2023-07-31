@@ -44,8 +44,8 @@ pub enum AstNodeKind {
     /// A variable reference, such as `x`
     VariableReference(String),
 
-    /// An empty tree
-    Empty,
+    /// No operation
+    NoOp,
 
     /// An assignment expression, such as `x = 1`
     Assignment {

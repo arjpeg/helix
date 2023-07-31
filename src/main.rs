@@ -147,6 +147,10 @@ fn format_error(input: String, error: Error) {
                 ),
                 Span::new(input.len() - 1, input.len()),
             ),
+            ParserError::UnexpectedNewline { span, expected } => (
+                format!("Unexpectedly found a newline, expected {expected}"),
+                span,
+            ),
             ParserError::UnmatchedClosingParen { paren } => (
                 "Found an unmatched closing parenthesis".to_string(),
                 paren.span,
@@ -181,7 +185,7 @@ fn format_error(input: String, error: Error) {
             InterpreterError::DivisionByZero { span } => ("Division by zero".to_string(), span),
 
             InterpreterError::UndefinedVariable { name, span } => (
-                format!("Can't find variable {} in the current scope", name),
+                format!("Can't find variable '{}' in the current scope", name),
                 span,
             ),
         },
@@ -189,10 +193,16 @@ fn format_error(input: String, error: Error) {
 
     // Get the line in which the error occurred
     let line_num = input[..range.start].matches('\n').count() + 1;
+    println!("line_num: {line_num}");
+
     let line = input
         .lines()
-        .nth(line_num - 1)
+        .nth(if line_num != 0 { line_num - 1 } else { 0 })
         .expect("Line number out of range");
+
+    // Get the range of the error in the line
+    let line_start_index = input[..range.start].rfind('\n').unwrap_or(0) + 1;
+    let range = range.start - line_start_index..range.end - line_start_index;
 
     let location = format!("{}:{}", "stdin", line_num);
 

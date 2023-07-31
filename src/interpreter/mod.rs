@@ -147,7 +147,7 @@ impl Interpreter {
                 Ok(last_value)
             }
 
-            AstNodeKind::Empty => Ok(Value {
+            AstNodeKind::NoOp => Ok(Value {
                 kind: ValueKind::Null,
                 span: ast.span,
             }),
