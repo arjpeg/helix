@@ -100,7 +100,7 @@ impl Parser {
             Some(tok) => match tok.token_kind {
                 TokenKind::Newline => Ok(AstNode {
                     kind: AstNodeKind::NoOp,
-                    span: tok.span.clone(),
+                    span: tok.span,
                 }),
 
                 TokenKind::Keyword(keyword) => match keyword {
@@ -146,7 +146,13 @@ impl Parser {
                 ..
             }),
         ) {
-            statements.push(self.parse_statement()?);
+            statements.push(match self.parse_statement()? {
+                AstNode {
+                    kind: AstNodeKind::NoOp,
+                    ..
+                } => continue,
+                statement => statement,
+            });
         }
 
         self.expect(&[TokenKind::RightBrace])?;
@@ -199,7 +205,7 @@ impl Parser {
                     | OperatorKind::Slash
                     | OperatorKind::Power => {
                         self.advance();
-                        Some(op.clone())
+                        Some(*op)
                     }
                     _ => None,
                 },
@@ -339,7 +345,7 @@ impl Parser {
         Ok(AstNode {
             kind: AstNodeKind::FunctionDefinition {
                 params,
-                name: name.clone(),
+                name,
                 body: Box::new(body),
             },
             span: Span::new(start, end),
@@ -633,7 +639,7 @@ impl Parser {
                 span,
             }) => Err(ParserError::UnexpectedNewline {
                 expected: format!("a {:?}", kinds_str),
-                span: span.clone(),
+                span: *span,
             }),
 
             Some(Token {
@@ -990,6 +996,78 @@ if (1 + 3 > 2) {
             } else {
                 assert!(false);
             }
+        }
+    }
+
+    #[test]
+    fn test_print_statemnt() {
+        let tokens = Lexer::new("print 1 + 2").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        if let AstNodeKind::Print { expression } = parser.parse().unwrap().kind {
+            assert!(matches!(
+                expression.kind,
+                AstNodeKind::BinaryExpression {
+                    lhs: _,
+                    rhs: _,
+                    op: OperatorKind::Plus
+                }
+            ));
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn test_function_definition() {
+        let mut tokens = Lexer::new(
+            r#"
+fn add(a, b) {
+    a + b
+}"#,
+        );
+
+        let mut parser = Parser::new(tokens.lex().unwrap());
+
+        if let AstNodeKind::FunctionDefinition { params, name, body } = parser.parse().unwrap().kind
+        {
+            assert_eq!(name, "add");
+            assert_eq!(params, vec!["a", "b"]);
+
+            if let AstNodeKind::Block { expressions } = body.kind {
+                assert!(matches!(
+                    expressions[0].kind,
+                    AstNodeKind::BinaryExpression {
+                        lhs: _,
+                        rhs: _,
+                        op: OperatorKind::Plus
+                    }
+                ));
+            } else {
+                assert!(false);
+            }
+        } else {
+            assert!(false);
+        }
+    }
+
+    #[test]
+    fn test_while_loop() {
+        let tokens = Lexer::new("while (1 < 2) { 1 }").lex().unwrap();
+        let mut parser = Parser::new(tokens);
+
+        if let AstNodeKind::While { condition, body } = parser.parse().unwrap().kind {
+            assert!(matches!(
+                condition.kind,
+                AstNodeKind::BinaryExpression {
+                    lhs: _,
+                    rhs: _,
+                    op: OperatorKind::LessThan
+                }
+            ));
+            assert!(matches!(body.kind, AstNodeKind::Block { .. }));
+        } else {
+            assert!(false);
         }
     }
 }
