@@ -22,7 +22,7 @@ use crate::{
 
 fn run(code: &str, interpreter: &mut Interpreter, in_repl: bool) -> Result<(), Error> {
     let mut lexer = Lexer::new(code);
-    let tokens = lexer.lex().map_err(Error::Lexer)?;
+    let tokens = lexer.lex()?;
 
     if tokens.is_empty() {
         return Ok(());
@@ -33,14 +33,10 @@ fn run(code: &str, interpreter: &mut Interpreter, in_repl: bool) -> Result<(), E
         return Ok(());
     }
 
-    // println!("{:#?}", tokens);
-
     let mut parser = Parser::new(tokens);
-    let ast = parser.parse().map_err(Error::Parser)?;
+    let ast = parser.parse()?;
 
-    // println!("{:#?}", ast);
-
-    let result = interpreter.interpret(ast).map_err(Error::Interpreter)?;
+    let result = interpreter.start(ast)?;
 
     // if the result isn't Null, print it
     if in_repl {
@@ -56,7 +52,7 @@ fn run(code: &str, interpreter: &mut Interpreter, in_repl: bool) -> Result<(), E
 fn repl() {
     input::print_intro();
 
-    let mut interpreter = Interpreter::new(None);
+    let mut interpreter = Interpreter::new();
 
     loop {
         let input = input::get_input();
@@ -71,7 +67,7 @@ fn repl() {
 fn main() {
     // If there are any arguments, run the file
     if std::env::args().len() > 1 {
-        let mut interpreter = Interpreter::new(None);
+        let mut interpreter = Interpreter::new();
 
         for file in std::env::args().skip(1) {
             let code = std::fs::read_to_string(&file).unwrap();

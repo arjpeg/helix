@@ -13,3 +13,21 @@ pub enum Error {
     /// An error that occurred during parsing.
     Interpreter(interpreter::error::InterpreterError),
 }
+
+impl From<lexer::error::LexerError> for Error {
+    fn from(error: lexer::error::LexerError) -> Self {
+        Self::Lexer(error)
+    }
+}
+
+impl From<parser::error::ParserError> for Error {
+    fn from(error: parser::error::ParserError) -> Self {
+        Self::Parser(error)
+    }
+}
+
+impl From<interpreter::error::InterpreterError> for Error {
+    fn from(error: interpreter::error::InterpreterError) -> Self {
+        Self::Interpreter(error)
+    }
+}

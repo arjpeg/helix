@@ -15,9 +15,6 @@ use self::{
 
 /// A struct that represents an interpreter.
 pub struct Interpreter {
-    /// The AST that the interpreter will interpret.
-    pub ast: Option<AstNode>,
-
     /// The variables in context.
     pub variables: HashMap<String, Value>,
 }
@@ -27,20 +24,15 @@ type InterpreterResult<T> = Result<T, InterpreterError>;
 
 impl Interpreter {
     /// Creates a new interpreter.
-    pub fn new(ast: Option<AstNode>) -> Self {
+    pub fn new() -> Self {
         Self {
-            ast,
             variables: HashMap::new(),
         }
     }
 
     #[allow(dead_code)]
-    pub fn start(mut self) -> InterpreterResult<Value> {
-        self.interpret(
-            self.ast
-                .clone()
-                .expect("can't start interpreter without ast"),
-        )
+    pub fn start(&mut self, ast: AstNode) -> InterpreterResult<Value> {
+        self.interpret(ast)
     }
 
     /// Interprets the AST.
