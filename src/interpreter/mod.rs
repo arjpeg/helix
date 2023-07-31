@@ -1,7 +1,6 @@
 pub mod data;
 pub mod error;
-
-use std::collections::HashMap;
+mod scope;
 
 use crate::{
     lexer::token::OperatorKind,
@@ -11,12 +10,13 @@ use crate::{
 use self::{
     data::{Value, ValueKind},
     error::InterpreterError,
+    scope::Scope,
 };
 
 /// A struct that represents an interpreter.
 pub struct Interpreter {
-    /// The variables in context.
-    pub variables: HashMap<String, Value>,
+    /// The stack of scopes.
+    scopes: Vec<Scope>,
 }
 
 // A type alias for the result of the interpreter.
@@ -26,11 +26,10 @@ impl Interpreter {
     /// Creates a new interpreter.
     pub fn new() -> Self {
         Self {
-            variables: HashMap::new(),
+            scopes: vec![Scope::new()],
         }
     }
 
-    #[allow(dead_code)]
     pub fn start(&mut self, ast: AstNode) -> InterpreterResult<Value> {
         self.interpret(ast)
     }
@@ -68,13 +67,13 @@ impl Interpreter {
 
             AstNodeKind::Assignment { name, value } => {
                 let value = self.interpret(*value)?;
-                self.variables.insert(name, value.clone());
+                self.current_scope().variables.insert(name, value.clone());
 
                 Ok(value)
             }
 
             AstNodeKind::VariableReference(name) => {
-                Ok(self.variables.get(&name).cloned().ok_or({
+                Ok(self.current_scope().variables.get(&name).cloned().ok_or({
                     InterpreterError::UndefinedVariable {
                         name,
                         span: ast.span,
@@ -83,16 +82,34 @@ impl Interpreter {
             }
 
             AstNodeKind::Block { expressions } => {
-                let mut last_value = Value {
+                self.scopes.push(Scope::new());
+
+                let mut return_value = Value {
                     kind: ValueKind::Null,
                     span: ast.span,
                 };
 
                 for expression in expressions {
-                    last_value = self.interpret(expression)?;
+                    return_value = self.interpret(expression)?;
+
+                    if self.current_scope().should_break {
+                        break;
+                    }
+
+                    if self.current_scope().should_continue {
+                        self.current_scope().should_continue = false;
+                        continue;
+                    }
+
+                    if let Some(ret_value) = &self.current_scope().return_value {
+                        return_value = ret_value.clone();
+                        break;
+                    }
                 }
 
-                Ok(last_value)
+                self.scopes.pop();
+
+                Ok(return_value)
             }
 
             AstNodeKind::If {
@@ -154,7 +171,7 @@ impl Interpreter {
                     span: ast.span,
                 };
 
-                self.variables.insert(name, value.clone());
+                self.current_scope().variables.insert(name, value.clone());
 
                 Ok(value)
             }
@@ -204,5 +221,9 @@ impl Interpreter {
 
             _ => todo!(),
         }
+    }
+
+    fn current_scope(&mut self) -> &mut Scope {
+        self.scopes.last_mut().expect("no scope in stack ?!")
     }
 }
