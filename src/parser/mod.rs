@@ -1,10 +1,9 @@
 pub mod ast;
 pub mod error;
 
-use crate::lexer::{
-    span::Span,
-    token::{KeywordKind, OperatorKind, Token, TokenKind},
-};
+use std::rc::Rc;
+
+use crate::lexer::token::{KeywordKind, OperatorKind, Token, TokenKind};
 
 use self::{
     ast::{AstNode, AstNodeKind},
@@ -23,40 +22,38 @@ pub struct Parser {
     tokens: Vec<Token>,
     /// The current position in the list of tokens.
     pos: usize,
+    /// The name of the file that is being parsed.
+    file: Rc<str>,
 }
 
 impl Parser {
     /// Creates a new parser from a list of tokens.
-    pub fn new(tokens: Vec<Token>) -> Self {
-        Self { tokens, pos: 0 }
+    pub fn new(tokens: Vec<Token>, file: Rc<str>) -> Self {
+        Self {
+            tokens,
+            pos: 0,
+            file,
+        }
     }
 
     /// Parses the list of tokens into an AST.
     pub fn parse(&mut self) -> ParserResult<AstNode> {
-        match self.tokens.len() {
-            0 => Ok(AstNode {
-                kind: AstNodeKind::NoOp,
-                span: Span::new(0, 0),
-            }),
-            _ => {
-                let res = self.parse_statements()?;
+        let res = self.parse_statements()?;
 
-                if self.pos != self.tokens.len() {
-                    return match self.peek().unwrap().token_kind {
-                        TokenKind::RightParen => Err(ParserError::UnmatchedClosingParen {
-                            paren: self.peek().unwrap().clone(),
-                        }),
+        if self.pos != self.tokens.len() {
+            return match self.peek().unwrap().token_kind {
+                TokenKind::RightParen => Err(ParserError::UnmatchedClosingParen {
+                    paren: self.peek().unwrap().clone(),
+                }),
 
-                        _ => Err(ParserError::UnexpectedToken {
-                            expected: "end of input".to_string(),
-                            found: self.peek().unwrap().clone(),
-                        }),
-                    };
-                }
-
-                Ok(res)
-            }
+                _ => Err(ParserError::UnexpectedToken {
+                    expected: "end of input".to_string(),
+                    found: self.peek().unwrap().clone(),
+                }),
+            };
         }
+
+        Ok(res)
     }
 
     /// Parses a list of statements
@@ -84,7 +81,7 @@ impl Parser {
                 kind: AstNodeKind::Block {
                     expressions: statements,
                 },
-                span: Span::new(start, end),
+                span: (start..end, Rc::clone(&self.file)).into(),
             }),
         }
     }
@@ -95,12 +92,13 @@ impl Parser {
         let res = match self.peek() {
             None => Err(ParserError::UnexpectedEof {
                 expected: "a statement".to_string(),
+                file: Rc::clone(&self.file),
             }),
 
             Some(tok) => match tok.token_kind {
                 TokenKind::Newline => Ok(AstNode {
                     kind: AstNodeKind::NoOp,
-                    span: tok.span,
+                    span: tok.span.clone(),
                 }),
 
                 TokenKind::Keyword(keyword) => match keyword {
@@ -164,7 +162,7 @@ impl Parser {
             kind: AstNodeKind::Block {
                 expressions: statements,
             },
-            span: Span::new(start, end),
+            span: (start..end, Rc::clone(&self.file)).into(),
         })
     }
 
@@ -191,6 +189,7 @@ impl Parser {
             None => {
                 return Err(ParserError::UnexpectedEof {
                     expected: "an identifier".to_string(),
+                    file: Rc::clone(&self.file),
                 })
             }
         }
@@ -230,14 +229,14 @@ impl Parser {
                             op,
                             lhs: Box::new(AstNode {
                                 kind: AstNodeKind::VariableReference(ident),
-                                span: Span::new(start, end),
+                                span: (start..end, Rc::clone(&self.file)).into(),
                             }),
                             rhs: Box::new(expr),
                         },
-                        span: Span::new(start, end),
+                        span: (start..end, Rc::clone(&self.file)).into(),
                     }),
                 },
-                span: Span::new(start, end),
+                span: (start..end, Rc::clone(&self.file)).into(),
             }),
 
             None => Ok(AstNode {
@@ -245,7 +244,7 @@ impl Parser {
                     name: ident,
                     value: Box::new(expr),
                 },
-                span: Span::new(start, end),
+                span: (start..end, Rc::clone(&self.file)).into(),
             }),
         }
     }
@@ -281,7 +280,7 @@ impl Parser {
             kind: AstNodeKind::Print {
                 expression: Box::new(expr),
             },
-            span: Span::new(start, end),
+            span: (start..end, Rc::clone(&self.file)).into(),
         })
     }
 
@@ -348,7 +347,7 @@ impl Parser {
                 name,
                 body: Box::new(body),
             },
-            span: Span::new(start, end),
+            span: (start..end, Rc::clone(&self.file)).into(),
         })
     }
 
@@ -376,7 +375,7 @@ impl Parser {
                 body: Box::new(body),
                 else_branch: else_body.map(Box::new),
             },
-            span: Span::new(start, end),
+            span: (start..end, Rc::clone(&self.file)).into(),
         })
     }
 
@@ -400,7 +399,7 @@ impl Parser {
             kind: AstNodeKind::Else {
                 body: Box::new(else_body),
             },
-            span: Span::new(start, end),
+            span: (start..end, Rc::clone(&self.file)).into(),
         })
     }
 
@@ -419,7 +418,7 @@ impl Parser {
                 condition: Box::new(condition),
                 body: Box::new(body),
             },
-            span: Span::new(start, end),
+            span: (start..end, Rc::clone(&self.file)).into(),
         })
     }
 
@@ -482,6 +481,7 @@ impl Parser {
             None => {
                 return Err(ParserError::UnexpectedEof {
                     expected: "a number literal or left parenthesis".to_string(),
+                    file: Rc::clone(&self.file),
                 })
             }
         };
@@ -528,7 +528,7 @@ impl Parser {
                             op,
                             expr: Box::new(expr),
                         },
-                        span: Span::new(start, self.pos),
+                        span: (start..self.pos, Rc::clone(&self.file)).into(),
                     })
                 }
 
@@ -598,7 +598,7 @@ impl Parser {
                         _ => unreachable!(),
                     },
                 },
-                span: (start..end).into(),
+                span: (start..end, Rc::clone(&self.file)).into(),
             };
         }
 
@@ -639,7 +639,7 @@ impl Parser {
                 span,
             }) => Err(ParserError::UnexpectedNewline {
                 expected: format!("a {:?}", kinds_str),
-                span: *span,
+                span: span.clone(),
             }),
 
             Some(Token {
@@ -656,6 +656,7 @@ impl Parser {
 
             None => Err(ParserError::UnexpectedEof {
                 expected: format!("a {:?}", kinds_str),
+                file: Rc::clone(&self.file),
             }),
         }
     }
@@ -663,6 +664,8 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use crate::{
         lexer::{
             token::{OperatorKind, Token, TokenKind},
@@ -678,15 +681,19 @@ mod tests {
     #[test]
     fn test_empty() {
         let tokens = vec![];
-        let mut parser = Parser::new(tokens);
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
-        assert!(matches!(parser.parse().unwrap().kind, AstNodeKind::NoOp));
+        assert!(matches!(
+            parser.parse().unwrap().kind,
+            AstNodeKind::Block { expressions }
+            if expressions.len() == 0
+        ));
     }
 
     #[test]
     fn test_number() {
-        let tokens = Lexer::new("123").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("123", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap().kind,
@@ -696,8 +703,8 @@ mod tests {
 
     #[test]
     fn test_binary_expr() {
-        let tokens = Lexer::new("1 + 2").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("1 + 2", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap().kind,
@@ -711,8 +718,8 @@ mod tests {
 
     #[test]
     fn test_order_of_operations() {
-        let tokens = Lexer::new("1 + 2 * 3").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("1 + 2 * 3", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
         if let AstNodeKind::BinaryExpression { lhs, rhs, op } = parser.parse().unwrap().kind {
@@ -735,8 +742,8 @@ mod tests {
 
     #[test]
     fn test_parentheses() {
-        let tokens = Lexer::new("(1 + 2) * 3").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("(1 + 2) * 3", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
         if let AstNodeKind::BinaryExpression { lhs, rhs, op } = parser.parse().unwrap().kind {
@@ -765,8 +772,8 @@ mod tests {
 
     #[test]
     fn test_assignment() {
-        let tokens = Lexer::new("let a = 1").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("let a = 1", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
         if let AstNodeKind::Assignment { name, value } = parser.parse().unwrap().kind {
@@ -779,8 +786,8 @@ mod tests {
 
     #[test]
     fn test_invalid_assignment() {
-        let tokens = Lexer::new("a = 1 + 2").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("a = 1 + 2", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap_err(),
@@ -790,8 +797,8 @@ mod tests {
 
     #[test]
     fn test_incomplete_bin_expr() {
-        let tokens = Lexer::new("1 +").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("1 +", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap_err(),
@@ -801,8 +808,8 @@ mod tests {
 
     #[test]
     fn test_invalid_bin_expr() {
-        let tokens = Lexer::new("1 + / 2").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("1 + / 2", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap_err(),
@@ -818,8 +825,8 @@ mod tests {
 
     #[test]
     fn test_invalid_parentheses() {
-        let tokens = Lexer::new("(1 + 2").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("(1 + 2", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap_err(),
@@ -829,8 +836,8 @@ mod tests {
 
     #[test]
     fn test_unary_expr() {
-        let tokens = Lexer::new("-1").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("-1", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap().kind,
@@ -840,8 +847,8 @@ mod tests {
             }
         ));
 
-        let tokens = Lexer::new("!1").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("!1", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap().kind,
@@ -854,8 +861,8 @@ mod tests {
 
     #[test]
     fn test_unmatched_parentheses() {
-        let tokens = Lexer::new("(1 + 2))").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("(1 + 2))", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap_err(),
@@ -865,8 +872,10 @@ mod tests {
 
     #[test]
     fn test_conditional_exprs() {
-        let tokens = Lexer::new("1 + 3 > 2 && 1 < 2").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("1 + 3 > 2 && 1 < 2", Rc::from(""))
+            .lex()
+            .unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
         if let AstNodeKind::BinaryExpression { lhs, rhs, op } = parser.parse().unwrap().kind {
@@ -894,8 +903,10 @@ mod tests {
 
     #[test]
     fn test_conditional_exprs_with_parentheses() {
-        let tokens = Lexer::new("(1 + 3 > 2) && (1 < 2)").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("(1 + 3 > 2) && (1 < 2)", Rc::from(""))
+            .lex()
+            .unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
         if let AstNodeKind::BinaryExpression { lhs, rhs, op } = parser.parse().unwrap().kind {
@@ -923,8 +934,10 @@ mod tests {
 
     #[test]
     fn test_if_statement() {
-        let tokens = Lexer::new("if (1 + 3 > 2) { 1 }").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("if (1 + 3 > 2) { 1 }", Rc::from(""))
+            .lex()
+            .unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
         if let AstNodeKind::If {
@@ -960,11 +973,12 @@ if (1 + 3 > 2) {
     3
 }
         "#,
+            Rc::from(""),
         )
         .lex()
         .unwrap();
 
-        let mut parser = Parser::new(tokens);
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
         if let AstNodeKind::Block { expressions } = parser.parse().unwrap().kind {
@@ -1001,8 +1015,8 @@ if (1 + 3 > 2) {
 
     #[test]
     fn test_print_statemnt() {
-        let tokens = Lexer::new("print 1 + 2").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("print 1 + 2", Rc::from("")).lex().unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         if let AstNodeKind::Print { expression } = parser.parse().unwrap().kind {
             assert!(matches!(
@@ -1025,9 +1039,10 @@ if (1 + 3 > 2) {
 fn add(a, b) {
     a + b
 }"#,
+            Rc::from(""),
         );
 
-        let mut parser = Parser::new(tokens.lex().unwrap());
+        let mut parser = Parser::new(tokens.lex().unwrap(), Rc::from(""));
 
         if let AstNodeKind::FunctionDefinition { params, name, body } = parser.parse().unwrap().kind
         {
@@ -1053,8 +1068,10 @@ fn add(a, b) {
 
     #[test]
     fn test_while_loop() {
-        let tokens = Lexer::new("while (1 < 2) { 1 }").lex().unwrap();
-        let mut parser = Parser::new(tokens);
+        let tokens = Lexer::new("while (1 < 2) { 1 }", Rc::from(""))
+            .lex()
+            .unwrap();
+        let mut parser = Parser::new(tokens, Rc::from(""));
 
         if let AstNodeKind::While { condition, body } = parser.parse().unwrap().kind {
             assert!(matches!(

@@ -4,6 +4,8 @@ mod interpreter;
 mod lexer;
 mod parser;
 
+use std::rc::Rc;
+
 use errors::Error;
 use interpreter::Interpreter;
 use lexer::{error::LexerError, Lexer};
@@ -13,15 +15,17 @@ use interpreter::data::ValueKind;
 
 use crate::{
     interpreter::error::InterpreterError,
-    lexer::{
-        span::Span,
-        token::{CommandType, TokenKind},
-    },
+    lexer::token::{CommandType, TokenKind},
     parser::{error::ParserError, Parser},
 };
 
-fn run(code: &str, interpreter: &mut Interpreter, in_repl: bool) -> Result<(), Error> {
-    let mut lexer = Lexer::new(code);
+fn run(
+    code: &str,
+    interpreter: &mut Interpreter,
+    in_repl: bool,
+    filename: Rc<str>,
+) -> Result<(), Error> {
+    let mut lexer = Lexer::new(code, Rc::clone(&filename));
     let tokens = lexer.lex()?;
 
     if tokens.is_empty() {
@@ -33,7 +37,7 @@ fn run(code: &str, interpreter: &mut Interpreter, in_repl: bool) -> Result<(), E
         return Ok(());
     }
 
-    let mut parser = Parser::new(tokens);
+    let mut parser = Parser::new(tokens, Rc::clone(&filename));
     let ast = parser.parse()?;
 
     let result = interpreter.start(ast)?;
@@ -53,10 +57,11 @@ fn repl() {
     input::print_intro();
 
     let mut interpreter = Interpreter::new();
+    let filename = Rc::from("stdin");
 
     loop {
         let input = input::get_input();
-        let result = run(&input, &mut interpreter, true);
+        let result = run(&input, &mut interpreter, true, Rc::clone(&filename));
 
         if let Err(err) = result {
             format_error(input, err);
@@ -71,7 +76,8 @@ fn main() {
 
         for file in std::env::args().skip(1) {
             let code = std::fs::read_to_string(&file).unwrap();
-            let result = run(&code, &mut interpreter, false);
+            let filename = Rc::from(file);
+            let result = run(&code, &mut interpreter, false, filename);
 
             if let Err(err) = result {
                 format_error(code, err);
@@ -118,11 +124,12 @@ fn format_error(input: String, error: Error) {
                 range,
             ),
             LexerError::UnknownSymbol { range } => {
-                (format!("Unknown symbol '{}'", &input[range]), range)
+                (format!("Unknown symbol '{}'", &input[range.clone()]), range)
             }
-            LexerError::UnknownCommand { range } => {
-                (format!("Unknown command '{}'", &input[range]), range)
-            }
+            LexerError::UnknownCommand { range } => (
+                format!("Unknown command '{}'", &input[range.clone()]),
+                range,
+            ),
             LexerError::UnterminatedString { range } => {
                 ("Unterminated string literal".to_string(), range)
             }
@@ -136,13 +143,11 @@ fn format_error(input: String, error: Error) {
                 ),
                 found.span,
             ),
-            ParserError::UnexpectedEof { expected } => (
-                format!(
-                    "Expected {}, but unexpectedly reached the end of file",
-                    expected
-                ),
-                Span::new(input.len() - 1, input.len()),
+            ParserError::UnexpectedEof { expected, file } => (
+                format!("Expected {}, but found EOF", expected),
+                (input.len()..input.len(), file).into(),
             ),
+
             ParserError::UnexpectedNewline { span, expected } => (
                 format!("Unexpectedly found a newline, expected {expected}"),
                 span,
@@ -189,7 +194,6 @@ fn format_error(input: String, error: Error) {
 
     // Get the line in which the error occurred
     let line_num = input[..range.start].matches('\n').count() + 1;
-    println!("line_num: {line_num}");
 
     let line = input
         .lines()
@@ -198,9 +202,15 @@ fn format_error(input: String, error: Error) {
 
     // Get the range of the error in the line
     let line_start_index = input[..range.start].rfind('\n').unwrap_or(0) + 1;
-    let range = range.start - line_start_index..range.end - line_start_index;
 
-    let location = format!("{}:{}", "stdin", line_num);
+    let file = range.file;
+    let range = (if range.start >= line_start_index {
+        range.start - line_start_index + 1
+    } else {
+        0
+    })..range.end + 1 - line_start_index;
+
+    let location = format!("{}:{}", file, line_num);
 
     eprintln!("{}: {}", "Error".red().bold(), message.bold());
     eprintln!(" {}  {}", location.dimmed(), line.bold());

@@ -46,8 +46,9 @@ macro_rules! impl_binary_op {
         pub fn $name(&self, other: &Value) -> InterpreterResult<Value> {
             #[allow(unused_imports)]
             use ValueKind::*;
+            use std::rc::Rc;
 
-            let expr_span: Span = (self.span.start..other.span.end).into();
+            let expr_span: Span = (self.span.start..other.span.end, Rc::clone(&self.span.file)).into();
 
             match (self.clone().kind, other.clone().kind) {
                 $(
@@ -67,7 +68,7 @@ macro_rules! impl_binary_op {
                     operator: OperatorKind::$operator,
                     lhs: self.clone(),
                     rhs: other.clone(),
-                    span: (self.span.start..other.span.end).into(),
+                    span: (self.span.start..other.span.end, Rc::clone(&self.span.file)).into(),
                 }),
             }
         }
@@ -79,8 +80,9 @@ macro_rules! impl_unary_op {
         pub fn $name(&self) -> InterpreterResult<Value> {
             #[allow(unused_imports)]
             use ValueKind::*;
+            use std::rc::Rc;
 
-            let expr_span: Span = self.span;
+            let expr_span: Span = self.span.clone();
 
             match (self.clone().kind) {
                 $(
@@ -99,7 +101,7 @@ macro_rules! impl_unary_op {
                 _ => Err(InterpreterError::InvalidUnaryExpression {
                     operator: OperatorKind::$operator,
                     expr: self.clone(),
-                    span: (self.span.start-1..self.span.end).into(),
+                    span: (self.span.start-1..self.span.end, Rc::clone(&self.span.file)).into(),
                 }),
             }
         }

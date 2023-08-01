@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use self::{
     cursor::Cursor,
     error::LexerError,
@@ -13,14 +15,16 @@ pub mod token;
 pub struct Lexer<'a> {
     cursor: Cursor<'a>,
     input: &'a str,
+    file: Rc<str>,
 }
 
 impl Lexer<'_> {
     /// Creates a new lexer from a source file.
-    pub fn new(content: &str) -> Lexer {
+    pub fn new(content: &str, file: Rc<str>) -> Lexer {
         Lexer {
             cursor: Cursor::new(content),
             input: content,
+            file,
         }
     }
 
@@ -33,7 +37,7 @@ impl Lexer<'_> {
             let command = self.lex_command()?;
 
             tokens.push(Token::new(
-                (0..self.cursor.pos()).into(),
+                (0..self.cursor.pos(), Rc::clone(&self.file)).into(),
                 TokenKind::Command(command),
             ));
 
@@ -43,7 +47,7 @@ impl Lexer<'_> {
         while let Some(token) = self.next_token()? {
             if let TokenKind::RightBrace = token.token_kind {
                 tokens.push(Token::new(
-                    (self.cursor.pos()..self.cursor.pos()).into(),
+                    (self.cursor.pos()..self.cursor.pos(), Rc::clone(&self.file)).into(),
                     TokenKind::Newline,
                 ));
             }
@@ -53,7 +57,7 @@ impl Lexer<'_> {
 
         // Push one last newline token
         tokens.push(Token::new(
-            (self.cursor.pos()..self.cursor.pos()).into(),
+            (self.cursor.pos()..self.cursor.pos(), Rc::clone(&self.file)).into(),
             TokenKind::Newline,
         ));
 
@@ -96,7 +100,7 @@ impl Lexer<'_> {
 
                 if self.cursor.peek() != Some('"') {
                     return Err(LexerError::UnterminatedString {
-                        range: (start..self.cursor.pos()).into(),
+                        range: (start..self.cursor.pos(), Rc::clone(&self.file)).into(),
                     });
                 }
 
@@ -159,7 +163,7 @@ impl Lexer<'_> {
                     TokenKind::Operator(OperatorKind::And)
                 } else {
                     return Err(LexerError::UnknownSymbol {
-                        range: (start..self.cursor.pos()).into(),
+                        range: (start..self.cursor.pos(), Rc::clone(&self.file)).into(),
                     });
                 }
             }
@@ -170,7 +174,7 @@ impl Lexer<'_> {
                     TokenKind::Operator(OperatorKind::Or)
                 } else {
                     return Err(LexerError::UnknownSymbol {
-                        range: (start..self.cursor.pos()).into(),
+                        range: (start..self.cursor.pos(), Rc::clone(&self.file)).into(),
                     });
                 }
             }
@@ -203,7 +207,7 @@ impl Lexer<'_> {
                 self.cursor.advance_while(|c| !c.is_ascii_whitespace());
 
                 return Err(LexerError::UnknownSymbol {
-                    range: (start..self.cursor.pos()).into(),
+                    range: (start..self.cursor.pos(), Rc::clone(&self.file)).into(),
                 });
             }
 
@@ -211,7 +215,10 @@ impl Lexer<'_> {
             None => return Ok(None),
         };
 
-        Ok(Some(Token::new((start..self.cursor.pos()).into(), kind)))
+        Ok(Some(Token::new(
+            (start..self.cursor.pos(), Rc::clone(&self.file)).into(),
+            kind,
+        )))
     }
 
     /// Lexes a number from the source file.
@@ -230,7 +237,7 @@ impl Lexer<'_> {
                     .advance_while(|c| c.is_ascii_digit() || c == '.');
 
                 return Err(LexerError::TooManyDots {
-                    range: (start..self.cursor.pos()).into(),
+                    range: (start..self.cursor.pos(), Rc::clone(&self.file)).into(),
                 });
             };
         };
@@ -252,7 +259,7 @@ impl Lexer<'_> {
             Ok(command)
         } else {
             Err(LexerError::UnknownCommand {
-                range: (start..self.cursor.pos()).into(),
+                range: (start..self.cursor.pos(), Rc::clone(&self.file)).into(),
             })
         }
     }
@@ -260,6 +267,8 @@ impl Lexer<'_> {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use crate::lexer::{
         error::LexerError,
         token::{CommandType, KeywordKind, OperatorKind, TokenKind},
@@ -268,19 +277,19 @@ mod tests {
 
     #[test]
     fn test_empty() {
-        let mut lexer = Lexer::new("");
+        let mut lexer = Lexer::new("", Rc::from(""));
         assert_eq!(lexer.lex().unwrap().len(), 1);
     }
 
     #[test]
     fn test_whitespace() {
-        let mut lexer = Lexer::new(" \t\n\r");
+        let mut lexer = Lexer::new(" \t\n\r", Rc::from(""));
         assert_eq!(lexer.lex().unwrap().len(), 1);
     }
 
     #[test]
     fn test_numbers() {
-        let mut lexer = Lexer::new("123 456.789 0.1 32");
+        let mut lexer = Lexer::new("123 456.789 0.1 32", Rc::from(""));
         let tokens = lexer.lex().unwrap();
 
         assert_eq!(tokens.len(), 5);
@@ -292,7 +301,7 @@ mod tests {
 
     #[test]
     fn test_invalid_numbers() {
-        let mut lexer = Lexer::new("123.123.456.789");
+        let mut lexer = Lexer::new("123.123.456.789", Rc::from(""));
         let tokens = lexer.lex();
 
         assert!(tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::TooManyDots { .. }));
@@ -300,7 +309,7 @@ mod tests {
 
     #[test]
     fn test_commands() {
-        let mut lexer = Lexer::new("#quit");
+        let mut lexer = Lexer::new("#quit", Rc::from(""));
         let tokens = lexer.lex().unwrap();
 
         assert_eq!(tokens.len(), 1);
@@ -309,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_invalid_commands() {
-        let mut lexer = Lexer::new("#invalid");
+        let mut lexer = Lexer::new("#invalid", Rc::from(""));
         let tokens = lexer.lex();
 
         assert!(
@@ -319,7 +328,7 @@ mod tests {
 
     #[test]
     fn test_operators() {
-        let mut lexer = Lexer::new("+-*/^");
+        let mut lexer = Lexer::new("+-*/^", Rc::from(""));
         let tokens = lexer.lex().unwrap();
 
         assert_eq!(tokens.len(), 6);
@@ -347,7 +356,7 @@ mod tests {
 
     #[test]
     fn test_identifiers() {
-        let mut lexer = Lexer::new("foo bar baz");
+        let mut lexer = Lexer::new("foo bar baz", Rc::from(""));
         let tokens = lexer.lex().unwrap();
 
         assert_eq!(tokens.len(), 4);
@@ -374,7 +383,7 @@ mod tests {
 
     #[test]
     fn test_keywords() {
-        let mut lexer = Lexer::new("let fn if else");
+        let mut lexer = Lexer::new("let fn if else", Rc::from(""));
         let tokens = lexer.lex().unwrap();
 
         assert_eq!(tokens.len(), 5);
@@ -390,7 +399,7 @@ mod tests {
 
     #[test]
     fn test_invalid_symbols() {
-        let mut lexer = Lexer::new("foo bar baz $");
+        let mut lexer = Lexer::new("foo bar baz $", Rc::from(""));
         let tokens = lexer.lex();
 
         assert!(tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::UnknownSymbol { .. }));
@@ -398,7 +407,7 @@ mod tests {
 
     #[test]
     fn test_invalid_unicode() {
-        let mut lexer = Lexer::new("foo bar baz \u{1F4A9}");
+        let mut lexer = Lexer::new("foo bar baz \u{1F4A9}", Rc::from(""));
         let tokens = lexer.lex();
 
         assert!(tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::UnknownSymbol { .. }));

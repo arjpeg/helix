@@ -211,12 +211,20 @@ impl Interpreter {
 
             And => Ok(Value {
                 kind: ValueKind::Boolean(lhs_value.is_truthy() && rhs_value.is_truthy()),
-                span: (lhs_value.span.start..rhs_value.span.end).into(),
+                span: (
+                    lhs_value.span.start..rhs_value.span.end,
+                    lhs_value.span.file,
+                )
+                    .into(),
             }),
 
             Or => Ok(Value {
                 kind: ValueKind::Boolean(lhs_value.is_truthy() || rhs_value.is_truthy()),
-                span: (lhs_value.span.start..rhs_value.span.end).into(),
+                span: (
+                    lhs_value.span.start..rhs_value.span.end,
+                    lhs_value.span.file,
+                )
+                    .into(),
             }),
 
             _ => todo!(),

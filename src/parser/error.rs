@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::lexer::{span::Span, token::Token};
 
 /// An error that occurred during parsing.
@@ -15,6 +17,7 @@ pub enum ParserError {
     UnexpectedEof {
         /// The expected token.
         expected: String,
+        file: Rc<str>,
     },
 
     UnexpectedNewline {
