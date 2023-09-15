@@ -118,14 +118,14 @@ impl Parser {
 
                 TokenKind::LeftBrace => self.parse_block(),
 
-                _ => self.parse_expr(),
+                _ => self.parse_assignment(),
             },
-        };
+        }?;
 
         self.expect(&[TokenKind::Newline])?;
         self.advance();
 
-        res
+        Ok(res)
     }
 
     /// Parses a block. (LBRACE STATEMENT* RBRACE)
@@ -168,85 +168,54 @@ impl Parser {
 
     /// Parses an assignment statement. (LET IDENT (OP)? ASSIGN EXPR)
     fn parse_assignment(&mut self) -> ParserResult<AstNode> {
+        let is_new_assignment = matches!(
+            self.peek(),
+            Some(Token {
+                token_kind: TokenKind::Keyword(KeywordKind::Let),
+                ..
+            }),
+        );
+
+        if is_new_assignment {
+            self.advance();
+        }
+
         let start = self.pos;
 
-        self.advance();
+        let lhs = self.parse_expr()?;
 
-        let ident = match self.clone().peek() {
-            Some(t) => match &t.token_kind {
-                TokenKind::Identifier { name } => {
-                    self.advance();
-                    name
-                }
-                _ => {
-                    return Err(ParserError::UnexpectedToken {
-                        expected: "an identifier".to_string(),
-                        found: t.clone(),
-                    })
-                }
-            },
-
-            None => {
-                return Err(ParserError::UnexpectedEof {
-                    expected: "an identifier".to_string(),
-                    file: Rc::clone(&self.file),
-                })
-            }
+        if !matches!(
+            self.peek(),
+            Some(Token {
+                token_kind: TokenKind::Operator(OperatorKind::Assign),
+                ..
+            }),
+        ) {
+            return Ok(lhs);
+        } else {
+            // Advance past the assignment operator
+            self.advance();
         }
-        .clone();
 
-        let binary_assign_op = match self.clone().peek() {
-            Some(t) => match &t.token_kind {
-                TokenKind::Operator(op) => match op {
-                    OperatorKind::Plus
-                    | OperatorKind::Minus
-                    | OperatorKind::Star
-                    | OperatorKind::Slash
-                    | OperatorKind::Power => {
-                        self.advance();
-                        Some(*op)
-                    }
-                    _ => None,
-                },
-                _ => None,
-            },
-            None => None,
+        // If the lhs is not a valid lhs-value (i.e. not an identifier, or
+        // a binary expression), then we return an error.
+        let lhs = match lhs.kind {
+            AstNodeKind::VariableReference(name) => name,
+            _ => return Err(ParserError::InvalidAssignmentTarget { found: lhs }),
         };
 
-        self.expect(&[TokenKind::Operator(OperatorKind::Assign)])?;
-        self.advance();
-
-        let expr = self.parse_expr()?;
+        let rhs = self.parse_expr()?;
 
         let end = self.pos;
 
-        match binary_assign_op {
-            Some(op) => Ok(AstNode {
-                kind: AstNodeKind::Assignment {
-                    name: ident.clone(),
-                    value: Box::new(AstNode {
-                        kind: AstNodeKind::BinaryExpression {
-                            op,
-                            lhs: Box::new(AstNode {
-                                kind: AstNodeKind::VariableReference(ident),
-                                span: (start..end, Rc::clone(&self.file)).into(),
-                            }),
-                            rhs: Box::new(expr),
-                        },
-                        span: (start..end, Rc::clone(&self.file)).into(),
-                    }),
-                },
-                span: (start..end, Rc::clone(&self.file)).into(),
-            }),
-
-            None => Ok(AstNode {
-                kind: AstNodeKind::Assignment {
-                    name: ident,
-                    value: Box::new(expr),
-                },
-                span: (start..end, Rc::clone(&self.file)).into(),
-            }),
-        }
+        Ok(AstNode {
+            kind: AstNodeKind::Assignment {
+                name: lhs,
+                value: Box::new(rhs),
+                declaration: is_new_assignment,
+            },
+            span: (start..end, Rc::clone(&self.file)).into(),
+        })
     }
 
     /// Parses a print statement. (PRINT EXPR)
@@ -776,9 +745,15 @@ mod tests {
         let mut parser = Parser::new(tokens, Rc::from(""));
 
         #[allow(illegal_floating_point_literal_pattern)]
-        if let AstNodeKind::Assignment { name, value } = parser.parse().unwrap().kind {
+        if let AstNodeKind::Assignment {
+            name,
+            value,
+            declaration,
+        } = parser.parse().unwrap().kind
+        {
             assert_eq!(name, "a");
             assert!(matches!(value.kind, AstNodeKind::NumberLiteral(1.)));
+            assert!(declaration);
         } else {
             assert!(false);
         }
@@ -786,12 +761,14 @@ mod tests {
 
     #[test]
     fn test_invalid_assignment() {
-        let tokens = Lexer::new("a = 1 + 2", Rc::from("")).lex().unwrap();
+        let tokens = Lexer::new("let asd + 123213 = 1 + 2", Rc::from(""))
+            .lex()
+            .unwrap();
         let mut parser = Parser::new(tokens, Rc::from(""));
 
         assert!(matches!(
             parser.parse().unwrap_err(),
-            crate::parser::ParserError::UnexpectedToken { .. }
+            ParserError::InvalidAssignmentTarget { .. }
         ));
     }
 

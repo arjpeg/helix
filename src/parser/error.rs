@@ -2,6 +2,8 @@ use std::rc::Rc;
 
 use crate::lexer::{span::Span, token::Token};
 
+use super::ast::AstNode;
+
 /// An error that occurred during parsing.
 #[derive(Debug, Clone)]
 pub enum ParserError {
@@ -29,5 +31,11 @@ pub enum ParserError {
     UnmatchedClosingParen {
         /// The closing parenthesis.
         paren: Token,
+    },
+
+    /// The left hand side of an assignment was not a valid target.
+    InvalidAssignmentTarget {
+        /// The expression that was found.
+        found: AstNode
     },
 }

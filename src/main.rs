@@ -116,50 +116,62 @@ fn handle_command(command: CommandType) {
 }
 
 fn format_error(input: String, error: Error) {
+    use LexerError as LE;
+    use ParserError as PE;
+    use InterpreterError as IE;
+
     let (message, range) = match error {
         // Lexer errors
         Error::Lexer(error) => match error {
-            LexerError::TooManyDots { range } => (
+            LE::TooManyDots { range } => (
                 "A number cannot contain more than one decimal place.".to_string(),
                 range,
             ),
-            LexerError::UnknownSymbol { range } => {
+            LE::UnknownSymbol { range } => {
                 (format!("Unknown symbol '{}'", &input[range.clone()]), range)
             }
-            LexerError::UnknownCommand { range } => (
+            LE::UnknownCommand { range } => (
                 format!("Unknown command '{}'", &input[range.clone()]),
                 range,
             ),
-            LexerError::UnterminatedString { range } => {
+            LE::UnterminatedString { range } => {
                 ("Unterminated string literal".to_string(), range)
             }
         },
         // Parser errors
         Error::Parser(error) => match error {
-            ParserError::UnexpectedToken { found, expected } => (
+            PE::UnexpectedToken { found, expected } => (
                 format!(
                     "Expected {}, but found a token of kind {:?}",
                     expected, found.token_kind
                 ),
                 found.span,
             ),
-            ParserError::UnexpectedEof { expected, file } => (
+            PE::UnexpectedEof { expected, file } => (
                 format!("Expected {}, but found EOF", expected),
                 (input.len()..input.len(), file).into(),
             ),
 
-            ParserError::UnexpectedNewline { span, expected } => (
+            PE::UnexpectedNewline { span, expected } => (
                 format!("Unexpectedly found a newline, expected {expected}"),
                 span,
             ),
-            ParserError::UnmatchedClosingParen { paren } => (
+            PE::UnmatchedClosingParen { paren } => (
                 "Found an unmatched closing parenthesis".to_string(),
                 paren.span,
             ),
+            PE::InvalidAssignmentTarget { found } => (
+                format!(
+                    "Found an invalid left hand side during variable assignment (of kind, '{}')",
+                    found.kind
+                ),
+                found.span,
+            )
         },
+
         // Interpreter errors
         Error::Interpreter(error) => match error {
-            InterpreterError::InvalidBinaryExpression {
+            IE::InvalidBinaryExpression {
                 operator,
                 lhs,
                 rhs,
@@ -171,7 +183,7 @@ fn format_error(input: String, error: Error) {
                 ),
                 span,
             ),
-            InterpreterError::InvalidUnaryExpression {
+            IE::InvalidUnaryExpression {
                 operator,
                 expr,
                 span,
@@ -183,9 +195,9 @@ fn format_error(input: String, error: Error) {
                 span,
             ),
 
-            InterpreterError::DivisionByZero { span } => ("Division by zero".to_string(), span),
+            IE::DivisionByZero { span } => ("Division by zero".to_string(), span),
 
-            InterpreterError::UndefinedVariable { name, span } => (
+            IE::UndefinedVariable { name, span } => (
                 format!("Can't find variable '{}' in the current scope", name),
                 span,
             ),

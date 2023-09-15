@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::lexer::span::Span;
 use crate::lexer::token::OperatorKind;
 
@@ -53,6 +55,9 @@ pub enum AstNodeKind {
         name: String,
         /// The value being assigned
         value: Box<AstNode>,
+        /// If the assignment includes a declaration
+        /// (e.g. `let x = 1`)
+        declaration: bool,
     },
 
     /// An if statement. The `else` branch is optional
@@ -87,4 +92,30 @@ pub enum AstNodeKind {
         body: Box<AstNode>,
         name: String,
     },
+}
+
+impl Display for AstNodeKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use AstNodeKind as Kind;
+
+        write!(
+            f,
+            "{}",
+            match self {
+                Kind::BinaryExpression { .. } => "Binary Expression",
+                Kind::UnaryExpression { .. } => "Unary Expression",
+                Kind::Block { .. } => "Block",
+                Kind::NumberLiteral(_) => "Number Literal",
+                Kind::StringLiteral(_) => "String Literal",
+                Kind::VariableReference(_) => "Variable Reference",
+                Kind::NoOp => "NoOp",
+                Kind::Assignment { .. } => "Assignment",
+                Kind::If { .. } => "If Statement",
+                Kind::Else { .. } => "Else Statement",
+                Kind::Print { .. } => "Print Statement",
+                Kind::While { .. } => "While Loop",
+                Kind::FunctionDefinition { .. } => "Function Definition",
+            }
+        )
+    }
 }

@@ -57,6 +57,7 @@ impl Interpreter {
                 use OperatorKind::*;
                 match op {
                     Minus => expr.negate(),
+                    Plus => Ok(expr),
                     Bang => Ok(Value {
                         kind: ValueKind::Boolean(!expr.is_truthy()),
                         span: ast.span,
@@ -65,7 +66,19 @@ impl Interpreter {
                 }
             }
 
-            AstNodeKind::Assignment { name, value } => {
+            AstNodeKind::Assignment {
+                name,
+                value,
+                declaration,
+            } => {
+                // Only allow expressions such as `x = 1` if `x` is already declared
+                if !declaration && !self.current_scope().variables.contains_key(&name) {
+                    return Err(InterpreterError::UndefinedVariable {
+                        name,
+                        span: ast.span,
+                    });
+                }
+
                 let value = self.interpret(*value)?;
                 self.current_scope().variables.insert(name, value.clone());
 
