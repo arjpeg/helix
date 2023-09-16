@@ -82,7 +82,10 @@ impl Interpreter {
                 let value = self.interpret(*value)?;
                 self.current_scope().variables.insert(name, value.clone());
 
-                Ok(value)
+                Ok(Value {
+                    kind: ValueKind::Null,
+                    span: ast.span,
+                })
             }
 
             AstNodeKind::VariableReference(name) => {
@@ -204,6 +207,8 @@ impl Interpreter {
         use OperatorKind::*;
 
         match op {
+            Bang | Assign => unreachable!("should be handled by unary op"),
+
             Plus => lhs_value.add(&rhs_value),
             Minus => lhs_value.subtract(&rhs_value),
             Star => lhs_value.multiply(&rhs_value),
@@ -231,16 +236,23 @@ impl Interpreter {
                     .into(),
             }),
 
-            Or => Ok(Value {
-                kind: ValueKind::Boolean(lhs_value.is_truthy() || rhs_value.is_truthy()),
-                span: (
-                    lhs_value.span.start..rhs_value.span.end,
-                    lhs_value.span.file,
-                )
-                    .into(),
-            }),
-
-            _ => todo!(),
+            Or => {
+                if lhs_value.is_truthy() {
+                    return Ok(lhs_value);
+                }
+                if rhs_value.is_truthy() {
+                    return Ok(rhs_value);
+                } else {
+                    Ok(Value {
+                        kind: ValueKind::Boolean(false),
+                        span: (
+                            lhs_value.span.start..rhs_value.span.end,
+                            lhs_value.span.file,
+                        )
+                            .into(),
+                    })
+                }
+            }
         }
     }
 

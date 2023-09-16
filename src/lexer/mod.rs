@@ -412,4 +412,71 @@ mod tests {
 
         assert!(tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::UnknownSymbol { .. }));
     }
+
+    #[test]
+    fn test_strings() {
+        let mut lexer = Lexer::new("\"foo\" \"bar\" \"baz\"", Rc::from(""));
+        let tokens = lexer.lex().unwrap();
+
+        assert_eq!(tokens.len(), 4);
+        assert_eq!(tokens[0].token_kind, TokenKind::String("foo".to_string()));
+        assert_eq!(tokens[1].token_kind, TokenKind::String("bar".to_string()));
+        assert_eq!(tokens[2].token_kind, TokenKind::String("baz".to_string()));
+    }
+
+    #[test]
+    fn test_unterminated_strings() {
+        let mut lexer = Lexer::new("\"foo", Rc::from(""));
+        let tokens = lexer.lex();
+
+        assert!(
+            tokens.is_err() && matches!(tokens.unwrap_err(), LexerError::UnterminatedString { .. })
+        );
+    }
+
+    #[test]
+    fn test_multi_character_lexemes() {
+        let mut lexer = Lexer::new("= == ! != < <= > >= && ||", Rc::from(""));
+        let tokens = lexer.lex().unwrap();
+
+        assert_eq!(tokens.len(), 11);
+        assert_eq!(
+            tokens[0].token_kind,
+            TokenKind::Operator(OperatorKind::Assign)
+        );
+        assert_eq!(
+            tokens[1].token_kind,
+            TokenKind::Operator(OperatorKind::Equals)
+        );
+
+        assert_eq!(
+            tokens[2].token_kind,
+            TokenKind::Operator(OperatorKind::Bang)
+        );
+        assert_eq!(
+            tokens[3].token_kind,
+            TokenKind::Operator(OperatorKind::NotEquals)
+        );
+
+        assert_eq!(
+            tokens[4].token_kind,
+            TokenKind::Operator(OperatorKind::LessThan)
+        );
+        assert_eq!(
+            tokens[5].token_kind,
+            TokenKind::Operator(OperatorKind::LessThanOrEqual)
+        );
+
+        assert_eq!(
+            tokens[6].token_kind,
+            TokenKind::Operator(OperatorKind::GreaterThan)
+        );
+        assert_eq!(
+            tokens[7].token_kind,
+            TokenKind::Operator(OperatorKind::GreaterThanOrEqual)
+        );
+
+        assert_eq!(tokens[8].token_kind, TokenKind::Operator(OperatorKind::And));
+        assert_eq!(tokens[9].token_kind, TokenKind::Operator(OperatorKind::Or));
+    }
 }

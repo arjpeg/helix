@@ -19,6 +19,29 @@ use crate::{
     parser::{error::ParserError, Parser},
 };
 
+use rustc_version::version as rustc_version;
+
+fn main() {
+    // If there are any arguments, run the file
+    if std::env::args().len() > 1 {
+        let mut interpreter = Interpreter::new();
+
+        for file in std::env::args().skip(1) {
+            let code = std::fs::read_to_string(&file).unwrap();
+            let filename = Rc::from(file);
+            let result = run(&code, &mut interpreter, false, filename);
+
+            if let Err(err) = result {
+                format_error(code, err);
+            }
+        }
+
+        return;
+    }
+
+    repl();
+}
+
 fn run(
     code: &str,
     interpreter: &mut Interpreter,
@@ -69,37 +92,23 @@ fn repl() {
     }
 }
 
-fn main() {
-    // If there are any arguments, run the file
-    if std::env::args().len() > 1 {
-        let mut interpreter = Interpreter::new();
-
-        for file in std::env::args().skip(1) {
-            let code = std::fs::read_to_string(&file).unwrap();
-            let filename = Rc::from(file);
-            let result = run(&code, &mut interpreter, false, filename);
-
-            if let Err(err) = result {
-                format_error(code, err);
-            }
-        }
-
-        return;
-    }
-
-    repl();
-}
-
 fn handle_command(command: CommandType) {
+    let version = env!("CARGO_PKG_VERSION");
+
     match command {
         CommandType::Quit => {
             std::process::exit(0);
         }
 
         CommandType::Help => {
-            println!("{} ({}):", "Help".blue().bold(), "Helix v0.1.0".dimmed());
+            println!("{} (Helix v{}):", "Help".blue().bold(), version.dimmed());
             println!("  {} - Quit the REPL", "#quit".cyan().bold());
             println!("  {} - Show this message", "#help".cyan().bold());
+            println!("  {} - Show the current version", "#version".cyan().bold());
+            println!(
+                "  {} - Show the licence information",
+                "#licence".cyan().bold()
+            );
 
             println!();
             println!(
@@ -112,13 +121,34 @@ fn handle_command(command: CommandType) {
                 "https://helix-lang.org".green()
             );
         }
+
+        CommandType::Version => {
+            println!("{}: {}", "Helix Version".bold(), version.blue().bold());
+            println!(
+                "  {} {}",
+                "Compiled with Rust Version".dimmed(),
+                rustc_version().expect("Unknown rust version").cyan()
+            );
+        }
+
+        CommandType::Licence => {
+            println!("{}:", "Licence".blue().bold());
+            println!(
+                "  Helix is licenced under the {}.",
+                "MIT licence".bold().cyan()
+            );
+            println!(
+                "  For more information, visit {}",
+                "https://helix-lang.org/licence".cyan()
+            );
+        }
     }
 }
 
 fn format_error(input: String, error: Error) {
+    use InterpreterError as IE;
     use LexerError as LE;
     use ParserError as PE;
-    use InterpreterError as IE;
 
     let (message, range) = match error {
         // Lexer errors
@@ -134,9 +164,7 @@ fn format_error(input: String, error: Error) {
                 format!("Unknown command '{}'", &input[range.clone()]),
                 range,
             ),
-            LE::UnterminatedString { range } => {
-                ("Unterminated string literal".to_string(), range)
-            }
+            LE::UnterminatedString { range } => ("Unterminated string literal".to_string(), range),
         },
         // Parser errors
         Error::Parser(error) => match error {
@@ -166,7 +194,7 @@ fn format_error(input: String, error: Error) {
                     found.kind
                 ),
                 found.span,
-            )
+            ),
         },
 
         // Interpreter errors

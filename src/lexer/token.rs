@@ -98,12 +98,17 @@ pub enum OperatorKind {
 pub enum CommandType {
     Quit,
     Help,
+    Version,
+    Licence,
 }
+
 impl CommandType {
     pub fn get_command(lexeme: &str) -> Option<CommandType> {
         match lexeme {
             "quit" | "q" => Some(CommandType::Quit),
             "help" | "h" => Some(CommandType::Help),
+            "version" | "v" => Some(CommandType::Version),
+            "licence" | "license" | "l" => Some(CommandType::Licence),
             _ => None,
         }
     }
