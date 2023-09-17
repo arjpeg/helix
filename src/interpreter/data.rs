@@ -43,23 +43,23 @@ pub enum ValueKind {
 
 macro_rules! impl_binary_op {
     ($name:ident, $operator:ident, { $(($lhs:pat, $rhs:pat $(, $span:ident)? $(,)?) => $body:expr),* $(,)? }) => {
-        pub fn $name(&self, other: &Value) -> InterpreterResult<Value> {
+        pub fn $name(&self, other: &Value, span: Span) -> InterpreterResult<Value> {
             #[allow(unused_imports)]
             use ValueKind::*;
             use std::rc::Rc;
 
-            let expr_span: Span = (self.span.start..other.span.end, Rc::clone(&self.span.file)).into();
+            // let expr_span: Span = (self.span.start..other.span.end, Rc::clone(&self.span.file)).into();
 
             match (self.clone().kind, other.clone().kind) {
                 $(
                     ($lhs, $rhs) => {
                         $(
-                            let $span = expr_span.clone();
+                            let $span = span.clone();
                         )?
 
                         $body.map(|kind| Value {
                             kind,
-                            span: expr_span.clone(),
+                            span
                         })
                     },
                 )*

@@ -7,6 +7,7 @@ mod parser;
 use std::rc::Rc;
 
 use errors::Error;
+use input::Input;
 use interpreter::Interpreter;
 use lexer::{error::LexerError, Lexer};
 use owo_colors::OwoColorize;
@@ -79,11 +80,13 @@ fn run(
 fn repl() {
     input::print_intro();
 
+    let mut input = Input::new();
+
     let mut interpreter = Interpreter::new();
     let filename = Rc::from("stdin");
 
     loop {
-        let input = input::get_input();
+        let input = input.get_line();
         let result = run(&input, &mut interpreter, true, Rc::clone(&filename));
 
         if let Err(err) = result {
