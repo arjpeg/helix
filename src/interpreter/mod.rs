@@ -91,12 +91,16 @@ impl Interpreter {
             }
 
             AstNodeKind::VariableReference(name) => {
-                Ok(self.current_scope().variables.get(&name).cloned().ok_or({
-                    InterpreterError::UndefinedVariable {
-                        name,
-                        span: ast.span,
+                for scope in self.scopes.iter().rev() {
+                    if let Some(value) = scope.variables.get(&name) {
+                        return Ok(value.clone());
                     }
-                })?)
+                }
+
+                Err(InterpreterError::UndefinedVariable {
+                    name,
+                    span: ast.span,
+                })
             }
 
             AstNodeKind::Block { expressions } => {
@@ -108,21 +112,8 @@ impl Interpreter {
                 };
 
                 for expression in expressions {
+                    // FIXME: add support for return, break, and continue
                     return_value = self.interpret(expression)?;
-
-                    if self.current_scope().should_break {
-                        break;
-                    }
-
-                    if self.current_scope().should_continue {
-                        self.current_scope().should_continue = false;
-                        continue;
-                    }
-
-                    if let Some(ret_value) = &self.current_scope().return_value {
-                        return_value = ret_value.clone();
-                        break;
-                    }
                 }
 
                 self.scopes.pop();
