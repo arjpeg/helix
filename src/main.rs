@@ -232,6 +232,16 @@ fn format_error(input: String, error: Error) {
                 format!("Can't find variable '{}' in the current scope", name),
                 span,
             ),
+
+            IE::Break { span } => (
+                "Found a break statement outside of a loop".to_string(),
+                span,
+            ),
+
+            IE::Continue { span } => (
+                "Found a continue statement outside of a loop".to_string(),
+                span,
+            ),
         },
     };
 

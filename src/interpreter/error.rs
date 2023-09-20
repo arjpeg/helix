@@ -47,4 +47,19 @@ pub enum InterpreterError {
         /// The span of the variable.
         span: Span,
     },
+
+    /// Found a break statement, used for exiting loops. If this is found
+    /// outside of a loop, then an error is thrown.
+    Break {
+        /// The span of the break statement.
+        span: Span,
+    },
+
+    /// Found a continue statement, used for skipping the rest of the loop
+    /// and going to the next iteration. If this is found outside of a loop,
+    /// then an error is thrown.
+    Continue {
+        /// The span of the continue statement.
+        span: Span,
+    },
 }

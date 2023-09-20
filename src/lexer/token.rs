@@ -116,12 +116,22 @@ impl CommandType {
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum KeywordKind {
+    /// Variable declaration, ie. let _ = 1;
     Let,
+    /// If statement, ie. if true { ... }
     If,
+    /// Else statement, ie. if true { ... } else { ... }
     Else,
+    /// Print statement, ie. print "Hello, world!"
     Print,
-    While,
+    /// Function declaration, ie. fn add(a, b) { ... }
     Function,
+    /// While loop, ie. while true { ... }
+    While,
+    /// Break statement, ie. while true { break };
+    Break,
+    /// Continue statement, ie. while true { continue };
+    Continue,
 }
 
 impl KeywordKind {
@@ -133,6 +143,8 @@ impl KeywordKind {
             "print" => Some(KeywordKind::Print),
             "while" => Some(KeywordKind::While),
             "fn" => Some(KeywordKind::Function),
+            "break" => Some(KeywordKind::Break),
+            "continue" => Some(KeywordKind::Continue),
             _ => None,
         }
     }

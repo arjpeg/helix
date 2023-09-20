@@ -104,15 +104,34 @@ impl Parser {
                 TokenKind::Keyword(keyword) => match keyword {
                     KeywordKind::Let => self.parse_assignment(),
                     KeywordKind::If => self.parse_if(),
+                    KeywordKind::Else => Err(ParserError::UnexpectedToken {
+                        expected: "an if statement or a block".to_string(),
+                        found: tok.clone(),
+                    }),
                     KeywordKind::Print => self.parse_print(),
                     KeywordKind::While => self.parse_while(),
                     KeywordKind::Function => self.parse_function(),
 
-                    _ => {
-                        return Err(ParserError::UnexpectedToken {
-                            expected: "a statement".to_string(),
-                            found: self.peek().unwrap().clone(),
-                        })
+                    KeywordKind::Break => {
+                        let node = AstNode {
+                            kind: AstNodeKind::Break,
+                            span: tok.span.clone(),
+                        };
+
+                        self.advance();
+
+                        Ok(node)
+                    }
+
+                    KeywordKind::Continue => {
+                        let node = AstNode {
+                            kind: AstNodeKind::Continue,
+                            span: tok.span.clone(),
+                        };
+
+                        self.advance();
+
+                        Ok(node)
                     }
                 },
 

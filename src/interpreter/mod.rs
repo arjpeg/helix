@@ -118,14 +118,26 @@ impl Interpreter {
             AstNodeKind::Block { expressions } => {
                 self.scopes.push(Scope::new());
 
+                let span = ast.span.clone();
+
                 let mut return_value = Value {
                     kind: ValueKind::Null,
-                    span: ast.span,
+                    span,
                 };
 
                 for expression in expressions {
-                    // FIXME: add support for return, break, and continue
-                    return_value = self.interpret(expression)?;
+                    let ret = self.interpret(expression);
+
+                    // Check for break and continue statements
+                    match ret {
+                        Ok(value) => {
+                            return_value = value;
+                        }
+                        Err(InterpreterError::Break { .. } | InterpreterError::Continue { .. }) => {
+                            return ret;
+                        }
+                        Err(err) => return Err(err),
+                    }
                 }
 
                 self.scopes.pop();
@@ -171,11 +183,28 @@ impl Interpreter {
                 };
 
                 while self.interpret(*condition.clone())?.is_truthy() {
-                    last_value = self.interpret(*body.clone())?;
+                    let ret = self.interpret(*body.clone());
+
+                    // Check for break and continue errors
+                    match ret {
+                        Ok(value) => {
+                            last_value = value;
+                        }
+                        Err(InterpreterError::Break { .. }) => {
+                            break;
+                        }
+                        Err(InterpreterError::Continue { .. }) => {
+                            continue;
+                        }
+                        Err(err) => return Err(err),
+                    }
                 }
 
                 Ok(last_value)
             }
+
+            AstNodeKind::Break => Err(InterpreterError::Break { span: ast.span }),
+            AstNodeKind::Continue => Err(InterpreterError::Continue { span: ast.span }),
 
             AstNodeKind::NoOp => Ok(Value {
                 kind: ValueKind::Null,

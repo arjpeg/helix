@@ -85,6 +85,12 @@ pub enum AstNodeKind {
         body: Box<AstNode>,
     },
 
+    /// A continue statement
+    Continue,
+
+    /// A break statement
+    Break,
+
     /// A function statement
     /// (Not a function expression)
     FunctionDefinition {
@@ -114,6 +120,8 @@ impl Display for AstNodeKind {
                 Kind::Else { .. } => "Else Statement",
                 Kind::Print { .. } => "Print Statement",
                 Kind::While { .. } => "While Loop",
+                Kind::Continue => "Continue Statement",
+                Kind::Break => "Break Statement",
                 Kind::FunctionDefinition { .. } => "Function Definition",
             }
         )
