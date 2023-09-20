@@ -1,7 +1,7 @@
-let a = "Hello, "
+let a = 0
 
-{
-    let b = "World!"
+while a <= 10 {
+    print a
 
-    print a + b
+    a = a + 1
 }

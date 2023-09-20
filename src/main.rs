@@ -236,12 +236,18 @@ fn format_error(input: String, error: Error) {
     };
 
     // Get the line in which the error occurred
-    let line_num = input[..range.start].matches('\n').count() + 1;
+    let line_num = input[..range.start].matches('\n').count();
+
+    println!("range {range:?}");
+    println!("{}", &input[..range.start]);
+    println!("line num {line_num}");
 
     let line = input
         .lines()
-        .nth(if line_num != 0 { line_num - 1 } else { 0 })
+        .nth(line_num)
         .expect("Line number out of range");
+
+    println!("line {line}");
 
     // Get the range of the error in the line
     let line_start_index = input[..range.start].rfind('\n').unwrap_or(0) + 1;
@@ -254,6 +260,8 @@ fn format_error(input: String, error: Error) {
     })..range.end + 1 - line_start_index;
 
     let location = format!("{}:{}", file, line_num);
+
+    println!("{range:?}");
 
     eprintln!("{}: {}", "Error".red().bold(), message.bold());
     eprintln!(" {}  {}", location.dimmed(), line.bold());

@@ -73,16 +73,36 @@ impl Interpreter {
                 value,
                 declaration,
             } => {
+                let value = self.interpret(*value)?;
+
                 // Only allow expressions such as `x = 1` if `x` is already declared
-                if !declaration && !self.current_scope().variables.contains_key(&name) {
+                if !declaration {
+                    for scope in self.scopes.iter_mut().rev() {
+                        if scope.variables.contains_key(&name) {
+                            scope.variables.insert(
+                                name.clone(),
+                                Value {
+                                    kind: value.kind.clone(),
+                                    span: ast.span.clone(),
+                                },
+                            );
+
+                            return Ok(Value {
+                                kind: ValueKind::Null,
+                                span: ast.span,
+                            });
+                        }
+                    }
+
                     return Err(InterpreterError::UndefinedVariable {
                         name,
                         span: ast.span,
                     });
                 }
 
-                let value = self.interpret(*value)?;
-                self.current_scope().variables.insert(name, value.clone());
+                self.current_scope()
+                    .variables
+                    .insert(name.clone(), value.clone());
 
                 Ok(Value {
                     kind: ValueKind::Null,

@@ -4,7 +4,7 @@ use crate::lexer::span::Span;
 use crate::lexer::token::OperatorKind;
 
 /// A node in the AST
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct AstNode {
     /// The kind of node
     pub kind: AstNodeKind,
@@ -13,7 +13,7 @@ pub struct AstNode {
 }
 
 /// All the different kinds of nodes in the AST
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum AstNodeKind {
     /// A binary expression, such as `1 + 1`
     BinaryExpression {

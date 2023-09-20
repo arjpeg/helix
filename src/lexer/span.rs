@@ -3,7 +3,7 @@ use std::{
     rc::Rc,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Span {
     /// The start of the span.
     pub start: usize,

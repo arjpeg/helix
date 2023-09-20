@@ -18,7 +18,7 @@ pub struct Value {
 }
 
 /// The kind of the data.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 #[allow(dead_code)]
 pub enum ValueKind {
     /// A number.
