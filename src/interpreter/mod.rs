@@ -2,7 +2,7 @@ pub mod data;
 pub mod error;
 mod scope;
 
-use std::rc::Rc;
+use std::{collections::hash_map::Entry, rc::Rc};
 
 use crate::{
     lexer::{span::Span, token::OperatorKind},
@@ -78,14 +78,8 @@ impl Interpreter {
                 // Only allow expressions such as `x = 1` if `x` is already declared
                 if !declaration {
                     for scope in self.scopes.iter_mut().rev() {
-                        if scope.variables.contains_key(&name) {
-                            scope.variables.insert(
-                                name.clone(),
-                                Value {
-                                    kind: value.kind.clone(),
-                                    span: ast.span.clone(),
-                                },
-                            );
+                        if let Entry::Occupied(mut e) = scope.variables.entry(name.clone()) {
+                            e.insert(value);
 
                             return Ok(Value {
                                 kind: ValueKind::Null,
@@ -100,9 +94,7 @@ impl Interpreter {
                     });
                 }
 
-                self.current_scope()
-                    .variables
-                    .insert(name.clone(), value.clone());
+                self.current_scope().variables.insert(name, value);
 
                 Ok(Value {
                     kind: ValueKind::Null,
@@ -249,10 +241,9 @@ impl Interpreter {
 
             Or => {
                 if lhs_value.is_truthy() {
-                    return Ok(lhs_value);
-                }
-                if rhs_value.is_truthy() {
-                    return Ok(rhs_value);
+                    Ok(lhs_value)
+                } else if rhs_value.is_truthy() {
+                    Ok(rhs_value)
                 } else {
                     Ok(Value {
                         kind: ValueKind::Boolean(false),
