@@ -64,6 +64,8 @@ fn run(
     let mut parser = Parser::new(tokens, Rc::clone(&filename));
     let ast = parser.parse()?;
 
+    dbg!(ast.clone());
+
     let result = interpreter.start(ast)?;
 
     // if the result isn't Null, print it
@@ -180,7 +182,7 @@ fn format_error(input: String, error: Error) {
             ),
             PE::UnexpectedEof { expected, file } => (
                 format!("Expected {}, but found EOF", expected),
-                (input.len()..input.len(), file).into(),
+                (input.len() - 1..input.len(), file).into(),
             ),
 
             PE::UnexpectedNewline { span, expected } => (
@@ -245,33 +247,23 @@ fn format_error(input: String, error: Error) {
         },
     };
 
+    println!("{range:?}");
+
     // Get the line in which the error occurred
     let line_num = input[..range.start].matches('\n').count();
-
-    println!("range {range:?}");
-    println!("{}", &input[..range.start]);
-    println!("line num {line_num}");
-
     let line = input
         .lines()
         .nth(line_num)
         .expect("Line number out of range");
 
-    println!("line {line}");
-
     // Get the range of the error in the line
     let line_start_index = input[..range.start].rfind('\n').unwrap_or(0) + 1;
 
     let file = range.file;
-    let range = (if range.start >= line_start_index {
-        range.start - line_start_index + 1
-    } else {
-        0
-    })..range.end + 1 - line_start_index;
+    let range =
+        range.start.saturating_sub(line_start_index)..range.end.saturating_sub(line_start_index);
 
-    let location = format!("{}:{}", file, line_num);
-
-    println!("{range:?}");
+    let location = format!("{}:{}", file, line_num + 1);
 
     eprintln!("{}: {}", "Error".red().bold(), message.bold());
     eprintln!(" {}  {}", location.dimmed(), line.bold());

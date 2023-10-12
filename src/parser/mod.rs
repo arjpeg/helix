@@ -197,9 +197,9 @@ impl Parser {
 
         if is_new_assignment {
             self.advance();
-        }
+        };
 
-        let start = self.pos;
+        let start = self.clone().peek().unwrap().span.start;
 
         let lhs = self.parse_expr()?;
 
@@ -225,7 +225,7 @@ impl Parser {
 
         let rhs = self.parse_expr()?;
 
-        let end = self.pos;
+        let end = self.peek().unwrap().span.end;
 
         Ok(AstNode {
             kind: AstNodeKind::Assignment {
