@@ -64,8 +64,6 @@ fn run(
     let mut parser = Parser::new(tokens, Rc::clone(&filename));
     let ast = parser.parse()?;
 
-    dbg!(ast.clone());
-
     let result = interpreter.start(ast)?;
 
     // if the result isn't Null, print it
@@ -257,7 +255,7 @@ fn format_error(input: String, error: Error) {
         .expect("Line number out of range");
 
     // Get the range of the error in the line
-    let line_start_index = input[..range.start].rfind('\n').unwrap_or(0) + 1;
+    let line_start_index = input[..range.start].rfind('\n').unwrap_or(0);
 
     let file = range.file;
     let range =

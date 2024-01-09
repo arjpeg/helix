@@ -158,7 +158,7 @@ impl Interpreter {
                     self.interpret(*else_branch)
                 } else {
                     Ok(Value {
-                        kind: ValueKind::Boolean(false),
+                        kind: ValueKind::Null,
                         span: ast.span,
                     })
                 }
