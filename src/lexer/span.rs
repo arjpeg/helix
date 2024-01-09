@@ -15,19 +15,19 @@ pub struct Span {
 
 impl Span {
     /// Creates a new span from a start and end position.
-    pub fn new(start: usize, end: usize, file: Rc<str>) -> Span {
-        Span { start, end, file }
+    pub const fn new(start: usize, end: usize, file: Rc<str>) -> Span {
+        Self { start, end, file }
     }
 
     /// Returns the length of the span.
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.end - self.start
     }
 }
 
 impl From<(Range<usize>, Rc<str>)> for Span {
     fn from(range: (Range<usize>, Rc<str>)) -> Self {
-        Span::new(range.0.start, range.0.end, range.1)
+        Self::new(range.0.start, range.0.end, range.1)
     }
 }
 

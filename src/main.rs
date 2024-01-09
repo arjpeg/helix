@@ -33,7 +33,7 @@ fn main() {
             let result = run(&code, &mut interpreter, false, filename);
 
             if let Err(err) = result {
-                format_error(code, err);
+                format_error(&code, err);
             }
         }
 
@@ -90,7 +90,7 @@ fn repl() {
         let result = run(&input, &mut interpreter, true, Rc::clone(&filename));
 
         if let Err(err) = result {
-            format_error(input, err);
+            format_error(&input, err);
         }
     }
 }
@@ -148,7 +148,7 @@ fn handle_command(command: CommandType) {
     }
 }
 
-fn format_error(input: String, error: Error) {
+fn format_error(input: &str, error: Error) {
     use InterpreterError as IE;
     use LexerError as LE;
     use ParserError as PE;
@@ -179,7 +179,7 @@ fn format_error(input: String, error: Error) {
                 found.span,
             ),
             PE::UnexpectedEof { expected, file } => (
-                format!("Expected {}, but found EOF", expected),
+                format!("Expected {expected}, but found EOF"),
                 (input.len() - 1..input.len(), file).into(),
             ),
 
@@ -229,7 +229,7 @@ fn format_error(input: String, error: Error) {
             IE::DivisionByZero { span } => ("Division by zero".to_string(), span),
 
             IE::UndefinedVariable { name, span } => (
-                format!("Can't find variable '{}' in the current scope", name),
+                format!("Can't find symbol '{name}' in the current scope"),
                 span,
             ),
 

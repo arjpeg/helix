@@ -29,7 +29,7 @@ impl<'a> Cursor<'a> {
 
     /// Returns the current character in the file.
     #[allow(dead_code)]
-    pub fn current(&self) -> Option<char> {
+    pub const fn current(&self) -> Option<char> {
         self.current
     }
 
@@ -47,7 +47,7 @@ impl<'a> Cursor<'a> {
     }
 
     /// Returns the current position in the file.
-    pub fn pos(&self) -> usize {
+    pub const fn pos(&self) -> usize {
         self.byte_pos
     }
 

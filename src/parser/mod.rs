@@ -203,17 +203,17 @@ impl Parser {
 
         let lhs = self.parse_expr()?;
 
-        if !matches!(
+        if matches!(
             self.peek(),
             Some(Token {
                 token_kind: TokenKind::Operator(OperatorKind::Assign),
                 ..
             }),
         ) {
-            return Ok(lhs);
-        } else {
             // Advance past the assignment operator
             self.advance();
+        } else {
+            return Ok(lhs);
         }
 
         // If the lhs is not a valid lhs-value (i.e. not an identifier, or
@@ -610,9 +610,9 @@ impl Parser {
 
             for (idx, kind) in kinds.iter().enumerate() {
                 if idx == kinds.len() - 1 {
-                    kinds_str.push_str(&format!("{:?}", kind));
+                    kinds_str.push_str(&format!("{kind:?}"));
                 } else {
-                    kinds_str.push_str(&format!("{:?}, ", kind));
+                    kinds_str.push_str(&format!("{kind:?}, "));
                 }
             }
 
@@ -626,7 +626,7 @@ impl Parser {
                 token_kind: TokenKind::Newline,
                 span,
             }) => Err(ParserError::UnexpectedNewline {
-                expected: format!("a {:?}", kinds_str),
+                expected: format!("a {kinds_str:?}"),
                 span: span.clone(),
             }),
 
@@ -638,12 +638,12 @@ impl Parser {
             }),
 
             Some(token) => Err(ParserError::UnexpectedToken {
-                expected: format!("a {}", kinds_str),
+                expected: format!("a {kinds_str}"),
                 found: token.clone(),
             }),
 
             None => Err(ParserError::UnexpectedEof {
-                expected: format!("a {:?}", kinds_str),
+                expected: format!("a {kinds_str:?}"),
                 file: Rc::clone(&self.file),
             }),
         }

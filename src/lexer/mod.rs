@@ -45,7 +45,7 @@ impl Lexer<'_> {
         }
 
         while let Some(token) = self.next_token()? {
-            if let TokenKind::RightBrace = token.token_kind {
+            if token.token_kind == TokenKind::RightBrace {
                 tokens.push(Token::new(
                     (self.cursor.pos()..self.cursor.pos(), Rc::clone(&self.file)).into(),
                     TokenKind::Newline,
@@ -75,7 +75,7 @@ impl Lexer<'_> {
 
         let kind = match c {
             // Newline or semicolon
-            Some('\n') | Some(';') => TokenKind::Newline,
+            Some('\n' | ';') => TokenKind::Newline,
 
             // Whitespace
             Some(c) if c.is_ascii_whitespace() => {
@@ -194,12 +194,12 @@ impl Lexer<'_> {
 
                 let lexeme = &self.input[start..self.cursor.pos()];
 
-                match KeywordKind::get_keyword(lexeme) {
-                    Some(keyword) => TokenKind::Keyword(keyword),
-                    None => TokenKind::Identifier {
+                KeywordKind::get_keyword(lexeme).map_or_else(
+                    || TokenKind::Identifier {
                         name: lexeme.to_string(),
                     },
-                }
+                    |keyword| TokenKind::Keyword(keyword),
+                )
             }
 
             // Anything else

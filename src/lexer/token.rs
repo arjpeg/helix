@@ -14,8 +14,8 @@ pub struct Token {
 
 impl Token {
     /// Creates a new token from a lexeme and a token type.
-    pub fn new(span: Span, token_type: TokenKind) -> Token {
-        Token {
+    pub const fn new(span: Span, token_type: TokenKind) -> Token {
+        Self {
             span,
             token_kind: token_type,
         }
@@ -94,7 +94,7 @@ pub enum OperatorKind {
     Or,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandType {
     Quit,
     Help,
@@ -103,18 +103,18 @@ pub enum CommandType {
 }
 
 impl CommandType {
-    pub fn get_command(lexeme: &str) -> Option<CommandType> {
+    pub fn get_command(lexeme: &str) -> Option<Self> {
         match lexeme {
-            "quit" | "q" => Some(CommandType::Quit),
-            "help" | "h" => Some(CommandType::Help),
-            "version" | "v" => Some(CommandType::Version),
-            "licence" | "license" | "l" => Some(CommandType::Licence),
+            "quit" | "q" => Some(Self::Quit),
+            "help" | "h" => Some(Self::Help),
+            "version" | "v" => Some(Self::Version),
+            "licence" | "license" | "l" => Some(Self::Licence),
             _ => None,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum KeywordKind {
     /// Variable declaration, ie. let _ = 1;
     Let,
@@ -137,14 +137,14 @@ pub enum KeywordKind {
 impl KeywordKind {
     pub fn get_keyword(lexeme: &str) -> Option<KeywordKind> {
         match lexeme {
-            "let" => Some(KeywordKind::Let),
-            "if" => Some(KeywordKind::If),
-            "else" => Some(KeywordKind::Else),
-            "print" => Some(KeywordKind::Print),
-            "while" => Some(KeywordKind::While),
-            "fn" => Some(KeywordKind::Function),
-            "break" => Some(KeywordKind::Break),
-            "continue" => Some(KeywordKind::Continue),
+            "let" => Some(Self::Let),
+            "if" => Some(Self::If),
+            "else" => Some(Self::Else),
+            "print" => Some(Self::Print),
+            "while" => Some(Self::While),
+            "fn" => Some(Self::Function),
+            "break" => Some(Self::Break),
+            "continue" => Some(Self::Continue),
             _ => None,
         }
     }

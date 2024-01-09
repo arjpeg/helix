@@ -102,27 +102,25 @@ pub enum AstNodeKind {
 
 impl Display for AstNodeKind {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        use AstNodeKind as Kind;
-
         write!(
             f,
             "{}",
             match self {
-                Kind::BinaryExpression { .. } => "Binary Expression",
-                Kind::UnaryExpression { .. } => "Unary Expression",
-                Kind::Block { .. } => "Block",
-                Kind::NumberLiteral(_) => "Number Literal",
-                Kind::StringLiteral(_) => "String Literal",
-                Kind::VariableReference(_) => "Variable Reference",
-                Kind::NoOp => "NoOp",
-                Kind::Assignment { .. } => "Assignment",
-                Kind::If { .. } => "If Statement",
-                Kind::Else { .. } => "Else Statement",
-                Kind::Print { .. } => "Print Statement",
-                Kind::While { .. } => "While Loop",
-                Kind::Continue => "Continue Statement",
-                Kind::Break => "Break Statement",
-                Kind::FunctionDefinition { .. } => "Function Definition",
+                Self::BinaryExpression { .. } => "Binary Expression",
+                Self::UnaryExpression { .. } => "Unary Expression",
+                Self::Block { .. } => "Block",
+                Self::NumberLiteral(_) => "Number Literal",
+                Self::StringLiteral(_) => "String Literal",
+                Self::VariableReference(_) => "Variable Reference",
+                Self::NoOp => "NoOp",
+                Self::Assignment { .. } => "Assignment",
+                Self::If { .. } => "If Statement",
+                Self::Else { .. } => "Else Statement",
+                Self::Print { .. } => "Print Statement",
+                Self::While { .. } => "While Loop",
+                Self::Continue => "Continue Statement",
+                Self::Break => "Break Statement",
+                Self::FunctionDefinition { .. } => "Function Definition",
             }
         )
     }
