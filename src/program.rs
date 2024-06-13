@@ -1,8 +1,4 @@
-use crate::{
-    error::{Error, ErrorKind},
-    lexer::Lexer,
-    token::Token,
-};
+use crate::{error::Error, lexer::Lexer, token::Token};
 
 /// A source file that contains some source code, and potentially
 /// parsed ast
@@ -77,9 +73,6 @@ impl Program {
         let at = format!("at {} line {}:", source.name, line_number);
 
         let arrow_offset = 2 + at.len() + span.start - line_start;
-
-        dbg!(span.start);
-        dbg!(line_start);
 
         eprintln!("{}: {}", "Error".red().bold(), kind.bold());
         eprintln!();

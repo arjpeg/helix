@@ -89,15 +89,10 @@ impl<'a> Lexer<'a> {
                 TokenKind::Whitespace
             }
 
-            c if c.is_digit(10) => {
-                self.tokenize_integer();
-
-                TokenKind::Integer(
-                    self.source.content[start..self.cursor.byte_pos]
-                        .parse()
-                        .unwrap(),
-                )
-            }
+            c if c.is_digit(10) => match self.tokenize_number() {
+                Ok(kind) => kind,
+                Err(error) => return Some(Err(error)),
+            },
 
             _ => {
                 self.cursor.advance_while(|c| !c.is_whitespace());
@@ -124,8 +119,110 @@ impl<'a> Lexer<'a> {
         self.cursor.advance_while(char::is_whitespace);
     }
 
-    /// Consumes an integer literal.
-    fn tokenize_integer(&mut self) {
+    /// Consumes a floating point literal or an integer literal.
+    /// Note that numbers such as `.123` are not supported.
+    fn tokenize_number(&mut self) -> Result<TokenKind, Error> {
+        let start = self.cursor.byte_pos;
+
+        let mut dot_count = 0;
+
         self.cursor.advance_while(|c| c.is_digit(10));
+
+        while let Some('.') = self.cursor.peek() {
+            self.cursor.advance();
+            self.cursor.advance_while(|c| c.is_digit(10));
+
+            dot_count += 1;
+        }
+
+        if dot_count == 0 {
+            return Ok(TokenKind::Integer(
+                self.source.content[start..self.cursor.byte_pos]
+                    .parse()
+                    .unwrap(),
+            ));
+        }
+
+        if dot_count > 1 {
+            let range = start..self.cursor.byte_pos;
+
+            return Err(Error {
+                span: Span::new(range.clone(), self.source.index),
+                kind: LexerError::MalformedNumber(self.source.content[range].to_string()).into(),
+            });
+        }
+
+        Ok(TokenKind::Float(
+            self.source.content[start..self.cursor.byte_pos]
+                .parse()
+                .unwrap(),
+        ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::error::ErrorKind;
+
+    use super::*;
+
+    fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
+        Lexer::new(&Source {
+            name: "<test>".to_string(),
+            content: source.to_string(),
+            index: 0,
+        })
+        .tokenize()
+    }
+
+    #[test]
+    fn test_whitespace() {
+        let source = "  \t\n  ";
+        let tokens = tokenize(source).unwrap();
+
+        assert_eq!(tokens.len(), 0);
+    }
+
+    #[test]
+    fn test_numbers() {
+        let source = "123 555 2.222";
+        let mut tokens = tokenize(source).unwrap().into_iter();
+
+        assert_eq!(tokens.clone().len(), 3);
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: TokenKind::Integer(123),
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: TokenKind::Integer(555),
+                ..
+            })
+        ));
+
+        assert!(match tokens.next() {
+            Some(Token {
+                kind: TokenKind::Float(c),
+                ..
+            }) if (c - 2.222).abs() < f64::EPSILON => true,
+            _ => false,
+        });
+    }
+
+    #[test]
+    fn test_malformed_number() {
+        let source = "123.456.789";
+        let error = tokenize(source).unwrap_err();
+
+        assert!(matches!(
+            error.kind,
+            ErrorKind::Lexer(LexerError::MalformedNumber(_))
+        ));
     }
 }

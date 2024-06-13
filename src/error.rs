@@ -20,4 +20,6 @@ pub enum ErrorKind {
 pub enum LexerError {
     #[error("encountered an unknown symbol '{0}'")]
     UnknownSymbol(String),
+    #[error("encountered a malformed number '{0}'")]
+    MalformedNumber(String),
 }

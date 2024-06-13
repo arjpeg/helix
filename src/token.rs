@@ -8,10 +8,12 @@ pub struct Token {
 }
 
 /// The kind of a token.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum TokenKind {
     /// An integer literal
     Integer(i64),
+    /// A floating point literal
+    Float(f64),
 
     /// Any form of whitespace (spaces, tabs, newlines).
     /// Only used for lexing, and is discarded by the lexer.
