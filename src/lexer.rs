@@ -135,28 +135,20 @@ impl<'a> Lexer<'a> {
             dot_count += 1;
         }
 
-        if dot_count == 0 {
-            return Ok(TokenKind::Integer(
-                self.source.content[start..self.cursor.byte_pos]
-                    .parse()
-                    .unwrap(),
-            ));
-        }
+        let range = start..self.cursor.byte_pos;
 
-        if dot_count > 1 {
-            let range = start..self.cursor.byte_pos;
-
-            return Err(Error {
+        match dot_count {
+            0 => Ok(TokenKind::Integer(
+                self.source.content[range.clone()].parse().unwrap(),
+            )),
+            1 => Ok(TokenKind::Float(
+                self.source.content[range.clone()].parse().unwrap(),
+            )),
+            _ => Err(Error {
                 span: Span::new(range.clone(), self.source.index),
                 kind: LexerError::MalformedNumber(self.source.content[range].to_string()).into(),
-            });
+            }),
         }
-
-        Ok(TokenKind::Float(
-            self.source.content[start..self.cursor.byte_pos]
-                .parse()
-                .unwrap(),
-        ))
     }
 }
 
