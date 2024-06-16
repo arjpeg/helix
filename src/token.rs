@@ -15,9 +15,29 @@ pub enum TokenKind {
     /// A floating point literal
     Float(f64),
 
+    /// Any sort of operator
+    Operator(Operator),
+
     /// Any form of whitespace (spaces, tabs, newlines).
     /// Only used for lexing, and is discarded by the lexer.
     Whitespace,
+}
+
+/// An operator in the source code.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum Operator {
+    /// The plus operator (`+`)
+    Plus,
+    /// The minus operator (`-`)
+    Minus,
+    /// The multiplication operator (`*`)
+    Multiply,
+    /// The division operator (`/`)
+    Divide,
+    /// The modulo operator (`%`)
+    Modulo,
+    /// The exponentiation operator (`^`)
+    Exponent,
 }
 
 /// A range within some source code in a file.
@@ -34,14 +54,28 @@ pub struct Span {
 
 impl Token {
     /// Create a new token with a given kind and span.
-    pub fn new(kind: TokenKind, span: Span) -> Token {
-        Token { kind, span }
+    pub const fn new(kind: TokenKind, span: Span) -> Self {
+        Self { kind, span }
     }
 }
 
 impl Span {
     /// Create a new span with a given start and end.
-    pub fn new(Range { start, end }: Range<usize>, source: usize) -> Span {
-        Span { start, end, source }
+    pub const fn new(Range { start, end }: Range<usize>, source: usize) -> Self {
+        Self { start, end, source }
+    }
+}
+
+impl Operator {
+    pub fn from_char(c: char) -> Option<Self> {
+        Some(match c {
+            '+' => Self::Plus,
+            '-' => Self::Minus,
+            '*' => Self::Multiply,
+            '/' => Self::Divide,
+            '%' => Self::Modulo,
+            '^' => Self::Exponent,
+            _ => return None,
+        })
     }
 }

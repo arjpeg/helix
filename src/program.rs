@@ -21,7 +21,7 @@ pub struct Program {
 impl Source {
     /// Lexes the source file
     fn lex(&self) -> Result<Vec<Token>, Error> {
-        Lexer::new(&self).tokenize()
+        Lexer::new(self).tokenize()
     }
 
     /// Lexes and parses the source file
@@ -85,5 +85,11 @@ impl Program {
             " ".repeat(arrow_offset),
             "^".repeat(span.end - span.start)
         );
+    }
+}
+
+impl Default for Program {
+    fn default() -> Self {
+        Self::new()
     }
 }

@@ -37,7 +37,10 @@ impl<'a> Cursor<'a> {
     }
 
     /// Skip the current character if it matches the given predicate.
-    pub fn advance_while(&mut self, predicate: fn(char) -> bool) {
+    pub fn advance_while<F>(&mut self, predicate: F)
+    where
+        F: Fn(char) -> bool,
+    {
         while matches!(self.peek(), Some(c) if predicate(c)) {
             self.advance();
         }
@@ -89,19 +92,33 @@ impl<'a> Lexer<'a> {
                 TokenKind::Whitespace
             }
 
-            c if c.is_digit(10) => match self.tokenize_number() {
+            c if c.is_ascii_digit() => match self.tokenize_number() {
                 Ok(kind) => kind,
                 Err(error) => return Some(Err(error)),
             },
 
-            _ => {
+            // anything else
+            c => {
+                if let Some(op) = Operator::from_char(c) {
+                    self.cursor.advance();
+
+                    return Some(Ok(Token::new(
+                        TokenKind::Operator(op),
+                        Span::new(start..self.cursor.byte_pos, self.source.index),
+                    )));
+                }
+
                 self.cursor.advance_while(|c| !c.is_whitespace());
 
                 let range = start..self.cursor.byte_pos;
 
                 return Some(Err(Error {
                     span: Span::new(range.clone(), 0),
-                    kind: LexerError::UnknownSymbol(self.source.content[range].to_string()).into(),
+                    kind: match c {
+                        '.' => LexerError::MalformedNumber(self.source.content[range].to_string()),
+                        _ => LexerError::UnknownSymbol(self.source.content[range].to_string()),
+                    }
+                    .into(),
                 }));
             }
         };
@@ -126,24 +143,21 @@ impl<'a> Lexer<'a> {
 
         let mut dot_count = 0;
 
-        self.cursor.advance_while(|c| c.is_digit(10));
+        self.cursor.advance_while(|c| c.is_ascii_digit());
 
         while let Some('.') = self.cursor.peek() {
             self.cursor.advance();
-            self.cursor.advance_while(|c| c.is_digit(10));
+            self.cursor.advance_while(|c| c.is_ascii_digit());
 
             dot_count += 1;
         }
 
         let range = start..self.cursor.byte_pos;
+        let range_str = &self.source.content[range.clone()];
 
         match dot_count {
-            0 => Ok(TokenKind::Integer(
-                self.source.content[range.clone()].parse().unwrap(),
-            )),
-            1 => Ok(TokenKind::Float(
-                self.source.content[range.clone()].parse().unwrap(),
-            )),
+            0 => Ok(TokenKind::Integer(range_str.parse().unwrap())),
+            1 => Ok(TokenKind::Float(range_str.parse().unwrap())),
             _ => Err(Error {
                 span: Span::new(range.clone(), self.source.index),
                 kind: LexerError::MalformedNumber(self.source.content[range].to_string()).into(),
