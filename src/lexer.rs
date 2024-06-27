@@ -1,56 +1,16 @@
-use std::{iter::Peekable, str::Chars};
+use std::str::Chars;
 
 use crate::{
+    cursor::Cursor,
     error::{Error, LexerError},
     program::Source,
     token::*,
 };
 
-/// A cursor that keeps track of the current position in the input string.
-struct Cursor<'a> {
-    /// The input string.
-    input: Peekable<Chars<'a>>,
-
-    /// The current position of the cursor.
-    byte_pos: usize,
-}
-
-impl<'a> Cursor<'a> {
-    pub fn new(input: &'a str) -> Self {
-        Self {
-            input: input.chars().peekable(),
-            byte_pos: 0,
-        }
-    }
-
-    /// Peek at the next character in the input string.
-    pub fn peek(&mut self) -> Option<char> {
-        self.input.peek().copied()
-    }
-
-    /// Advance the cursor by one character.
-    pub fn advance(&mut self) -> Option<char> {
-        let c = self.input.next();
-        self.byte_pos += c.map(|c| c.len_utf8()).unwrap_or(0);
-
-        c
-    }
-
-    /// Skip the current character if it matches the given predicate.
-    pub fn advance_while<F>(&mut self, predicate: F)
-    where
-        F: Fn(char) -> bool,
-    {
-        while matches!(self.peek(), Some(c) if predicate(c)) {
-            self.advance();
-        }
-    }
-}
-
 /// Converts a string into a list of tokens.
 pub struct Lexer<'a> {
     /// The cursor over the source code.
-    cursor: Cursor<'a>,
+    cursor: Cursor<Chars<'a>>,
     /// The source file being tokenized.
     source: &'a Source,
 }
@@ -59,7 +19,7 @@ impl<'a> Lexer<'a> {
     /// Creates a new lexer from a string.
     pub fn new(source: &'a Source) -> Self {
         Self {
-            cursor: Cursor::new(&source.content),
+            cursor: Cursor::new(source.content.chars()),
             source,
         }
     }
@@ -84,9 +44,9 @@ impl<'a> Lexer<'a> {
 
     /// Advances the lexer by one token.
     fn next(&mut self) -> Option<Result<Token, Error>> {
-        let start = self.cursor.byte_pos;
+        let start = self.cursor.pos;
 
-        let kind = match self.cursor.peek()? {
+        let kind = match *self.cursor.peek()? {
             c if c.is_whitespace() => {
                 self.skip_whitespace();
                 TokenKind::Whitespace
@@ -104,13 +64,13 @@ impl<'a> Lexer<'a> {
 
                     return Some(Ok(Token::new(
                         TokenKind::Operator(op),
-                        Span::new(start..self.cursor.byte_pos, self.source.index),
+                        Span::new(start..self.cursor.pos, self.source.index),
                     )));
                 }
 
                 self.cursor.advance_while(|c| !c.is_whitespace());
 
-                let range = start..self.cursor.byte_pos;
+                let range = start..self.cursor.pos;
 
                 return Some(Err(Error {
                     span: Span::new(range.clone(), 0),
@@ -123,7 +83,7 @@ impl<'a> Lexer<'a> {
             }
         };
 
-        let end = self.cursor.byte_pos;
+        let end = self.cursor.pos;
 
         Some(Ok(Token::new(
             kind,
@@ -133,13 +93,13 @@ impl<'a> Lexer<'a> {
 
     /// Skips whitespace characters.
     fn skip_whitespace(&mut self) {
-        self.cursor.advance_while(char::is_whitespace);
+        self.cursor.advance_while(|c| c.is_whitespace());
     }
 
     /// Consumes a floating point literal or an integer literal.
     /// Note that numbers such as `.123` are not supported.
     fn tokenize_number(&mut self) -> Result<TokenKind, Error> {
-        let start = self.cursor.byte_pos;
+        let start = self.cursor.pos;
 
         let mut dot_count = 0;
 
@@ -152,7 +112,7 @@ impl<'a> Lexer<'a> {
             dot_count += 1;
         }
 
-        let range = start..self.cursor.byte_pos;
+        let range = start..self.cursor.pos;
         let range_str = &self.source.content[range.clone()];
 
         match dot_count {

@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::token::Span;
+use crate::token::{Operator, Span};
 
 #[derive(Error, Debug, Clone)]
 #[error("{kind}")]
@@ -13,6 +13,8 @@ pub struct Error {
 pub enum ErrorKind {
     #[error(transparent)]
     Lexer(#[from] LexerError),
+    #[error(transparent)]
+    Parser(#[from] ParserError),
 }
 
 /// An error that occurred during tokenization
@@ -22,4 +24,11 @@ pub enum LexerError {
     UnknownSymbol(String),
     #[error("encountered a malformed number '{0}'")]
     MalformedNumber(String),
+}
+
+/// An error that occurred during the generation of the AST
+#[derive(Error, Debug, Clone)]
+pub enum ParserError {
+    #[error("'{0}' is not a valid unary operator")]
+    InvalidUnaryOperator(Operator),
 }

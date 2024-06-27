@@ -1,4 +1,7 @@
-use std::ops::Range;
+use std::{
+    fmt::{Display, Write},
+    ops::Range,
+};
 
 /// A token within the source code, representing a literal, operator, or keyword.
 #[derive(Debug, Clone, Copy)]
@@ -34,10 +37,16 @@ pub enum Operator {
     Multiply,
     /// The division operator (`/`)
     Divide,
-    /// The modulo operator (`%`)
-    Modulo,
-    /// The exponentiation operator (`^`)
-    Exponent,
+}
+
+/// A unary operator. Isn't directly created during
+/// tokenization, but is used during parsing/interpretation
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum UnaryOperator {
+    /// The plus operator (`+`)
+    Plus,
+    /// The minus operator (`-`)
+    Minus,
 }
 
 /// A range within some source code in a file.
@@ -73,9 +82,35 @@ impl Operator {
             '-' => Self::Minus,
             '*' => Self::Multiply,
             '/' => Self::Divide,
-            '%' => Self::Modulo,
-            '^' => Self::Exponent,
             _ => return None,
+        })
+    }
+
+    pub fn from_token_kind(kind: TokenKind) -> Option<Self> {
+        match kind {
+            TokenKind::Operator(op) => Some(op),
+            _ => None,
+        }
+    }
+}
+
+impl UnaryOperator {
+    pub fn from_operator(op: Operator) -> Option<Self> {
+        Some(match op {
+            Operator::Plus => Self::Plus,
+            Operator::Minus => Self::Minus,
+            _ => return None,
+        })
+    }
+}
+
+impl Display for Operator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_char(match self {
+            Self::Plus => '+',
+            Self::Minus => '-',
+            Self::Multiply => '*',
+            Self::Divide => '/',
         })
     }
 }

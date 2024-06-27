@@ -1,4 +1,4 @@
-use crate::{error::Error, lexer::Lexer, token::Token};
+use crate::{error::Error, lexer::Lexer, parser::Parser, token::Token};
 
 /// A source file that contains some source code, and potentially
 /// parsed ast
@@ -26,7 +26,9 @@ impl Source {
 
     /// Lexes and parses the source file
     pub fn parse(&self) -> Result<(), Error> {
-        dbg!(self.lex()?);
+        let tokens = self.lex()?;
+
+        dbg!(Parser::new(&tokens).parse()?);
 
         Ok(())
     }
@@ -63,7 +65,11 @@ impl Program {
 
         let source = &self.sources[span.source];
 
-        let line_start = source.content[..span.start].rfind('\n').unwrap_or(0) + 1;
+        let line_start = match source.content[..span.start].rfind('\n') {
+            Some(start) => start + 1,
+            None => 0,
+        };
+
         let line_end = source.content[span.end..]
             .find('\n')
             .unwrap_or(source.content.len());
