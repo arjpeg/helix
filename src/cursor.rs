@@ -41,3 +41,16 @@ impl<I: Iterator> Cursor<I> {
         }
     }
 }
+
+impl<I: Iterator> Clone for Cursor<I>
+where
+    I: Clone,
+    I::Item: Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            iter: self.iter.clone(),
+            pos: self.pos,
+        }
+    }
+}

@@ -2,13 +2,11 @@ use std::slice::Iter;
 
 use crate::{
     cursor::Cursor,
-    error::{Error, ParserError},
+    error::{Error, ParserError, Result},
     token::{Operator, Token, TokenKind, UnaryOperator},
 };
 
 type ASTNode = crate::ast::Node;
-
-type Result = std::result::Result<crate::ast::Node, crate::error::Error>;
 
 pub struct Parser<'a> {
     /// A cursor over the tokens
@@ -22,22 +20,40 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> Result {
-        self.arithmetic_expression()
+    pub fn parse(mut self) -> Result<ASTNode> {
+        self.equality()
     }
 
-    /// term ((PLUS|MINUS) term)*
-    fn arithmetic_expression(&mut self) -> Result {
-        self.reduce_binary_operators(Self::term, &[Operator::Plus, Operator::Minus])
+    /// comparison (("==" | "!=") comparison)*
+    fn equality(&mut self) -> Result<ASTNode> {
+        self.reduce_binary_operators(Self::comparison, &[Operator::Equals, Operator::NotEquals])
     }
 
-    /// factor ((MUL|DIV) factor) *
-    fn term(&mut self) -> Result {
-        self.reduce_binary_operators(Self::factor, &[Operator::Multiply, Operator::Divide])
+    /// term ((">" | ">=" | "<" | "<=") term)*
+    fn comparison(&mut self) -> Result<ASTNode> {
+        self.reduce_binary_operators(
+            Self::term,
+            &[
+                Operator::LessThan,
+                Operator::LessThanEquals,
+                Operator::GreaterThan,
+                Operator::GreaterThanEquals,
+            ],
+        )
     }
 
-    /// (PLUS|MINUS)* atom
-    fn factor(&mut self) -> Result {
+    /// factor (("+" | "-") factor)*
+    fn term(&mut self) -> Result<ASTNode> {
+        self.reduce_binary_operators(Self::factor, &[Operator::Plus, Operator::Minus])
+    }
+
+    /// unary (("*" | "/") unary)*
+    fn factor(&mut self) -> Result<ASTNode> {
+        self.reduce_binary_operators(Self::unary, &[Operator::Multiply, Operator::Divide])
+    }
+
+    /// (PLUS|MINUS)* unary | atom
+    fn unary(&mut self) -> Result<ASTNode> {
         // TODO: remove unwrap - add into ParserError for Option?
         let token = self.cursor.peek().unwrap();
 
@@ -48,7 +64,7 @@ impl<'a> Parser<'a> {
 
                     Ok(ASTNode::UnaryOp {
                         operator: op,
-                        operand: Box::new(self.factor()?),
+                        operand: Box::new(self.unary()?),
                     })
                 } else {
                     Err(Error {
@@ -62,33 +78,26 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// int | float
-    fn atom(&mut self) -> Result {
+    /// int | float | "(" expression ")"
+    fn atom(&mut self) -> Result<ASTNode> {
         let token = self.cursor.advance().unwrap();
 
-        let node = match token.kind {
+        match token.kind {
             TokenKind::Float(lit) => Ok(ASTNode::Float(lit)),
             TokenKind::Integer(lit) => Ok(ASTNode::Integer(lit)),
 
             _ => todo!("{token:?}"),
-        };
-
-        node
+        }
     }
 
-    fn reduce_binary_operators<F>(&mut self, reducer: F, operators: &[Operator]) -> Result
+    fn reduce_binary_operators<F>(&mut self, reducer: F, operators: &[Operator]) -> Result<ASTNode>
     where
-        F: Fn(&mut Self) -> Result,
+        F: Fn(&mut Self) -> Result<ASTNode>,
     {
         let mut lhs = reducer(self)?;
 
         while let Some(token) = self.cursor.peek() {
-            dbg!(&lhs, &token);
-
-            let Some(op) = Operator::from_token_kind(token.kind) else {
-                println!("STOPPING");
-                break;
-            };
+            let Some(op) = Operator::from_token_kind(token.kind) else { continue; };
 
             if !operators.contains(&op) {
                 break;
@@ -106,5 +115,55 @@ impl<'a> Parser<'a> {
         }
 
         Ok(lhs)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{lexer::Lexer, program::Source};
+
+    use super::*;
+
+    fn parse(source: &str) -> Result<ASTNode> {
+        let tokens = Lexer::new(&Source {
+            name: "<test>".to_string(),
+            content: source.to_string(),
+            index: 0,
+        })
+        .tokenize()
+        .expect("test case did not tokenize properly");
+
+        Parser::new(&tokens).parse()
+    }
+
+    #[test]
+    fn test_literals() {
+        assert!(matches!(parse("1"), Ok(ASTNode::Integer(1))));
+        assert!(matches!(parse("555"), Ok(ASTNode::Integer(555))));
+
+        assert!(
+            matches!(parse("23.11"), Ok(ASTNode::Float(f)) if (f - 23.11).abs() < f64::EPSILON)
+        );
+    }
+
+    #[test]
+    fn test_unary_operators() {
+        let Ok(ASTNode::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("-20") else {
+            panic!();
+        };
+
+        assert_eq!(*operand, ASTNode::Integer(20));
+
+        let Ok(ASTNode::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("--20") else {
+            panic!();
+        };
+
+        assert!(matches!(
+            *operand,
+            ASTNode::UnaryOp {
+                operator: UnaryOperator::Minus,
+                ..
+            }
+        ));
     }
 }

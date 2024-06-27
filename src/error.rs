@@ -2,6 +2,9 @@ use thiserror::Error;
 
 use crate::token::{Operator, Span};
 
+/// An wrapper over Result to be specific to Helix errors
+pub type Result<T> = std::result::Result<T, Error>;
+
 #[derive(Error, Debug, Clone)]
 #[error("{kind}")]
 pub struct Error {

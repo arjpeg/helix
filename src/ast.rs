@@ -1,7 +1,7 @@
 use crate::token::{Operator, UnaryOperator};
 
 /// A node in the abstract syntax tree.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Node {
     /// A binary operation.
     BinaryOp {

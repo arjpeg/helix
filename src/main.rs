@@ -1,7 +1,7 @@
 use helix::program::Program;
 
 fn main() {
-    let source = "1 + 3.4 * 4 / 2 + 23";
+    let source = "1 + 2 < 4 * 8 == 0";
     let name = "<stdin>";
 
     let mut program = Program::new();

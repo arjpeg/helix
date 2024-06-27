@@ -57,17 +57,18 @@ impl<'a> Lexer<'a> {
                 Err(error) => return Some(Err(error)),
             },
 
-            // anything else
-            c => {
-                if let Some(op) = Operator::from_char(c) {
-                    self.cursor.advance();
+            c if Operator::is_operator_start(c) => {
+                let kind = Operator::from_cursor(&mut self.cursor)?;
 
-                    return Some(Ok(Token::new(
-                        TokenKind::Operator(op),
-                        Span::new(start..self.cursor.pos, self.source.index),
-                    )));
+                if kind.is_two_char() {
+                    self.cursor.advance();
                 }
 
+                TokenKind::Operator(kind)
+            }
+
+            // anything else
+            c => {
                 self.cursor.advance_while(|c| !c.is_whitespace());
 
                 let range = start..self.cursor.pos;
