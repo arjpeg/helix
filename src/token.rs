@@ -57,7 +57,7 @@ pub struct Span {
     /// The end of the span (exclusive).
     pub end: usize,
 
-    /// The source file that this span is in (it's index).
+    /// The source file that this span is in (its index).
     pub source: usize,
 }
 
