@@ -1,8 +1,10 @@
 use std::str::Chars;
 
+use unicode_xid::UnicodeXID;
+
 use crate::{
     cursor::Cursor,
-    error::{Error, LexerError},
+    error::{Error, LexerError, Result},
     program::Source,
     token::*,
 };
@@ -25,7 +27,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Starts the tokenization process.
-    pub fn tokenize(mut self) -> Result<Vec<Token>, Error> {
+    pub fn tokenize(mut self) -> Result<Vec<Token>> {
         let mut tokens = Vec::new();
 
         while let Some(token) = self.next() {
@@ -43,7 +45,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Advances the lexer by one token.
-    fn next(&mut self) -> Option<Result<Token, Error>> {
+    fn next(&mut self) -> Option<Result<Token>> {
         let start = self.cursor.pos;
 
         let kind = match *self.cursor.peek()? {
@@ -65,6 +67,17 @@ impl<'a> Lexer<'a> {
                 }
 
                 TokenKind::Operator(kind)
+            }
+
+            c if c == '_' || c.is_xid_start() => {
+                self.tokenize_identifier();
+
+                let ident = self.source.content[start..self.cursor.pos].to_string();
+
+                match Keyword::from_ident(&ident) {
+                    Some(keyword) => TokenKind::Keyword(keyword),
+                    None => TokenKind::Identifier(ident),
+                }
             }
 
             // anything else
@@ -97,9 +110,14 @@ impl<'a> Lexer<'a> {
         self.cursor.advance_while(|c| c.is_whitespace());
     }
 
+    /// Consumes an identifier
+    fn tokenize_identifier(&mut self) {
+        self.cursor.advance_while(|c| c.is_xid_continue())
+    }
+
     /// Consumes a floating point literal or an integer literal.
     /// Note that numbers such as `.123` are not supported.
-    fn tokenize_number(&mut self) -> Result<TokenKind, Error> {
+    fn tokenize_number(&mut self) -> Result<TokenKind> {
         let start = self.cursor.pos;
 
         let mut dot_count = 0;

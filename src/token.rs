@@ -3,26 +3,41 @@ use std::{fmt::Display, ops::Range, str::Chars};
 use crate::cursor::Cursor;
 
 /// A token within the source code, representing a literal, operator, or keyword.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Token {
     pub kind: TokenKind,
     pub span: Span,
 }
 
 /// The kind of a token.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum TokenKind {
-    /// An integer literal
+    /// An integer literal.
     Integer(i64),
-    /// A floating point literal
+    /// A floating point literal.
     Float(f64),
 
-    /// Any operator
+    /// An identifier.
+    Identifier(String),
+
+    /// Any operator.
     Operator(Operator),
+
+    /// A keyword.
+    Keyword(Keyword),
 
     /// Any form of whitespace (spaces, tabs, newlines).
     /// Only used for lexing, and is discarded by the lexer.
     Whitespace,
+}
+
+/// A keyword in the source code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Keyword {
+    /// The `true` literal
+    True,
+    /// The `false` literal
+    False,
 }
 
 /// An operator in the source code.
@@ -127,9 +142,9 @@ impl Operator {
         )
     }
 
-    pub fn from_token_kind(kind: TokenKind) -> Option<Self> {
+    pub fn from_token_kind(kind: &TokenKind) -> Option<Self> {
         match kind {
-            TokenKind::Operator(op) => Some(op),
+            TokenKind::Operator(op) => Some(*op),
             _ => None,
         }
     }
@@ -141,6 +156,16 @@ impl UnaryOperator {
             Operator::Plus => Self::Plus,
             Operator::Minus => Self::Minus,
             Operator::Not => Self::Not,
+            _ => return None,
+        })
+    }
+}
+
+impl Keyword {
+    pub fn from_ident(ident: &str) -> Option<Self> {
+        Some(match ident {
+            "true" => Self::True,
+            "false" => Self::False,
             _ => return None,
         })
     }
@@ -160,6 +185,34 @@ impl Display for Operator {
             Self::LessThanEquals => "<=",
             Self::GreaterThan => ">",
             Self::GreaterThanEquals => ">=",
+        })
+    }
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::True => "true",
+            Self::False => "false",
+        })
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.kind))
+    }
+}
+
+impl Display for TokenKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
+            Self::Integer(lit) => lit.to_string(),
+            Self::Float(lit) => lit.to_string(),
+            Self::Identifier(ident) => ident.clone(),
+            Self::Operator(op) => op.to_string(),
+            Self::Keyword(keyword) => keyword.to_string(),
+            Self::Whitespace => "<whitespace>".to_string(),
         })
     }
 }

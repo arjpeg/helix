@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::token::{Operator, Span};
+use crate::token::{Operator, Span, Token};
 
 /// An wrapper over Result to be specific to Helix errors
 pub type Result<T> = std::result::Result<T, Error>;
@@ -34,4 +34,6 @@ pub enum LexerError {
 pub enum ParserError {
     #[error("'{0}' is not a valid unary operator")]
     InvalidUnaryOperator(Operator),
+    #[error("found unexpected token '{0}'")]
+    UnexpectedToken(Token),
 }

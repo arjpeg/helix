@@ -3,7 +3,7 @@ use std::slice::Iter;
 use crate::{
     cursor::Cursor,
     error::{Error, ParserError, Result},
-    token::{Operator, Token, TokenKind, UnaryOperator},
+    token::{Keyword, Operator, Token, TokenKind, UnaryOperator},
 };
 
 type ASTNode = crate::ast::Node;
@@ -52,7 +52,7 @@ impl<'a> Parser<'a> {
         self.reduce_binary_operators(Self::unary, &[Operator::Multiply, Operator::Divide])
     }
 
-    /// (PLUS|MINUS)* unary | atom
+    /// ("+" | "-")* unary | atom
     fn unary(&mut self) -> Result<ASTNode> {
         // TODO: remove unwrap - add into ParserError for Option?
         let token = self.cursor.peek().unwrap();
@@ -86,7 +86,17 @@ impl<'a> Parser<'a> {
             TokenKind::Float(lit) => Ok(ASTNode::Float(lit)),
             TokenKind::Integer(lit) => Ok(ASTNode::Integer(lit)),
 
-            _ => todo!("{token:?}"),
+            TokenKind::Keyword(keyword) => match keyword {
+                Keyword::True => Ok(ASTNode::Boolean(true)),
+                Keyword::False => Ok(ASTNode::Boolean(false)),
+            },
+
+            TokenKind::Identifier(ref ident) => Ok(ASTNode::Identifier(ident.clone())),
+
+            _ => Err(Error {
+                span: token.span,
+                kind: ParserError::UnexpectedToken(token.clone()).into(),
+            }),
         }
     }
 
@@ -97,7 +107,7 @@ impl<'a> Parser<'a> {
         let mut lhs = reducer(self)?;
 
         while let Some(token) = self.cursor.peek() {
-            let Some(op) = Operator::from_token_kind(token.kind) else { continue; };
+            let Some(op) = Operator::from_token_kind(&token.kind) else { break; };
 
             if !operators.contains(&op) {
                 break;

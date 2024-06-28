@@ -9,5 +9,6 @@
 
 <atom> ::= INTEGER 
 				 | FLOAT
+				 | IDENT
 				 | "(" <expression> ")"
 

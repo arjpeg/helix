@@ -26,4 +26,10 @@ pub enum Node {
 
     /// A floating point literal.
     Float(f64),
+
+    /// A boolean literal.
+    Boolean(bool),
+
+    /// A reference to an identifier
+    Identifier(String),
 }
