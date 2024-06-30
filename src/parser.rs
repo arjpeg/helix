@@ -1,9 +1,10 @@
 use std::slice::Iter;
 
 use crate::{
+    ast::NodeKind,
     cursor::Cursor,
     error::{Error, ParserError, Result},
-    token::{Keyword, Operator, Token, TokenKind, UnaryOperator},
+    token::{Keyword, Operator, Span, Token, TokenKind, UnaryOperator},
 };
 
 type ASTNode = crate::ast::Node;
@@ -11,12 +12,15 @@ type ASTNode = crate::ast::Node;
 pub struct Parser<'a> {
     /// A cursor over the tokens
     cursor: Cursor<Iter<'a, Token>>,
+    /// A list of all the tokens
+    tokens: &'a [Token],
 }
 
 impl<'a> Parser<'a> {
     pub fn new(tokens: &'a [Token]) -> Self {
         Parser {
             cursor: Cursor::new(tokens.iter()),
+            tokens,
         }
     }
 
@@ -55,17 +59,21 @@ impl<'a> Parser<'a> {
     /// ("+" | "-")* unary | atom
     fn unary(&mut self) -> Result<ASTNode> {
         // TODO: remove unwrap - add into ParserError for Option?
-        let token = self.cursor.peek().unwrap();
+        let token = (*self.cursor.peek().unwrap()).clone();
 
         match token.kind {
             TokenKind::Operator(op) => {
                 if let Some(op) = UnaryOperator::from_operator(op) {
                     self.cursor.advance();
 
-                    Ok(ASTNode::UnaryOp {
+                    let kind = NodeKind::UnaryOp {
                         operator: op,
                         operand: Box::new(self.unary()?),
-                    })
+                    };
+
+                    let span = token.span.start..self.tokens[self.cursor.pos].span.end;
+
+                    Ok(ASTNode::new(kind, Span::new(span, token.span.source)))
                 } else {
                     Err(Error {
                         span: token.span,
@@ -82,22 +90,26 @@ impl<'a> Parser<'a> {
     fn atom(&mut self) -> Result<ASTNode> {
         let token = self.cursor.advance().unwrap();
 
-        match token.kind {
-            TokenKind::Float(lit) => Ok(ASTNode::Float(lit)),
-            TokenKind::Integer(lit) => Ok(ASTNode::Integer(lit)),
+        let kind = match token.kind {
+            TokenKind::Float(lit) => NodeKind::Float(lit),
+            TokenKind::Integer(lit) => NodeKind::Integer(lit),
 
             TokenKind::Keyword(keyword) => match keyword {
-                Keyword::True => Ok(ASTNode::Boolean(true)),
-                Keyword::False => Ok(ASTNode::Boolean(false)),
+                Keyword::True => NodeKind::Boolean(true),
+                Keyword::False => NodeKind::Boolean(false),
             },
 
-            TokenKind::Identifier(ref ident) => Ok(ASTNode::Identifier(ident.clone())),
+            TokenKind::Identifier(ref ident) => NodeKind::Identifier(ident.clone()),
 
-            _ => Err(Error {
-                span: token.span,
-                kind: ParserError::UnexpectedToken(token.clone()).into(),
-            }),
-        }
+            _ => {
+                return Err(Error {
+                    span: token.span,
+                    kind: ParserError::UnexpectedToken(token.clone()).into(),
+                })
+            }
+        };
+
+        Ok(ASTNode::new(kind, token.span))
     }
 
     fn reduce_binary_operators<F>(&mut self, reducer: F, operators: &[Operator]) -> Result<ASTNode>
@@ -106,7 +118,7 @@ impl<'a> Parser<'a> {
     {
         let mut lhs = reducer(self)?;
 
-        while let Some(token) = self.cursor.peek() {
+        while let Some(token) = self.cursor.peek().cloned().cloned() {
             let Some(op) = Operator::from_token_kind(&token.kind) else { break; };
 
             if !operators.contains(&op) {
@@ -117,11 +129,16 @@ impl<'a> Parser<'a> {
 
             let rhs = reducer(self)?;
 
-            lhs = ASTNode::BinaryOp {
-                lhs: Box::new(lhs),
-                operator: op,
-                rhs: Box::new(rhs),
-            }
+            let span = lhs.span.start..rhs.span.end;
+
+            lhs = ASTNode::new(
+                NodeKind::BinaryOp {
+                    operator: op,
+                    lhs: Box::new(lhs),
+                    rhs: Box::new(rhs),
+                },
+                Span::new(span, token.span.source),
+            );
         }
 
         Ok(lhs)

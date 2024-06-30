@@ -1,8 +1,17 @@
-use crate::token::{Operator, UnaryOperator};
+use crate::token::{Operator, Span, UnaryOperator};
 
 /// A node in the abstract syntax tree.
 #[derive(Debug, Clone, PartialEq)]
-pub enum Node {
+pub struct Node {
+    /// The kind of the node.
+    pub kind: NodeKind,
+    /// The span of the node.
+    pub span: Span,
+}
+
+/// The kind of a node in the abstract syntax tree.
+#[derive(Debug, Clone, PartialEq)]
+pub enum NodeKind {
     /// A binary operation.
     BinaryOp {
         /// The left hand side of the operation.
@@ -32,4 +41,11 @@ pub enum Node {
 
     /// A reference to an identifier
     Identifier(String),
+}
+
+impl Node {
+    /// Create a new node with the given kind and span.
+    pub fn new(kind: NodeKind, span: Span) -> Self {
+        Self { kind, span }
+    }
 }

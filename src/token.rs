@@ -83,7 +83,7 @@ pub enum UnaryOperator {
 }
 
 /// A range within some source code in a file.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Span {
     /// The beginning of the span (inclusive).
     pub start: usize,
