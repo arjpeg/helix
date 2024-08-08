@@ -1,7 +1,7 @@
 use crate::{error::Error, lexer::Lexer, parser::Parser, token::Token};
 
 /// A source file that contains some source code, and potentially
-/// parsed ast
+/// parsed ast.
 pub struct Source {
     /// The ID of the source (index into when it was registered)
     pub index: usize,
