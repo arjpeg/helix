@@ -63,14 +63,20 @@ impl<'a> Lexer<'a> {
                 Err(error) => return Some(Err(error)),
             },
 
-            c if Operator::is_operator_start(c) => {
-                let kind = Operator::from_cursor(&mut self.cursor)?;
+            c if BinaryOperator::is_operator_start(c) => {
+                let operator = BinaryOperator::from_cursor(&mut self.cursor)?;
 
-                if kind.is_two_char() {
+                if operator.is_two_char() {
                     self.cursor.advance();
                 }
 
-                TokenKind::Operator(kind)
+                TokenKind::BinaryOperator(operator)
+            }
+
+            c if UnaryOperator::from_char(c).is_some() => {
+                self.cursor.advance();
+
+                TokenKind::UnaryOperator(UnaryOperator::from_char(c).unwrap())
             }
 
             c if c == '_' || c.is_xid_start() => {

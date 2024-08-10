@@ -22,8 +22,10 @@ pub enum TokenKind {
     /// An identifier.
     Identifier(String),
 
-    /// Any operator.
-    Operator(Operator),
+    /// Any binary operator.
+    BinaryOperator(BinaryOperator),
+    /// Any unary operator.
+    UnaryOperator(UnaryOperator),
 
     /// A keyword.
     Keyword(Keyword),
@@ -44,7 +46,7 @@ pub enum Keyword {
 
 /// An operator in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Operator {
+pub enum BinaryOperator {
     /// The plus operator (`+`)
     Plus,
     /// The minus operator (`-`)
@@ -53,8 +55,6 @@ pub enum Operator {
     Multiply,
     /// The division operator (`/`)
     Divide,
-    /// The not operator (`!`)
-    Not,
 
     /// The equals operator (`==`)
     Equals,
@@ -112,7 +112,7 @@ impl Span {
     }
 }
 
-impl Operator {
+impl BinaryOperator {
     pub fn is_operator_start(c: char) -> bool {
         matches!(c, '=' | '!' | '<' | '>' | '+' | '-' | '*' | '/')
     }
@@ -133,8 +133,6 @@ impl Operator {
             ('>', Some('=')) => Self::GreaterThanEquals,
             ('>', _) => Self::GreaterThan,
 
-            ('!', _) => Self::Not,
-
             (_, _) => return None,
         })
     }
@@ -148,30 +146,28 @@ impl Operator {
 
     pub fn from_token_kind(kind: &TokenKind) -> Option<Self> {
         match kind {
-            TokenKind::Operator(op) => Some(*op),
+            TokenKind::BinaryOperator(op) => Some(*op),
             _ => None,
         }
     }
 }
 
 impl UnaryOperator {
-    pub fn from_operator(op: Operator) -> Option<Self> {
-        Some(match op {
-            Operator::Plus => Self::Plus,
-            Operator::Minus => Self::Minus,
-            Operator::Not => Self::Not,
+    pub fn from_char(c: char) -> Option<Self> {
+        Some(match c {
+            '!' => Self::Not,
+            '-' => Self::Minus,
+            '+' => Self::Plus,
             _ => return None,
         })
     }
-}
 
-impl From<UnaryOperator> for Operator {
-    fn from(op: UnaryOperator) -> Self {
-        match op {
-            UnaryOperator::Plus => Self::Plus,
-            UnaryOperator::Minus => Self::Minus,
-            UnaryOperator::Not => Self::Not,
-        }
+    pub fn from_operator(op: BinaryOperator) -> Option<Self> {
+        Some(match op {
+            BinaryOperator::Plus => Self::Plus,
+            BinaryOperator::Minus => Self::Minus,
+            _ => return None,
+        })
     }
 }
 
@@ -185,14 +181,13 @@ impl Keyword {
     }
 }
 
-impl Display for Operator {
+impl Display for BinaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             Self::Plus => "+",
             Self::Minus => "-",
             Self::Multiply => "*",
             Self::Divide => "/",
-            Self::Not => "!",
             Self::Equals => "==",
             Self::NotEquals => "!=",
             Self::LessThan => "<",
@@ -205,7 +200,11 @@ impl Display for Operator {
 
 impl Display for UnaryOperator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Operator::from(*self).fmt(f)
+        f.write_str(match self {
+            Self::Plus => "+",
+            Self::Minus => "-",
+            Self::Not => "!",
+        })
     }
 }
 
@@ -230,7 +229,8 @@ impl Display for TokenKind {
             Self::Integer(lit) => lit.to_string(),
             Self::Float(lit) => lit.to_string(),
             Self::Identifier(ident) => ident.clone(),
-            Self::Operator(op) => op.to_string(),
+            Self::BinaryOperator(op) => op.to_string(),
+            Self::UnaryOperator(op) => op.to_string(),
             Self::Keyword(keyword) => keyword.to_string(),
             Self::Whitespace => "<whitespace>".to_string(),
         })

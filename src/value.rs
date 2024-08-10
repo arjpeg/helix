@@ -1,38 +1,43 @@
 use std::fmt::Display;
 
-use crate::token::Span;
+use crate::{error::Result, token::Span};
 
 macro_rules! impl_binary_operator {
-    (($name:ident, $operator:ident, {
-        $( ($lhs:pat, $rhs:pat) => $body:expr),*
-    })) => {
-        impl Value {
-            pub fn $name(&self, other: &Value) -> $crate::error::Result<Value> {
-                use $crate::value::ValueKind::*;
-                use $crate::token::Operator::*;
+    (
+        $( ($name:ident, $operator:ident, {
+            $( ($lhs:pat, $rhs:pat) => $body:expr),*
+        }) ),*
 
-                let span = Span::new(self.span.start..other.span.end, self.span.source);
+    ) => {
+        $(
+            impl Value {
+                pub fn $name(&self, other: &Value) -> $crate::error::Result<Value> {
+                    use $crate::value::ValueKind::*;
+                    use $crate::token::BinaryOperator::*;
 
-                let kind = match (&self.kind, &other.kind) {
-                    $( ($lhs, $rhs) => {
-                        $body
-                    })*
-                    _ => return Err($crate::error::Error {
-                        span,
-                        kind: $crate::error::RuntimeError::InvalidBinaryOperation {
-                            lhs: self.kind.clone(),
-                            rhs: other.kind.clone(),
-                            operator: $operator
-                        }.into()
-                    }),
-                };
+                    let span = Span::new(self.span.start..other.span.end, self.span.source);
 
-                Ok($crate::value::Value {
-                    kind,
-                    span
-                })
+                    let kind = match (&self.kind, &other.kind) {
+                        $( ($lhs, $rhs) => {
+                            $body
+                        })*
+                        _ => return Err($crate::error::Error {
+                            span,
+                            kind: $crate::error::RuntimeError::InvalidBinaryOperation {
+                                lhs: self.kind.clone(),
+                                rhs: other.kind.clone(),
+                                operator: $operator
+                            }.into()
+                        }),
+                    };
+
+                    Ok($crate::value::Value {
+                        kind,
+                        span
+                    })
+                }
             }
-        }
+        )*
     };
 }
 
@@ -101,7 +106,54 @@ impl_binary_operator! {
     (add, Plus, {
         (Float(a), Float(b)) => Float(a + b),
         (Integer(a), Integer(b)) => Integer(a + b)
+    }),
+
+    (subtract, Minus, {
+        (Float(a), Float(b)) => Float(a - b),
+        (Integer(a), Integer(b)) => Integer(a - b)
+    }),
+
+    (multiply, Multiply, {
+        (Float(a), Float(b)) => Float(a * b),
+        (Integer(a), Integer(b)) => Integer(a * b)
+    }),
+
+    (divide, Divide, {
+        (Float(a), Float(b)) => Float(a / b),
+        (Integer(a), Integer(b)) => Integer(a / b)
+    }),
+
+    (less_than, LessThan, {
+        (Float(a), Float(b)) => Boolean(a < b),
+        (Integer(a), Integer(b)) => Boolean(a < b)
+    }),
+
+    (less_than_or_equal, LessThanEquals, {
+        (Float(a), Float(b)) => Boolean(a <= b),
+        (Integer(a), Integer(b)) => Boolean(a <= b)
+    }),
+
+    (greater_than, GreaterThan, {
+        (Float(a), Float(b)) => Boolean(a > b),
+        (Integer(a), Integer(b)) => Boolean(a > b)
+    }),
+
+    (greater_than_or_equal, GreaterThanEquals, {
+        (Float(a), Float(b)) => Boolean(a >= b),
+        (Integer(a), Integer(b)) => Boolean(a >= b)
+    }),
+
+    (equal, Equals, {
+        (Float(a), Float(b)) => Boolean(a == b),
+        (Integer(a), Integer(b)) => Boolean(a == b),
+        (Boolean(a), Boolean(b)) => Boolean(a == b)
     })
+}
+
+impl Value {
+    pub fn not_equal(&self, other: &Value) -> Result<Value> {
+        self.equal(other)?.not()
+    }
 }
 
 impl_unary_operator! {

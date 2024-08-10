@@ -84,13 +84,13 @@ impl Program {
 
         let arrow_offset = 2 + at.len() + span.start - line_start;
 
-        println!("{}: {}", "Error".red().bold(), kind.bold());
-        println!();
+        eprintln!("{}: {}", "Error".red().bold(), kind.bold());
+        eprintln!();
 
-        print!("  {}", at.black());
+        eprint!("  {}", at.black());
 
-        println!("  {}", &source.content[line_start..line_end]);
-        println!(
+        eprintln!("  {}", &source.content[line_start..line_end]);
+        eprintln!(
             "  {}{}",
             " ".repeat(arrow_offset),
             "^".repeat(span.end - span.start)

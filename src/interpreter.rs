@@ -1,7 +1,7 @@
 use crate::{
     ast::*,
     error::Result,
-    token::{ASTNode, Operator, UnaryOperator},
+    token::{ASTNode, BinaryOperator, UnaryOperator},
     value::{Value, ValueKind},
 };
 
@@ -32,14 +32,24 @@ impl Interpreter {
         }
     }
 
-    fn visit_binary_op(&mut self, lhs: ASTNode, op: Operator, rhs: ASTNode) -> Result<Value> {
+    fn visit_binary_op(&mut self, lhs: ASTNode, op: BinaryOperator, rhs: ASTNode) -> Result<Value> {
         let lhs = self.visit(lhs)?;
         let rhs = self.visit(rhs)?;
 
-        match op {
-            Operator::Plus => lhs.add(&rhs),
-            _ => todo!(),
-        }
+        let operator = match op {
+            BinaryOperator::Plus => Value::add,
+            BinaryOperator::Minus => Value::subtract,
+            BinaryOperator::Multiply => Value::multiply,
+            BinaryOperator::Divide => Value::divide,
+            BinaryOperator::Equals => Value::equal,
+            BinaryOperator::NotEquals => Value::not_equal,
+            BinaryOperator::LessThan => Value::less_than,
+            BinaryOperator::LessThanEquals => Value::less_than_or_equal,
+            BinaryOperator::GreaterThan => Value::greater_than,
+            BinaryOperator::GreaterThanEquals => Value::greater_than_or_equal,
+        };
+
+        operator(&lhs, &rhs)
     }
 
     fn visit_unary_op(&mut self, operator: UnaryOperator, operand: ASTNode) -> Result<Value> {

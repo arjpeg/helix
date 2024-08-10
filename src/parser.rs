@@ -28,7 +28,10 @@ impl<'a> Parser<'a> {
 
     /// comparison (("==" | "!=") comparison)*
     fn equality(&mut self) -> Result<ASTNode> {
-        self.reduce_binary_operators(Self::comparison, &[Operator::Equals, Operator::NotEquals])
+        self.reduce_binary_operators(
+            Self::comparison,
+            &[BinaryOperator::Equals, BinaryOperator::NotEquals],
+        )
     }
 
     /// term ((">" | ">=" | "<" | "<=") term)*
@@ -36,22 +39,25 @@ impl<'a> Parser<'a> {
         self.reduce_binary_operators(
             Self::term,
             &[
-                Operator::LessThan,
-                Operator::LessThanEquals,
-                Operator::GreaterThan,
-                Operator::GreaterThanEquals,
+                BinaryOperator::LessThan,
+                BinaryOperator::LessThanEquals,
+                BinaryOperator::GreaterThan,
+                BinaryOperator::GreaterThanEquals,
             ],
         )
     }
 
     /// factor (("+" | "-") factor)*
     fn term(&mut self) -> Result<ASTNode> {
-        self.reduce_binary_operators(Self::factor, &[Operator::Plus, Operator::Minus])
+        self.reduce_binary_operators(Self::factor, &[BinaryOperator::Plus, BinaryOperator::Minus])
     }
 
     /// unary (("*" | "/") unary)*
     fn factor(&mut self) -> Result<ASTNode> {
-        self.reduce_binary_operators(Self::unary, &[Operator::Multiply, Operator::Divide])
+        self.reduce_binary_operators(
+            Self::unary,
+            &[BinaryOperator::Multiply, BinaryOperator::Divide],
+        )
     }
 
     /// ("+" | "-")* unary | atom
@@ -60,7 +66,7 @@ impl<'a> Parser<'a> {
         let token = (*self.cursor.peek().unwrap()).clone();
 
         match token.kind {
-            TokenKind::Operator(op) => {
+            TokenKind::BinaryOperator(op) => {
                 if let Some(op) = UnaryOperator::from_operator(op) {
                     self.cursor.advance();
 
@@ -110,14 +116,18 @@ impl<'a> Parser<'a> {
         Ok(ASTNode::new(kind, token.span))
     }
 
-    fn reduce_binary_operators<F>(&mut self, reducer: F, operators: &[Operator]) -> Result<ASTNode>
+    fn reduce_binary_operators<F>(
+        &mut self,
+        reducer: F,
+        operators: &[BinaryOperator],
+    ) -> Result<ASTNode>
     where
         F: Fn(&mut Self) -> Result<ASTNode>,
     {
         let mut lhs = reducer(self)?;
 
         while let Some(token) = self.cursor.peek().cloned().cloned() {
-            let Some(op) = Operator::from_token_kind(&token.kind) else { break; };
+            let Some(op) = BinaryOperator::from_token_kind(&token.kind) else { break; };
 
             if !operators.contains(&op) {
                 break;
