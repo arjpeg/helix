@@ -1,9 +1,10 @@
 #![allow(dead_code)]
 
-pub mod ast;
+mod ast;
 mod cursor;
 mod error;
-pub mod lexer;
+mod interpreter;
+mod lexer;
 mod parser;
 pub mod program;
 mod token;

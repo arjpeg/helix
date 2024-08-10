@@ -1,6 +1,8 @@
+use crate::cursor::Cursor;
+use slotmap::DefaultKey;
 use std::{fmt::Display, ops::Range, str::Chars};
 
-use crate::cursor::Cursor;
+pub type ASTNode = crate::ast::Node;
 
 /// A token within the source code, representing a literal, operator, or keyword.
 #[derive(Debug, Clone)]
@@ -90,8 +92,8 @@ pub struct Span {
     /// The end of the span (exclusive).
     pub end: usize,
 
-    /// The source file that this span is in (its index).
-    pub source: usize,
+    /// The key of the source file that this span is in.
+    pub source: DefaultKey,
 }
 
 impl Token {
@@ -103,7 +105,9 @@ impl Token {
 
 impl Span {
     /// Create a new span with a given start and end.
-    pub const fn new(Range { start, end }: Range<usize>, source: usize) -> Self {
+    pub const fn new(range: Range<usize>, source: DefaultKey) -> Self {
+        let Range { start, end } = range;
+
         Self { start, end, source }
     }
 }
@@ -161,6 +165,16 @@ impl UnaryOperator {
     }
 }
 
+impl From<UnaryOperator> for Operator {
+    fn from(op: UnaryOperator) -> Self {
+        match op {
+            UnaryOperator::Plus => Self::Plus,
+            UnaryOperator::Minus => Self::Minus,
+            UnaryOperator::Not => Self::Not,
+        }
+    }
+}
+
 impl Keyword {
     pub fn from_ident(ident: &str) -> Option<Self> {
         Some(match ident {
@@ -186,6 +200,12 @@ impl Display for Operator {
             Self::GreaterThan => ">",
             Self::GreaterThanEquals => ">=",
         })
+    }
+}
+
+impl Display for UnaryOperator {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        Operator::from(*self).fmt(f)
     }
 }
 

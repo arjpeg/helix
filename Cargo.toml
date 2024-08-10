@@ -7,5 +7,6 @@ edition = "2021"
 
 [dependencies]
 owo-colors = "4.0.0"
+slotmap = "1.0.7"
 thiserror = "1.0.61"
 unicode-xid = "0.2.4"

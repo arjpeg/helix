@@ -1,5 +1,6 @@
 use std::str::Chars;
 
+use slotmap::DefaultKey;
 use unicode_xid::UnicodeXID;
 
 use crate::{
@@ -15,13 +16,16 @@ pub struct Lexer<'a> {
     cursor: Cursor<Chars<'a>>,
     /// The source file being tokenized.
     source: &'a Source,
+    /// The key of the source file, used to give tokens spans.
+    key: DefaultKey,
 }
 
 impl<'a> Lexer<'a> {
     /// Creates a new lexer from a string.
-    pub fn new(source: &'a Source) -> Self {
+    pub fn new(key: DefaultKey, source: &'a Source) -> Self {
         Self {
             cursor: Cursor::new(source.content.chars()),
+            key,
             source,
         }
     }
@@ -87,7 +91,7 @@ impl<'a> Lexer<'a> {
                 let range = start..self.cursor.pos;
 
                 return Some(Err(Error {
-                    span: Span::new(range.clone(), 0),
+                    span: Span::new(range.clone(), self.key),
                     kind: match c {
                         '.' => LexerError::MalformedNumber(self.source.content[range].to_string()),
                         _ => LexerError::UnknownSymbol(self.source.content[range].to_string()),
@@ -99,10 +103,7 @@ impl<'a> Lexer<'a> {
 
         let end = self.cursor.pos;
 
-        Some(Ok(Token::new(
-            kind,
-            Span::new(start..end, self.source.index),
-        )))
+        Some(Ok(Token::new(kind, Span::new(start..end, self.key))))
     }
 
     /// Skips whitespace characters.
@@ -138,7 +139,7 @@ impl<'a> Lexer<'a> {
             0 => Ok(TokenKind::Integer(range_str.parse().unwrap())),
             1 => Ok(TokenKind::Float(range_str.parse().unwrap())),
             _ => Err(Error {
-                span: Span::new(range.clone(), self.source.index),
+                span: Span::new(range.clone(), self.key),
                 kind: LexerError::MalformedNumber(self.source.content[range].to_string()).into(),
             }),
         }
@@ -147,16 +148,20 @@ impl<'a> Lexer<'a> {
 
 #[cfg(test)]
 mod tests {
+    use slotmap::Key;
+
     use crate::error::ErrorKind;
 
     use super::*;
 
-    fn tokenize(source: &str) -> Result<Vec<Token>, Error> {
-        Lexer::new(&Source {
-            name: "<test>".to_string(),
-            content: source.to_string(),
-            index: 0,
-        })
+    fn tokenize(source: &str) -> Result<Vec<Token>> {
+        Lexer::new(
+            DefaultKey::null(),
+            &Source {
+                name: "<test>".to_string(),
+                content: source.to_string(),
+            },
+        )
         .tokenize()
     }
 

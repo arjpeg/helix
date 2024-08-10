@@ -4,10 +4,8 @@ use crate::{
     ast::NodeKind,
     cursor::Cursor,
     error::{Error, ParserError, Result},
-    token::{Keyword, Operator, Span, Token, TokenKind, UnaryOperator},
+    token::*,
 };
-
-type ASTNode = crate::ast::Node;
 
 pub struct Parser<'a> {
     /// A cursor over the tokens
@@ -71,7 +69,7 @@ impl<'a> Parser<'a> {
                         operand: Box::new(self.unary()?),
                     };
 
-                    let span = token.span.start..self.tokens[self.cursor.pos].span.end;
+                    let span = token.span.start..self.tokens[self.cursor.pos - 1].span.end;
 
                     Ok(ASTNode::new(kind, Span::new(span, token.span.source)))
                 } else {
@@ -147,47 +145,51 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod tests {
+    use slotmap::{DefaultKey, Key};
+
     use crate::{lexer::Lexer, program::Source};
 
     use super::*;
 
-    fn parse(source: &str) -> Result<ASTNode> {
-        let tokens = Lexer::new(&Source {
-            name: "<test>".to_string(),
-            content: source.to_string(),
-            index: 0,
-        })
+    fn parse(source: &str) -> Result<NodeKind> {
+        let tokens = Lexer::new(
+            DefaultKey::null(),
+            &Source {
+                name: "<test>".to_string(),
+                content: source.to_string(),
+            },
+        )
         .tokenize()
         .expect("test case did not tokenize properly");
 
-        Parser::new(&tokens).parse()
+        Parser::new(&tokens).parse().map(|node| node.kind)
     }
 
     #[test]
     fn test_literals() {
-        assert!(matches!(parse("1"), Ok(ASTNode::Integer(1))));
-        assert!(matches!(parse("555"), Ok(ASTNode::Integer(555))));
+        assert!(matches!(parse("1"), Ok(NodeKind::Integer(1))));
+        assert!(matches!(parse("555"), Ok(NodeKind::Integer(555))));
 
         assert!(
-            matches!(parse("23.11"), Ok(ASTNode::Float(f)) if (f - 23.11).abs() < f64::EPSILON)
+            matches!(parse("23.11"), Ok(NodeKind::Float(f)) if (f - 23.11).abs() < f64::EPSILON)
         );
     }
 
     #[test]
     fn test_unary_operators() {
-        let Ok(ASTNode::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("-20") else {
+        let Ok(NodeKind::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("-20") else {
             panic!();
         };
 
-        assert_eq!(*operand, ASTNode::Integer(20));
+        assert_eq!(operand.kind, NodeKind::Integer(20));
 
-        let Ok(ASTNode::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("--20") else {
+        let Ok(NodeKind::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("--20") else {
             panic!();
         };
 
         assert!(matches!(
-            *operand,
-            ASTNode::UnaryOp {
+            operand.kind,
+            NodeKind::UnaryOp {
                 operator: UnaryOperator::Minus,
                 ..
             }

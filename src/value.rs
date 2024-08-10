@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::token::Span;
 
 macro_rules! impl_binary_operator {
@@ -5,24 +7,69 @@ macro_rules! impl_binary_operator {
         $( ($lhs:pat, $rhs:pat) => $body:expr),*
     })) => {
         impl Value {
-            pub fn $name(&self, other: &Value) -> Option<Value> {
-                use $crate::value::ValueKind as VK;
-                use VK::*;
-
-                let kind: VK = match (&self.kind, &other.kind) {
-                    $( ($lhs, $rhs) => {
-                        $body
-                    })*
-                    _ => todo!(),
-                };
+            pub fn $name(&self, other: &Value) -> $crate::error::Result<Value> {
+                use $crate::value::ValueKind::*;
+                use $crate::token::Operator::*;
 
                 let span = Span::new(self.span.start..other.span.end, self.span.source);
 
-                Some($crate::value::Value {
+                let kind = match (&self.kind, &other.kind) {
+                    $( ($lhs, $rhs) => {
+                        $body
+                    })*
+                    _ => return Err($crate::error::Error {
+                        span,
+                        kind: $crate::error::RuntimeError::InvalidBinaryOperation {
+                            lhs: self.kind.clone(),
+                            rhs: other.kind.clone(),
+                            operator: $operator
+                        }.into()
+                    }),
+                };
+
+                Ok($crate::value::Value {
                     kind,
                     span
                 })
             }
+        }
+    };
+}
+
+macro_rules! impl_unary_operator {
+    (
+        $( ($name:ident, $operator:ident, {
+            $( $operand:pat => $body:expr),*
+        }) ),*
+    ) => {
+        impl Value {
+            $(
+                pub fn $name(&self) -> $crate::error::Result<Value> {
+                    use $crate::value::ValueKind::*;
+                    use $crate::token::UnaryOperator::*;
+
+                    let span = self.span.clone();
+
+                    let kind = match &self.kind {
+                        $( $operand  => {
+                            $body
+                        })*
+
+                        _ => return Err($crate::error::Error {
+                            span,
+                            kind: $crate::error::RuntimeError::InvalidUnaryOperation {
+                                operand: self.kind.clone(),
+                                operator: $operator
+                            }.into()
+                        }),
+                    };
+
+                    Ok($crate::value::Value {
+                        kind,
+                        span
+                    })
+                }
+            )*
         }
     };
 }
@@ -39,8 +86,6 @@ pub enum ValueKind {
     Float(f64),
     /// An integer.
     Integer(i64),
-    /// A string.
-    String(String),
     /// A boolean.
     Boolean(bool),
 }
@@ -53,7 +98,46 @@ impl Value {
 }
 
 impl_binary_operator! {
-    (add, Add, {
-        (Float(a), Float(b)) => Float(a + b)
+    (add, Plus, {
+        (Float(a), Float(b)) => Float(a + b),
+        (Integer(a), Integer(b)) => Integer(a + b)
     })
+}
+
+impl_unary_operator! {
+    (not, Not, {
+        Boolean(b) => Boolean(!b)
+    }),
+
+    (negate, Minus, {
+        Float(f) => Float(-f),
+        Integer(i) => Integer(-i)
+    })
+}
+
+impl ValueKind {
+    /// Returns the canonical name of this value kind.
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Float(_) => "float",
+            Self::Integer(_) => "integer",
+            Self::Boolean(_) => "boolean",
+        }
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!("{}", self.kind))
+    }
+}
+
+impl Display for ValueKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&match self {
+            Self::Float(f) => f.to_string(),
+            Self::Integer(i) => i.to_string(),
+            Self::Boolean(b) => b.to_string(),
+        })
+    }
 }

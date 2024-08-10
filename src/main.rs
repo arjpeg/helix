@@ -1,15 +1,15 @@
 use helix::program::Program;
 
 fn main() {
-    let source = "2 + 2";
+    let source = "-2.2 + 3.0";
     let name = "<stdin>";
 
     let mut program = Program::new();
 
-    program.register_source(name.to_string(), source.to_string());
+    let main = program.add_source(name.to_string(), source.to_string());
 
-    match program.run(0) {
-        Ok(_) => (),
+    match program.run(main) {
+        Ok(value) => println!("{value}"),
         Err(e) => program.pretty_print_error(e),
     }
 }
