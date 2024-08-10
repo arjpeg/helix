@@ -75,6 +75,7 @@ impl Program {
 
         let line_end = source.content[span.end..]
             .find('\n')
+            .map(|end| span.end + end)
             .unwrap_or(source.content.len());
 
         let line_number = source.content[..span.start].lines().count();
@@ -83,13 +84,13 @@ impl Program {
 
         let arrow_offset = 2 + at.len() + span.start - line_start;
 
-        eprintln!("{}: {}", "Error".red().bold(), kind.bold());
-        eprintln!();
+        println!("{}: {}", "Error".red().bold(), kind.bold());
+        println!();
 
-        eprint!("  {}", at.black());
+        print!("  {}", at.black());
 
-        eprintln!("  {}", &source.content[line_start..line_end]);
-        eprintln!(
+        println!("  {}", &source.content[line_start..line_end]);
+        println!(
             "  {}{}",
             " ".repeat(arrow_offset),
             "^".repeat(span.end - span.start)

@@ -1,15 +1,29 @@
+use std::io::{self, Write};
+
 use helix::program::Program;
 
 fn main() {
-    let source = "-2.2 + 3.0";
-    let name = "<stdin>";
+    match std::env::args().nth(1) {
+        Some(_filename) => todo!(),
+        None => repl(),
+    }
+}
 
+fn repl() {
     let mut program = Program::new();
 
-    let main = program.add_source(name.to_string(), source.to_string());
+    loop {
+        let mut line = String::new();
+        print!("helix > ");
 
-    match program.run(main) {
-        Ok(value) => println!("{value}"),
-        Err(e) => program.pretty_print_error(e),
+        io::stdout().flush().unwrap();
+        io::stdin().read_line(&mut line).unwrap();
+
+        let main = program.add_source("<stdin>".to_string(), line);
+
+        match program.run(main) {
+            Ok(value) => println!("{value}"),
+            Err(e) => program.pretty_print_error(e),
+        }
     }
 }
