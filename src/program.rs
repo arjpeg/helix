@@ -33,7 +33,7 @@ impl Source {
     /// Lexes and parses the source file.
     pub fn parse(&self, key: DefaultKey) -> Result<ASTNode> {
         let tokens = self.lex(key)?;
-        Parser::new(&tokens).parse()
+        Parser::new(tokens).parse()
     }
 }
 

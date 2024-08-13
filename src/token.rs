@@ -1,6 +1,10 @@
 use crate::cursor::Cursor;
 use slotmap::DefaultKey;
-use std::{fmt::Display, ops::Range, str::Chars};
+use std::{
+    fmt::{Display, Write},
+    ops::Range,
+    str::Chars,
+};
 
 pub type ASTNode = crate::ast::Node;
 
@@ -29,6 +33,9 @@ pub enum TokenKind {
 
     /// A keyword.
     Keyword(Keyword),
+
+    /// A type of parenthesis.
+    Parenthesis(Parenthesis),
 
     /// Any form of whitespace (spaces, tabs, newlines).
     /// Only used for lexing, and is discarded by the lexer.
@@ -72,8 +79,7 @@ pub enum BinaryOperator {
     GreaterThanEquals,
 }
 
-/// A unary operator. Isn't directly created during
-/// tokenization, but is used during parsing/interpretation
+/// A unary operator in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum UnaryOperator {
     /// The plus operator (`+`)
@@ -82,6 +88,31 @@ pub enum UnaryOperator {
     Minus,
     /// The not operator (`!`)
     Not,
+}
+
+/// A type of parenthesis in the source code.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Parenthesis {
+    /// The kind of parenthesis.
+    pub kind: ParenthesisKind,
+    /// Whether the parenthesis is an opening or closing parenthesis.
+    pub opening: Opening,
+}
+
+/// A kind of parenthesis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParenthesisKind {
+    /// A round parenthesis (`(`, `)`)
+    Round,
+}
+
+/// Whether a parenthesis is an opening or closing parenthesis.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Opening {
+    /// An opening parenthesis.
+    Open,
+    /// A closing parenthesis.
+    Close,
 }
 
 /// A range within some source code in a file.
@@ -171,6 +202,28 @@ impl UnaryOperator {
     }
 }
 
+impl Parenthesis {
+    pub fn from_char(c: char) -> Option<Self> {
+        let kind = match c {
+            '(' | ')' => ParenthesisKind::Round,
+            _ => return None,
+        };
+
+        Some(Self {
+            kind,
+            opening: if Self::is_opening(c) {
+                Opening::Open
+            } else {
+                Opening::Close
+            },
+        })
+    }
+
+    fn is_opening(c: char) -> bool {
+        matches!(c, '(')
+    }
+}
+
 impl Keyword {
     pub fn from_ident(ident: &str) -> Option<Self> {
         Some(match ident {
@@ -217,6 +270,18 @@ impl Display for Keyword {
     }
 }
 
+impl Display for Parenthesis {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        use Opening as O;
+        use ParenthesisKind as PK;
+
+        f.write_char(match (self.kind, self.opening) {
+            (PK::Round, O::Open) => '(',
+            (PK::Round, O::Close) => ')',
+        })
+    }
+}
+
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_fmt(format_args!("{}", self.kind))
@@ -232,6 +297,7 @@ impl Display for TokenKind {
             Self::BinaryOperator(op) => op.to_string(),
             Self::UnaryOperator(op) => op.to_string(),
             Self::Keyword(keyword) => keyword.to_string(),
+            Self::Parenthesis(parenthesis) => parenthesis.to_string(),
             Self::Whitespace => "<whitespace>".to_string(),
         })
     }

@@ -72,13 +72,6 @@ impl<'a> Lexer<'a> {
 
                 TokenKind::BinaryOperator(operator)
             }
-
-            c if UnaryOperator::from_char(c).is_some() => {
-                self.cursor.advance();
-
-                TokenKind::UnaryOperator(UnaryOperator::from_char(c).unwrap())
-            }
-
             c if c == '_' || c.is_xid_start() => {
                 self.tokenize_identifier();
 
@@ -92,18 +85,29 @@ impl<'a> Lexer<'a> {
 
             // anything else
             c => {
-                self.cursor.advance_while(|c| !c.is_whitespace());
+                let kind = if let Some(operator) = UnaryOperator::from_char(c) {
+                    TokenKind::UnaryOperator(operator)
+                } else if let Some(parenthesis) = Parenthesis::from_char(c) {
+                    TokenKind::Parenthesis(parenthesis)
+                } else {
+                    self.cursor.advance_while(|c| !c.is_whitespace());
 
-                let range = start..self.cursor.pos;
+                    let range = start..self.cursor.pos;
 
-                return Some(Err(Error {
-                    span: Span::new(range.clone(), self.key),
-                    kind: match c {
-                        '.' => LexerError::MalformedNumber(self.source.content[range].to_string()),
-                        _ => LexerError::UnknownSymbol(self.source.content[range].to_string()),
-                    }
-                    .into(),
-                }));
+                    return Some(Err(Error {
+                        span: Span::new(range.clone(), self.key),
+                        kind: match c {
+                            '.' => {
+                                LexerError::MalformedNumber(self.source.content[range].to_string())
+                            }
+                            _ => LexerError::UnknownSymbol(self.source.content[range].to_string()),
+                        }
+                        .into(),
+                    }));
+                };
+
+                self.cursor.advance();
+                kind
             }
         };
 

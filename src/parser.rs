@@ -1,5 +1,3 @@
-use std::slice::Iter;
-
 use crate::{
     ast::NodeKind,
     cursor::Cursor,
@@ -7,18 +5,18 @@ use crate::{
     token::*,
 };
 
-pub struct Parser<'a> {
+pub struct Parser {
     /// A cursor over the tokens
-    cursor: Cursor<Iter<'a, Token>>,
+    cursor: Cursor<std::vec::IntoIter<Token>>,
     /// A list of all the tokens
-    tokens: &'a [Token],
+    tokens: Vec<Token>,
 }
 
-impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [Token]) -> Self {
+impl Parser {
+    pub fn new(tokens: Vec<Token>) -> Self {
         Parser {
-            cursor: Cursor::new(tokens.iter()),
-            tokens,
+            tokens: tokens.clone(),
+            cursor: Cursor::new(tokens.into_iter()),
         }
     }
 
@@ -63,7 +61,7 @@ impl<'a> Parser<'a> {
     /// ("+" | "-")* unary | atom
     fn unary(&mut self) -> Result<ASTNode> {
         // TODO: remove unwrap - add into ParserError for Option?
-        let token = (*self.cursor.peek().unwrap()).clone();
+        let token = self.cursor.peek().unwrap().clone();
 
         match token.kind {
             TokenKind::BinaryOperator(op) => {
@@ -105,10 +103,40 @@ impl<'a> Parser<'a> {
 
             TokenKind::Identifier(ref ident) => NodeKind::Identifier(ident.clone()),
 
+            TokenKind::Parenthesis(Parenthesis {
+                kind: ParenthesisKind::Round,
+                opening: Opening::Open,
+            }) => {
+                let expr = self.equality()?;
+
+                if !matches!(
+                    self.cursor.peek(),
+                    Some(Token {
+                        kind: TokenKind::Parenthesis(Parenthesis {
+                            kind: ParenthesisKind::Round,
+                            opening: Opening::Close
+                        }),
+                        ..
+                    })
+                ) {
+                    let token = self.cursor.advance().unwrap();
+
+                    // TODO: add eof error
+                    return Err(Error {
+                        span: token.span,
+                        kind: ParserError::MismatchedParenthesis(token).into(),
+                    });
+                }
+
+                self.cursor.advance();
+
+                return Ok(expr);
+            }
+
             _ => {
                 return Err(Error {
                     span: token.span,
-                    kind: ParserError::UnexpectedToken(token.clone()).into(),
+                    kind: ParserError::UnexpectedToken(token).into(),
                 })
             }
         };
@@ -126,7 +154,7 @@ impl<'a> Parser<'a> {
     {
         let mut lhs = reducer(self)?;
 
-        while let Some(token) = self.cursor.peek().cloned().cloned() {
+        while let Some(token) = self.cursor.peek().cloned() {
             let Some(op) = BinaryOperator::from_token_kind(&token.kind) else { break; };
 
             if !operators.contains(&op) {
