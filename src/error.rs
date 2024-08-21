@@ -43,6 +43,8 @@ pub enum ParserError {
     UnexpectedToken(Token),
     #[error("expected a closing parenthesis, found '{0}'")]
     MismatchedParenthesis(Token),
+    #[error("expected a token, unexpectedly found end of file")]
+    UnexpectedEndOfFile,
 }
 
 /// An error that occured during the runtime of the program.
