@@ -61,10 +61,12 @@ impl Parser {
 
     /// ("+" | "-")* unary | atom
     fn unary(&mut self) -> Result<ASTNode> {
-        let token = self.consume()?;
+        let token = self.peek()?;
 
         match token.kind {
             TokenKind::BinaryOperator(op) => {
+                self.cursor.advance();
+
                 if let Some(op) = UnaryOperator::from_operator(op) {
                     let kind = NodeKind::UnaryOp {
                         operator: op,
@@ -90,8 +92,6 @@ impl Parser {
     fn atom(&mut self) -> Result<ASTNode> {
         let token = self.consume()?;
 
-        println!("{}", token);
-
         let kind = match token.kind {
             TokenKind::Float(lit) => NodeKind::Float(lit),
             TokenKind::Integer(lit) => NodeKind::Integer(lit),
@@ -108,22 +108,21 @@ impl Parser {
                 opening: Opening::Open,
             }) => {
                 let expr = self.equality()?;
+                let rparen = self.consume()?;
 
                 if !matches!(
-                    self.cursor.peek(),
-                    Some(Token {
+                    rparen,
+                    Token {
                         kind: TokenKind::Parenthesis(Parenthesis {
                             kind: ParenthesisKind::Round,
-                            opening: Opening::Close
+                            opening: Opening::Close,
                         }),
                         ..
-                    })
+                    },
                 ) {
-                    let token = self.consume()?;
-
                     return Err(Error {
-                        span: token.span,
-                        kind: ParserError::MismatchedParenthesis(token).into(),
+                        span: rparen.span,
+                        kind: ParserError::MismatchedParenthesis(rparen).into(),
                     });
                 }
 
@@ -163,19 +162,14 @@ impl Parser {
     {
         let mut lhs = reducer(self)?;
 
-        panic!();
-
         while let Some(token) = self.cursor.peek().cloned() {
-            dbg!(&token);
-
             let Some(op) = BinaryOperator::from_token_kind(&token.kind) else { break; };
 
             if !operators.contains(&op) {
                 break;
             }
 
-            dbg!(self.cursor.advance());
-
+            let _ = self.consume();
             let rhs = reducer(self)?;
 
             let span = lhs.span.start..rhs.span.end;
@@ -193,14 +187,27 @@ impl Parser {
         Ok(lhs)
     }
 
+    fn peek(&mut self) -> Result<Token> {
+        self.cursor
+            .peek()
+            .ok_or(Error {
+                span: {
+                    let last = self.tokens.last().unwrap();
+                    Span::new(last.span.end - 1..last.span.end, last.span.source)
+                },
+                kind: ParserError::UnexpectedEndOfFile.into(),
+            })
+            .cloned()
+    }
+
     fn consume(&mut self) -> Result<Token> {
-        dbg!(self.cursor.advance().ok_or(Error {
+        self.cursor.advance().ok_or(Error {
             span: {
                 let last = self.tokens.last().unwrap();
                 Span::new(last.span.end - 1..last.span.end, last.span.source)
             },
             kind: ParserError::UnexpectedEndOfFile.into(),
-        }))
+        })
     }
 }
 

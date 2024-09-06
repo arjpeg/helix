@@ -18,7 +18,7 @@ fn repl() {
 
         // io::stdout().flush().unwrap();
         // io::stdin().read_line(&mut line).unwrap();
-        let line = "2 + 123".to_string();
+        let line = "2 * 3".to_string();
 
         let main = program.add_source("<stdin>".to_string(), line);
 
