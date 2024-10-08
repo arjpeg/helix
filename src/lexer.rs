@@ -72,6 +72,7 @@ impl<'a> Lexer<'a> {
 
                 TokenKind::BinaryOperator(operator)
             }
+
             c if c == '_' || c.is_xid_start() => {
                 self.tokenize_identifier();
 
@@ -93,14 +94,13 @@ impl<'a> Lexer<'a> {
                     self.cursor.advance_while(|c| !c.is_whitespace());
 
                     let range = start..self.cursor.pos;
+                    let symbol = self.source.content[range.clone()].to_string();
 
                     return Some(Err(Error {
-                        span: Span::new(range.clone(), self.key),
+                        span: Span::new(range, self.key),
                         kind: match c {
-                            '.' => {
-                                LexerError::MalformedNumber(self.source.content[range].to_string())
-                            }
-                            _ => LexerError::UnknownSymbol(self.source.content[range].to_string()),
+                            '.' => LexerError::MalformedNumber(symbol),
+                            _ => LexerError::UnknownSymbol(symbol),
                         }
                         .into(),
                     }));
@@ -110,6 +110,8 @@ impl<'a> Lexer<'a> {
                 kind
             }
         };
+
+        eprintln!("kind = {:#?}", kind);
 
         let end = self.cursor.pos;
 

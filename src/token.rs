@@ -77,6 +77,11 @@ pub enum BinaryOperator {
     GreaterThan,
     /// The greater than or equals to operator (`>=`)
     GreaterThanEquals,
+
+    /// The and operator (`&&`)
+    And,
+    /// The or operator (`||`)
+    Or,
 }
 
 /// A unary operator in the source code.
@@ -145,7 +150,7 @@ impl Span {
 
 impl BinaryOperator {
     pub fn is_operator_start(c: char) -> bool {
-        matches!(c, '=' | '!' | '<' | '>' | '+' | '-' | '*' | '/')
+        matches!(c, '=' | '!' | '<' | '>' | '+' | '-' | '*' | '/' | '&' | '|')
     }
 
     pub fn from_cursor(cursor: &mut Cursor<Chars>) -> Option<Self> {
@@ -164,6 +169,9 @@ impl BinaryOperator {
             ('>', Some('=')) => Self::GreaterThanEquals,
             ('>', _) => Self::GreaterThan,
 
+            ('&', Some('&')) => Self::And,
+            ('|', Some('|')) => Self::Or,
+
             (_, _) => return None,
         })
     }
@@ -171,7 +179,12 @@ impl BinaryOperator {
     pub fn is_two_char(&self) -> bool {
         matches!(
             self,
-            Self::Equals | Self::NotEquals | Self::LessThanEquals | Self::GreaterThanEquals
+            Self::Equals
+                | Self::NotEquals
+                | Self::LessThanEquals
+                | Self::GreaterThanEquals
+                | Self::And
+                | Self::Or
         )
     }
 
@@ -247,6 +260,8 @@ impl Display for BinaryOperator {
             Self::LessThanEquals => "<=",
             Self::GreaterThan => ">",
             Self::GreaterThanEquals => ">=",
+            Self::And => "&&",
+            Self::Or => "||",
         })
     }
 }

@@ -41,10 +41,12 @@ pub enum ParserError {
     InvalidUnaryOperator(BinaryOperator),
     #[error("found unexpected token '{0}'")]
     UnexpectedToken(Token),
-    #[error("expected a closing parenthesis, found '{0}'")]
-    MismatchedParenthesis(Token),
-    #[error("expected a token, unexpectedly found end of file")]
+    #[error("expected a token, found end of file")]
     UnexpectedEndOfFile,
+    #[error("found a parenthesis without a corresponding pair")]
+    MismatchedParenthesis,
+    #[error("expected end of file, found '{0}'")]
+    ExpectedEndOfFile(Token),
 }
 
 /// An error that occured during the runtime of the program.

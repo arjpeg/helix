@@ -147,6 +147,14 @@ impl_binary_operator! {
         (Float(a), Float(b)) => Boolean(a == b),
         (Integer(a), Integer(b)) => Boolean(a == b),
         (Boolean(a), Boolean(b)) => Boolean(a == b)
+    }),
+
+    (and, And, {
+        (Boolean(a), Boolean(b)) => Boolean(*a && *b)
+    }),
+
+    (or, Or, {
+        (Boolean(a), Boolean(b)) => Boolean(*a || *b)
     })
 }
 

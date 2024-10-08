@@ -47,6 +47,8 @@ impl Interpreter {
             BinaryOperator::LessThanEquals => Value::less_than_or_equal,
             BinaryOperator::GreaterThan => Value::greater_than,
             BinaryOperator::GreaterThanEquals => Value::greater_than_or_equal,
+            BinaryOperator::And => Value::and,
+            BinaryOperator::Or => Value::or,
         };
 
         operator(&lhs, &rhs)

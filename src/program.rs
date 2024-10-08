@@ -80,7 +80,7 @@ impl Program {
 
         let line_number = source.content[..span.start].lines().count();
 
-        let at = format!("at {} line {}:", source.name, line_number);
+        let at = format!("{} line {}:", source.name, line_number);
 
         let arrow_offset = 2 + at.len() + span.start - line_start;
 

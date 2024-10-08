@@ -22,7 +22,32 @@ impl Parser {
     }
 
     pub fn parse(mut self) -> Result<ASTNode> {
-        self.equality()
+        let node = self.expression()?;
+
+        if let Some(token) = self.cursor.advance() {
+            let span = token.span;
+
+            let kind = match token.kind {
+                TokenKind::Parenthesis(Parenthesis {
+                    kind: ParenthesisKind::Round,
+                    opening: Opening::Close,
+                }) => ParserError::MismatchedParenthesis,
+
+                _ => ParserError::ExpectedEndOfFile(token),
+            };
+
+            return Err(Error {
+                span,
+                kind: kind.into(),
+            });
+        }
+
+        Ok(node)
+    }
+
+    /// equality (("&&" | "||") equality)*
+    fn expression(&mut self) -> Result<ASTNode> {
+        self.reduce_binary_operators(Self::equality, &[BinaryOperator::And, BinaryOperator::Or])
     }
 
     /// comparison (("==" | "!=") comparison)*
@@ -107,38 +132,13 @@ impl Parser {
                 kind: ParenthesisKind::Round,
                 opening: Opening::Open,
             }) => {
-                let expr = self.equality()?;
-                let rparen = self.consume()?;
-
-                if !matches!(
-                    rparen,
-                    Token {
-                        kind: TokenKind::Parenthesis(Parenthesis {
-                            kind: ParenthesisKind::Round,
-                            opening: Opening::Close,
-                        }),
-                        ..
-                    },
-                ) {
-                    return Err(Error {
-                        span: rparen.span,
-                        kind: ParserError::MismatchedParenthesis(rparen).into(),
-                    });
-                }
-
-                self.cursor.advance();
+                let expr = self.expression()?;
+                self.consume().map_err(|e| Error {
+                    span: e.span,
+                    kind: ParserError::MismatchedParenthesis.into(),
+                })?;
 
                 return Ok(expr);
-            }
-
-            TokenKind::Parenthesis(Parenthesis {
-                kind: ParenthesisKind::Round,
-                opening: Opening::Close,
-            }) => {
-                return Err(Error {
-                    span: token.span,
-                    kind: ParserError::MismatchedParenthesis(token).into(),
-                })
             }
 
             _ => {
@@ -163,7 +163,9 @@ impl Parser {
         let mut lhs = reducer(self)?;
 
         while let Some(token) = self.cursor.peek().cloned() {
-            let Some(op) = BinaryOperator::from_token_kind(&token.kind) else { break; };
+            let Some(op) = BinaryOperator::from_token_kind(&token.kind) else {
+                break;
+            };
 
             if !operators.contains(&op) {
                 break;
@@ -192,6 +194,7 @@ impl Parser {
             .peek()
             .ok_or(Error {
                 span: {
+                    eprintln!("tokens = {:#?}", self.tokens);
                     let last = self.tokens.last().unwrap();
                     Span::new(last.span.end - 1..last.span.end, last.span.source)
                 },
@@ -230,7 +233,7 @@ mod tests {
         .tokenize()
         .expect("test case did not tokenize properly");
 
-        Parser::new(&tokens).parse().map(|node| node.kind)
+        Parser::new(tokens).parse().map(|node| node.kind)
     }
 
     #[test]
@@ -245,13 +248,21 @@ mod tests {
 
     #[test]
     fn test_unary_operators() {
-        let Ok(NodeKind::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("-20") else {
+        let Ok(NodeKind::UnaryOp {
+            operator: UnaryOperator::Minus,
+            operand,
+        }) = parse("-20")
+        else {
             panic!();
         };
 
         assert_eq!(operand.kind, NodeKind::Integer(20));
 
-        let Ok(NodeKind::UnaryOp { operator: UnaryOperator::Minus, operand }) = parse("--20") else {
+        let Ok(NodeKind::UnaryOp {
+            operator: UnaryOperator::Minus,
+            operand,
+        }) = parse("--20")
+        else {
             panic!();
         };
 
