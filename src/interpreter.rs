@@ -1,7 +1,7 @@
 use crate::{
     ast::*,
     error::Result,
-    token::{ASTNode, BinaryOperator, UnaryOperator},
+    token::{ASTNode, Operator},
     value::{Value, ValueKind},
 };
 
@@ -27,33 +27,37 @@ impl Interpreter {
             NK::Integer(_) | NK::Float(_) | NK::Boolean(_) => Ok(self.construct_literal(node)),
 
             NK::BinaryOp { lhs, operator, rhs } => self.visit_binary_op(*lhs, operator, *rhs),
-            NK::UnaryOp { operator, operand } => self.visit_unary_op(operator, *operand),
+            NK::UnaryOp { .. } => todo!(),
             NK::Identifier(_) => todo!(),
         }
     }
 
-    fn visit_binary_op(&mut self, lhs: ASTNode, op: BinaryOperator, rhs: ASTNode) -> Result<Value> {
+    fn visit_binary_op(&mut self, lhs: ASTNode, op: Operator, rhs: ASTNode) -> Result<Value> {
+        use Operator as OP;
+
         let lhs = self.visit(lhs)?;
         let rhs = self.visit(rhs)?;
 
         let operator = match op {
-            BinaryOperator::Plus => Value::add,
-            BinaryOperator::Minus => Value::subtract,
-            BinaryOperator::Multiply => Value::multiply,
-            BinaryOperator::Divide => Value::divide,
-            BinaryOperator::Equals => Value::equal,
-            BinaryOperator::NotEquals => Value::not_equal,
-            BinaryOperator::LessThan => Value::less_than,
-            BinaryOperator::LessThanEquals => Value::less_than_or_equal,
-            BinaryOperator::GreaterThan => Value::greater_than,
-            BinaryOperator::GreaterThanEquals => Value::greater_than_or_equal,
-            BinaryOperator::And => Value::and,
-            BinaryOperator::Or => Value::or,
+            OP::Plus => Value::add,
+            OP::Minus => Value::subtract,
+            OP::Multiply => Value::multiply,
+            OP::Divide => Value::divide,
+            OP::Equals => Value::equal,
+            OP::NotEquals => Value::not_equal,
+            OP::LessThan => Value::less_than,
+            OP::LessThanEquals => Value::less_than_or_equal,
+            OP::GreaterThan => Value::greater_than,
+            OP::GreaterThanEquals => Value::greater_than_or_equal,
+            OP::And => Value::and,
+            OP::Or => Value::or,
+            OP::Not => panic!("operator `not` should not have been parsed as a binary operator"),
         };
 
         operator(&lhs, &rhs)
     }
 
+    /*
     fn visit_unary_op(&mut self, operator: UnaryOperator, operand: ASTNode) -> Result<Value> {
         let operand = self.visit(operand)?;
 
@@ -63,6 +67,7 @@ impl Interpreter {
             UnaryOperator::Plus => Ok(operand),
         }
     }
+    */
 
     fn construct_literal(&mut self, node: ASTNode) -> Value {
         let value = match node.kind {

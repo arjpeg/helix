@@ -1,7 +1,7 @@
 use thiserror::Error;
 
 use crate::{
-    token::{BinaryOperator, Span, Token, UnaryOperator},
+    token::{Operator, Span, Token},
     value::ValueKind,
 };
 
@@ -38,7 +38,7 @@ pub enum LexerError {
 #[derive(Error, Debug, Clone)]
 pub enum ParserError {
     #[error("'{0}' is not a valid unary operator")]
-    InvalidUnaryOperator(BinaryOperator),
+    InvalidUnaryOperator(Operator),
     #[error("found unexpected token '{0}'")]
     UnexpectedToken(Token),
     #[error("expected a token, found end of file")]
@@ -55,12 +55,12 @@ pub enum RuntimeError {
     #[error("cannot apply binary operator '{operator}' between values of kind {} and {}", lhs.name(), rhs.name())]
     InvalidBinaryOperation {
         lhs: ValueKind,
-        operator: BinaryOperator,
+        operator: Operator,
         rhs: ValueKind,
     },
     #[error("cannot apply unary operator '{operator}' to a value of kind {}", operand.name())]
     InvalidUnaryOperation {
         operand: ValueKind,
-        operator: UnaryOperator,
+        operator: Operator,
     },
 }

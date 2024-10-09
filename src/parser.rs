@@ -47,15 +47,12 @@ impl Parser {
 
     /// equality (("&&" | "||") equality)*
     fn expression(&mut self) -> Result<ASTNode> {
-        self.reduce_binary_operators(Self::equality, &[BinaryOperator::And, BinaryOperator::Or])
+        self.reduce_binary_operators(Self::equality, &[Operator::And, Operator::Or])
     }
 
     /// comparison (("==" | "!=") comparison)*
     fn equality(&mut self) -> Result<ASTNode> {
-        self.reduce_binary_operators(
-            Self::comparison,
-            &[BinaryOperator::Equals, BinaryOperator::NotEquals],
-        )
+        self.reduce_binary_operators(Self::comparison, &[Operator::Equals, Operator::NotEquals])
     }
 
     /// term ((">" | ">=" | "<" | "<=") term)*
@@ -63,36 +60,33 @@ impl Parser {
         self.reduce_binary_operators(
             Self::term,
             &[
-                BinaryOperator::LessThan,
-                BinaryOperator::LessThanEquals,
-                BinaryOperator::GreaterThan,
-                BinaryOperator::GreaterThanEquals,
+                Operator::LessThan,
+                Operator::LessThanEquals,
+                Operator::GreaterThan,
+                Operator::GreaterThanEquals,
             ],
         )
     }
 
     /// factor (("+" | "-") factor)*
     fn term(&mut self) -> Result<ASTNode> {
-        self.reduce_binary_operators(Self::factor, &[BinaryOperator::Plus, BinaryOperator::Minus])
+        self.reduce_binary_operators(Self::factor, &[Operator::Plus, Operator::Minus])
     }
 
     /// unary (("*" | "/") unary)*
     fn factor(&mut self) -> Result<ASTNode> {
-        self.reduce_binary_operators(
-            Self::unary,
-            &[BinaryOperator::Multiply, BinaryOperator::Divide],
-        )
+        self.reduce_binary_operators(Self::unary, &[Operator::Multiply, Operator::Divide])
     }
 
-    /// ("+" | "-")* unary | atom
+    /// ("+" | "-" | "!")* unary | atom
     fn unary(&mut self) -> Result<ASTNode> {
         let token = self.peek()?;
 
         match token.kind {
-            TokenKind::BinaryOperator(op) => {
+            TokenKind::Operator(op) => {
                 self.cursor.advance();
 
-                if let Some(op) = UnaryOperator::from_operator(op) {
+                if UNARY_OPERATORS.contains(&op) {
                     let kind = NodeKind::UnaryOp {
                         operator: op,
                         operand: Box::new(self.unary()?),
@@ -152,18 +146,14 @@ impl Parser {
         Ok(ASTNode::new(kind, token.span))
     }
 
-    fn reduce_binary_operators<F>(
-        &mut self,
-        reducer: F,
-        operators: &[BinaryOperator],
-    ) -> Result<ASTNode>
+    fn reduce_binary_operators<F>(&mut self, reducer: F, operators: &[Operator]) -> Result<ASTNode>
     where
         F: Fn(&mut Self) -> Result<ASTNode>,
     {
         let mut lhs = reducer(self)?;
 
         while let Some(token) = self.cursor.peek().cloned() {
-            let Some(op) = BinaryOperator::from_token_kind(&token.kind) else {
+            let Some(op) = Operator::from_token_kind(&token.kind) else {
                 break;
             };
 
@@ -194,7 +184,6 @@ impl Parser {
             .peek()
             .ok_or(Error {
                 span: {
-                    eprintln!("tokens = {:#?}", self.tokens);
                     let last = self.tokens.last().unwrap();
                     Span::new(last.span.end - 1..last.span.end, last.span.source)
                 },
@@ -249,7 +238,7 @@ mod tests {
     #[test]
     fn test_unary_operators() {
         let Ok(NodeKind::UnaryOp {
-            operator: UnaryOperator::Minus,
+            operator: Operator::Minus,
             operand,
         }) = parse("-20")
         else {
@@ -259,7 +248,7 @@ mod tests {
         assert_eq!(operand.kind, NodeKind::Integer(20));
 
         let Ok(NodeKind::UnaryOp {
-            operator: UnaryOperator::Minus,
+            operator: Operator::Minus,
             operand,
         }) = parse("--20")
         else {
@@ -269,7 +258,7 @@ mod tests {
         assert!(matches!(
             operand.kind,
             NodeKind::UnaryOp {
-                operator: UnaryOperator::Minus,
+                operator: Operator::Minus,
                 ..
             }
         ));

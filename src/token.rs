@@ -1,12 +1,14 @@
-use crate::cursor::Cursor;
+use crate::program::Source;
 use slotmap::DefaultKey;
 use std::{
     fmt::{Display, Write},
     ops::Range,
-    str::Chars,
 };
 
 pub type ASTNode = crate::ast::Node;
+
+/// All valid unary operators.
+pub const UNARY_OPERATORS: [Operator; 3] = [Operator::Plus, Operator::Minus, Operator::Not];
 
 /// A token within the source code, representing a literal, operator, or keyword.
 #[derive(Debug, Clone)]
@@ -26,10 +28,8 @@ pub enum TokenKind {
     /// An identifier.
     Identifier(String),
 
-    /// Any binary operator.
-    BinaryOperator(BinaryOperator),
-    /// Any unary operator.
-    UnaryOperator(UnaryOperator),
+    /// Any operator.
+    Operator(Operator),
 
     /// A keyword.
     Keyword(Keyword),
@@ -53,7 +53,7 @@ pub enum Keyword {
 
 /// An operator in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum BinaryOperator {
+pub enum Operator {
     /// The plus operator (`+`)
     Plus,
     /// The minus operator (`-`)
@@ -82,16 +82,7 @@ pub enum BinaryOperator {
     And,
     /// The or operator (`||`)
     Or,
-}
-
-/// A unary operator in the source code.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum UnaryOperator {
-    /// The plus operator (`+`)
-    Plus,
-    /// The minus operator (`-`)
-    Minus,
-    /// The not operator (`!`)
+    /// The not operator, also called "bang" (`!`)
     Not,
 }
 
@@ -148,13 +139,9 @@ impl Span {
     }
 }
 
-impl BinaryOperator {
-    pub fn is_operator_start(c: char) -> bool {
-        matches!(c, '=' | '!' | '<' | '>' | '+' | '-' | '*' | '/' | '&' | '|')
-    }
-
-    pub fn from_cursor(cursor: &mut Cursor<Chars>) -> Option<Self> {
-        Some(match (cursor.advance()?, cursor.peek().copied()) {
+impl Operator {
+    pub fn from_chars(a: char, b: Option<char>) -> Option<Self> {
+        Some(match (a, b) {
             ('+', _) => Self::Plus,
             ('-', _) => Self::Minus,
             ('*', _) => Self::Multiply,
@@ -171,6 +158,7 @@ impl BinaryOperator {
 
             ('&', Some('&')) => Self::And,
             ('|', Some('|')) => Self::Or,
+            ('!', _) => Self::Not,
 
             (_, _) => return None,
         })
@@ -190,28 +178,9 @@ impl BinaryOperator {
 
     pub fn from_token_kind(kind: &TokenKind) -> Option<Self> {
         match kind {
-            TokenKind::BinaryOperator(op) => Some(*op),
+            TokenKind::Operator(op) => Some(*op),
             _ => None,
         }
-    }
-}
-
-impl UnaryOperator {
-    pub fn from_char(c: char) -> Option<Self> {
-        Some(match c {
-            '!' => Self::Not,
-            '-' => Self::Minus,
-            '+' => Self::Plus,
-            _ => return None,
-        })
-    }
-
-    pub fn from_operator(op: BinaryOperator) -> Option<Self> {
-        Some(match op {
-            BinaryOperator::Plus => Self::Plus,
-            BinaryOperator::Minus => Self::Minus,
-            _ => return None,
-        })
     }
 }
 
@@ -247,7 +216,7 @@ impl Keyword {
     }
 }
 
-impl Display for BinaryOperator {
+impl Display for Operator {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             Self::Plus => "+",
@@ -262,15 +231,6 @@ impl Display for BinaryOperator {
             Self::GreaterThanEquals => ">=",
             Self::And => "&&",
             Self::Or => "||",
-        })
-    }
-}
-
-impl Display for UnaryOperator {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(match self {
-            Self::Plus => "+",
-            Self::Minus => "-",
             Self::Not => "!",
         })
     }
@@ -309,11 +269,36 @@ impl Display for TokenKind {
             Self::Integer(lit) => lit.to_string(),
             Self::Float(lit) => lit.to_string(),
             Self::Identifier(ident) => ident.clone(),
-            Self::BinaryOperator(op) => op.to_string(),
-            Self::UnaryOperator(op) => op.to_string(),
+            Self::Operator(op) => op.to_string(),
             Self::Keyword(keyword) => keyword.to_string(),
             Self::Parenthesis(parenthesis) => parenthesis.to_string(),
             Self::Whitespace => "<whitespace>".to_string(),
         })
+    }
+}
+
+impl std::ops::Index<Span> for Source {
+    type Output = str;
+
+    fn index(&self, index: Span) -> &Self::Output {
+        &self.content[index.start..index.end]
+    }
+}
+
+pub trait TokenExt {
+    fn is_operator_start(&self) -> bool;
+    fn is_parenthesis(&self) -> bool;
+}
+
+impl TokenExt for char {
+    fn is_operator_start(&self) -> bool {
+        matches!(
+            self,
+            '=' | '!' | '<' | '>' | '+' | '-' | '*' | '/' | '&' | '|'
+        )
+    }
+
+    fn is_parenthesis(&self) -> bool {
+        matches!(self, '(' | ')')
     }
 }

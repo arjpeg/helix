@@ -1,19 +1,25 @@
 use std::iter::Peekable;
 
-/// A cursor that keeps track of the current position in some iterable sequence
+/// A cursor that keeps track of the current item and position over some sequence.
 pub struct Cursor<I: Iterator> {
     /// The thing beeing iterated over.
     iter: Peekable<I>,
 
-    /// The current index of the iterator
+    /// The current index of the iterator.
     pub pos: usize,
+    /// The current element of the iterator.
+    pub current: Option<I::Item>,
 }
 
-impl<I: Iterator> Cursor<I> {
+impl<I: Iterator> Cursor<I>
+where
+    I::Item: Clone,
+{
     pub fn new(iter: I) -> Self {
         Self {
             iter: iter.peekable(),
             pos: 0,
+            current: None,
         }
     }
 
@@ -27,6 +33,7 @@ impl<I: Iterator> Cursor<I> {
         let value = self.iter.next();
 
         self.pos += value.as_ref().map_or(0, |_| 1);
+        self.current = value.clone();
 
         value
     }
@@ -51,6 +58,7 @@ where
         Self {
             iter: self.iter.clone(),
             pos: self.pos,
+            current: self.current.clone(),
         }
     }
 }

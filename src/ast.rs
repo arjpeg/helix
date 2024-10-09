@@ -1,4 +1,4 @@
-use crate::token::{BinaryOperator, Span, UnaryOperator};
+use crate::token::{Operator, Span};
 
 /// A node in the abstract syntax tree.
 #[derive(Debug, Clone, PartialEq)]
@@ -17,7 +17,7 @@ pub enum NodeKind {
         /// The left hand side of the operation.
         lhs: Box<Node>,
         /// The operator.
-        operator: BinaryOperator,
+        operator: Operator,
         /// The right hand side of the operation.
         rhs: Box<Node>,
     },
@@ -25,7 +25,7 @@ pub enum NodeKind {
     /// A unary operation.
     UnaryOp {
         /// The operator.
-        operator: UnaryOperator,
+        operator: Operator,
         /// The operand.
         operand: Box<Node>,
     },

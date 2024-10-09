@@ -13,7 +13,7 @@ macro_rules! impl_binary_operator {
             impl Value {
                 pub fn $name(&self, other: &Value) -> $crate::error::Result<Value> {
                     use $crate::value::ValueKind::*;
-                    use $crate::token::BinaryOperator::*;
+                    use $crate::token::Operator::*;
 
                     let span = Span::new(self.span.start..other.span.end, self.span.source);
 
@@ -51,7 +51,7 @@ macro_rules! impl_unary_operator {
             $(
                 pub fn $name(&self) -> $crate::error::Result<Value> {
                     use $crate::value::ValueKind::*;
-                    use $crate::token::UnaryOperator::*;
+                    use $crate::token::Operator::*;
 
                     let span = self.span.clone();
 

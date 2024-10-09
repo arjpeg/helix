@@ -34,8 +34,8 @@ impl<'a> Lexer<'a> {
     pub fn tokenize(mut self) -> Result<Vec<Token>> {
         let mut tokens = Vec::new();
 
-        while let Some(token) = self.next() {
-            match token? {
+        while let Some(token) = self.next()? {
+            match token {
                 Token {
                     kind: TokenKind::Whitespace,
                     ..
@@ -49,87 +49,79 @@ impl<'a> Lexer<'a> {
     }
 
     /// Advances the lexer by one token.
-    fn next(&mut self) -> Option<Result<Token>> {
+    fn next(&mut self) -> Result<Option<Token>> {
         let start = self.cursor.pos;
 
-        let kind = match *self.cursor.peek()? {
-            c if c.is_whitespace() => {
-                self.skip_whitespace();
-                TokenKind::Whitespace
-            }
+        let next = match self.cursor.peek() {
+            Some(c) => c,
+            None => return Ok(None),
+        };
 
-            c if c.is_ascii_digit() => match self.tokenize_number() {
-                Ok(kind) => kind,
-                Err(error) => return Some(Err(error)),
-            },
+        let kind = match next {
+            c if c.is_whitespace() => self.skip_whitespace(),
 
-            c if BinaryOperator::is_operator_start(c) => {
-                let operator = BinaryOperator::from_cursor(&mut self.cursor)?;
+            c if c.is_ascii_digit() => self.tokenize_number()?,
+
+            c if c.is_xid_start() => self.tokenize_identifier(),
+
+            c if c.is_operator_start() => {
+                let next = self
+                    .cursor
+                    .advance()
+                    .expect("found peek'ed char, should be valid to advance");
+
+                let operator = Operator::from_chars(next, self.cursor.peek().copied())
+                    .expect("operator should be valid as first char sequence was valid start");
 
                 if operator.is_two_char() {
                     self.cursor.advance();
                 }
 
-                TokenKind::BinaryOperator(operator)
+                TokenKind::Operator(operator)
             }
 
-            c if c == '_' || c.is_xid_start() => {
-                self.tokenize_identifier();
-
-                let ident = self.source.content[start..self.cursor.pos].to_string();
-
-                match Keyword::from_ident(&ident) {
-                    Some(keyword) => TokenKind::Keyword(keyword),
-                    None => TokenKind::Identifier(ident),
-                }
-            }
-
-            // anything else
-            c => {
-                let kind = if let Some(operator) = UnaryOperator::from_char(c) {
-                    TokenKind::UnaryOperator(operator)
-                } else if let Some(parenthesis) = Parenthesis::from_char(c) {
-                    TokenKind::Parenthesis(parenthesis)
-                } else {
-                    self.cursor.advance_while(|c| !c.is_whitespace());
-
-                    let range = start..self.cursor.pos;
-                    let symbol = self.source.content[range.clone()].to_string();
-
-                    return Some(Err(Error {
-                        span: Span::new(range, self.key),
-                        kind: match c {
-                            '.' => LexerError::MalformedNumber(symbol),
-                            _ => LexerError::UnknownSymbol(symbol),
-                        }
-                        .into(),
-                    }));
-                };
-
+            c if c.is_parenthesis() => {
+                let paren = Parenthesis::from_char(*next).expect("parenthesis should be valid");
                 self.cursor.advance();
-                kind
+
+                TokenKind::Parenthesis(paren)
+            }
+
+            _ => {
+                self.cursor.advance_while(|c| !c.is_whitespace());
+                let span = Span::new(start..self.cursor.pos, self.key);
+
+                return Err(Error {
+                    span,
+                    kind: LexerError::UnknownSymbol(self.source[span].to_string()).into(),
+                });
             }
         };
 
-        eprintln!("kind = {:#?}", kind);
-
         let end = self.cursor.pos;
 
-        Some(Ok(Token::new(kind, Span::new(start..end, self.key))))
+        Ok(Some(Token {
+            kind,
+            span: Span::new(start..end, self.key),
+        }))
     }
 
     /// Skips whitespace characters.
-    fn skip_whitespace(&mut self) {
+    fn skip_whitespace(&mut self) -> TokenKind {
         self.cursor.advance_while(|c| c.is_whitespace());
+        TokenKind::Whitespace
     }
 
     /// Consumes an identifier
-    fn tokenize_identifier(&mut self) {
-        self.cursor.advance_while(|c| c.is_xid_continue())
+    fn tokenize_identifier(&mut self) -> TokenKind {
+        let start = self.cursor.pos;
+        self.cursor.advance_while(|c| c.is_xid_continue());
+        let end = self.cursor.pos;
+
+        TokenKind::Identifier(self.source.content[start..end].to_owned())
     }
 
     /// Consumes a floating point literal or an integer literal.
-    /// Note that numbers such as `.123` are not supported.
     fn tokenize_number(&mut self) -> Result<TokenKind> {
         let start = self.cursor.pos;
 
@@ -144,15 +136,15 @@ impl<'a> Lexer<'a> {
             dot_count += 1;
         }
 
-        let range = start..self.cursor.pos;
-        let range_str = &self.source.content[range.clone()];
+        let span = Span::new(start..self.cursor.pos, self.key);
+        let range_str = &self.source[span];
 
         match dot_count {
             0 => Ok(TokenKind::Integer(range_str.parse().unwrap())),
             1 => Ok(TokenKind::Float(range_str.parse().unwrap())),
             _ => Err(Error {
-                span: Span::new(range.clone(), self.key),
-                kind: LexerError::MalformedNumber(self.source.content[range].to_string()).into(),
+                span,
+                kind: LexerError::MalformedNumber(self.source[span].to_string()).into(),
             }),
         }
     }
@@ -225,6 +217,71 @@ mod tests {
         assert!(matches!(
             error.kind,
             ErrorKind::Lexer(LexerError::MalformedNumber(_))
+        ));
+    }
+
+    #[test]
+    fn test_operators() {
+        use crate::token::Operator::*;
+        use TokenKind::*;
+
+        let source = "23 * -1 + && !3";
+        let mut tokens = tokenize(source).unwrap().into_iter();
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: Integer(23),
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: Operator(Multiply),
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: Operator(Minus),
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: Integer(1),
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: Operator(Plus),
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: Operator(And),
+                ..
+            })
+        ));
+
+        assert!(matches!(
+            tokens.next(),
+            Some(Token {
+                kind: Operator(Not),
+                ..
+            })
         ));
     }
 }
