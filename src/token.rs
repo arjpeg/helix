@@ -7,9 +7,6 @@ use std::{
 
 pub type ASTNode = crate::ast::Node;
 
-/// All valid unary operators.
-pub const UNARY_OPERATORS: [Operator; 3] = [Operator::Plus, Operator::Minus, Operator::Not];
-
 /// A token within the source code, representing a literal, operator, or keyword.
 #[derive(Debug, Clone)]
 pub struct Token {
@@ -83,6 +80,20 @@ pub enum Operator {
     /// The or operator (`||`)
     Or,
     /// The not operator, also called "bang" (`!`)
+    Not,
+}
+
+/// A unary operator on an operand.
+///
+/// Note they are not directly generated during tokenization, and are only
+/// constructed during parsing.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnaryOperator {
+    /// The plus unary operator (`+`)
+    Plus,
+    /// The minus unary operator (`-`)
+    Minus,
+    /// The not unary operator (`!`)
     Not,
 }
 
@@ -181,6 +192,19 @@ impl Operator {
             TokenKind::Operator(op) => Some(*op),
             _ => None,
         }
+    }
+}
+
+impl UnaryOperator {
+    pub fn from_operator(op: Operator) -> Option<Self> {
+        use Operator as OP;
+
+        Some(match op {
+            OP::Plus => Self::Plus,
+            OP::Minus => Self::Minus,
+            OP::Not => Self::Not,
+            _ => return None,
+        })
     }
 }
 
@@ -299,6 +323,6 @@ impl TokenExt for char {
     }
 
     fn is_parenthesis(&self) -> bool {
-        matches!(self, '(' | ')')
+        Parenthesis::from_char(*self).is_some()
     }
 }

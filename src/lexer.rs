@@ -65,10 +65,7 @@ impl<'a> Lexer<'a> {
             c if c.is_xid_start() => self.tokenize_identifier(),
 
             c if c.is_operator_start() => {
-                let next = self
-                    .cursor
-                    .advance()
-                    .expect("found peek'ed char, should be valid to advance");
+                let next = self.cursor.advance().expect("should have next char");
 
                 let operator = Operator::from_chars(next, self.cursor.peek().copied())
                     .expect("operator should be valid as first char sequence was valid start");

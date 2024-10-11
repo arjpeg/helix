@@ -1,11 +1,9 @@
-use std::{
-    env, fs,
-    io::{self, Write},
-};
+use std::{env, fs};
 
 use owo_colors::OwoColorize;
 
 use helix::program::Program;
+use rustyline::DefaultEditor;
 
 fn main() {
     match env::args().nth(1) {
@@ -38,14 +36,17 @@ fn run_file(path: &str) {
 }
 
 fn repl() {
+    let mut rl = DefaultEditor::new().unwrap();
     let mut program = Program::new();
 
     loop {
-        let mut line = String::new();
-        print!("{} > ", "helix".green());
-
-        io::stdout().flush().unwrap();
-        io::stdin().read_line(&mut line).unwrap();
+        let line = match rl.readline(&format!("{} > ", "helix".green())) {
+            Ok(line) => {
+                rl.add_history_entry(&line).unwrap();
+                line
+            }
+            Err(_) => break,
+        };
 
         let main = program.add_source("<stdin>".to_string(), line);
 

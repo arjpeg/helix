@@ -86,21 +86,21 @@ impl Parser {
             TokenKind::Operator(op) => {
                 self.cursor.advance();
 
-                if UNARY_OPERATORS.contains(&op) {
-                    let kind = NodeKind::UnaryOp {
-                        operator: op,
-                        operand: Box::new(self.unary()?),
-                    };
-
-                    let span = token.span.start..self.tokens[self.cursor.pos - 1].span.end;
-
-                    Ok(ASTNode::new(kind, Span::new(span, token.span.source)))
-                } else {
-                    Err(Error {
+                let Some(op) = UnaryOperator::from_operator(op) else {
+                    return Err(Error {
                         span: token.span,
                         kind: ParserError::InvalidUnaryOperator(op).into(),
-                    })
-                }
+                    });
+                };
+
+                let kind = NodeKind::UnaryOp {
+                    operator: op,
+                    operand: Box::new(self.unary()?),
+                };
+
+                let span = token.span.start..self.tokens[self.cursor.pos - 1].span.end;
+
+                Ok(ASTNode::new(kind, Span::new(span, token.span.source)))
             }
 
             _ => self.atom(),
