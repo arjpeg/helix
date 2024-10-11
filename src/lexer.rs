@@ -86,6 +86,7 @@ impl<'a> Lexer<'a> {
 
             _ => {
                 self.cursor.advance_while(|c| !c.is_whitespace());
+
                 let span = Span::new(start..self.cursor.pos, self.key);
 
                 return Err(Error {
@@ -109,13 +110,18 @@ impl<'a> Lexer<'a> {
         TokenKind::Whitespace
     }
 
-    /// Consumes an identifier
+    /// Consumes an identifier or keyword if applicable.
     fn tokenize_identifier(&mut self) -> TokenKind {
         let start = self.cursor.pos;
         self.cursor.advance_while(|c| c.is_xid_continue());
         let end = self.cursor.pos;
 
-        TokenKind::Identifier(self.source.content[start..end].to_owned())
+        let ident = &self.source.content[start..end];
+
+        match Keyword::from_ident(ident) {
+            Some(keyword) => TokenKind::Keyword(keyword),
+            None => TokenKind::Identifier(ident.to_owned()),
+        }
     }
 
     /// Consumes a floating point literal or an integer literal.

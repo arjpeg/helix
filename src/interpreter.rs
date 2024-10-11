@@ -1,7 +1,7 @@
 use crate::{
     ast::*,
     error::Result,
-    token::{ASTNode, Operator},
+    token::{ASTNode, Operator, UnaryOperator},
     value::{Value, ValueKind},
 };
 
@@ -27,7 +27,7 @@ impl Interpreter {
             NK::Integer(_) | NK::Float(_) | NK::Boolean(_) => Ok(self.construct_literal(node)),
 
             NK::BinaryOp { lhs, operator, rhs } => self.visit_binary_op(*lhs, operator, *rhs),
-            NK::UnaryOp { .. } => todo!(),
+            NK::UnaryOp { operator, operand } => self.visit_unary_op(operator, *operand),
             NK::Identifier(_) => todo!(),
         }
     }
@@ -57,17 +57,17 @@ impl Interpreter {
         operator(&lhs, &rhs)
     }
 
-    /*
     fn visit_unary_op(&mut self, operator: UnaryOperator, operand: ASTNode) -> Result<Value> {
+        use UnaryOperator as UnaryOP;
+
         let operand = self.visit(operand)?;
 
         match operator {
-            UnaryOperator::Not => operand.not(),
-            UnaryOperator::Minus => operand.negate(),
-            UnaryOperator::Plus => Ok(operand),
+            UnaryOP::Not => operand.not(),
+            UnaryOP::Minus => operand.negate(),
+            UnaryOP::Plus => Ok(operand),
         }
     }
-    */
 
     fn construct_literal(&mut self, node: ASTNode) -> Value {
         let value = match node.kind {
