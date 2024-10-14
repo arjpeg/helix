@@ -120,7 +120,7 @@ impl Parser {
                 Keyword::False => NodeKind::Boolean(false),
             },
 
-            TokenKind::Identifier(ref ident) => NodeKind::Identifier(ident.clone()),
+            TokenKind::Identifier(ident) => NodeKind::Identifier(ident),
 
             TokenKind::Parenthesis(Parenthesis {
                 kind: ParenthesisKind::Round,

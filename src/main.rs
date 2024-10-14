@@ -41,12 +41,15 @@ fn repl() {
 
     loop {
         let line = match rl.readline(&format!("{} > ", "helix".green())) {
-            Ok(line) => {
-                rl.add_history_entry(&line).unwrap();
-                line
-            }
+            Ok(line) => line,
             Err(_) => break,
         };
+
+        if line.is_empty() {
+            continue;
+        }
+
+        rl.add_history_entry(&line).unwrap();
 
         let main = program.add_source("<stdin>".to_string(), line);
 
