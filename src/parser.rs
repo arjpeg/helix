@@ -115,6 +115,8 @@ impl Parser {
             TokenKind::Float(lit) => NodeKind::Float(lit),
             TokenKind::Integer(lit) => NodeKind::Integer(lit),
 
+            TokenKind::String(lit) => NodeKind::String(lit),
+
             TokenKind::Keyword(keyword) => match keyword {
                 Keyword::True => NodeKind::Boolean(true),
                 Keyword::False => NodeKind::Boolean(false),

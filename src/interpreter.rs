@@ -24,7 +24,9 @@ impl Interpreter {
 
     fn visit(&mut self, node: ASTNode) -> Result<Value> {
         match node.kind {
-            NK::Integer(_) | NK::Float(_) | NK::Boolean(_) => Ok(self.construct_literal(node)),
+            NK::Integer(_) | NK::Float(_) | NK::Boolean(_) | NK::String(_) => {
+                Ok(self.construct_literal(node))
+            }
 
             NK::BinaryOp { lhs, operator, rhs } => self.visit_binary_op(*lhs, operator, *rhs),
             NK::UnaryOp { operator, operand } => self.visit_unary_op(operator, *operand),
@@ -76,6 +78,7 @@ impl Interpreter {
             NK::Integer(value) => ValueKind::Integer(value),
             NK::Float(value) => ValueKind::Float(value),
             NK::Boolean(value) => ValueKind::Boolean(value),
+            NK::String(value) => ValueKind::String(value),
             _ => panic!("visit_literal was called on a non literal ast node, {node:?}"),
         };
 

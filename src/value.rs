@@ -93,6 +93,8 @@ pub enum ValueKind {
     Integer(i64),
     /// A boolean.
     Boolean(bool),
+    /// A string.
+    String(String),
 }
 
 impl Value {
@@ -105,7 +107,8 @@ impl Value {
 impl_binary_operator! {
     (add, Plus, {
         (Float(a), Float(b)) => Float(a + b),
-        (Integer(a), Integer(b)) => Integer(a + b)
+        (Integer(a), Integer(b)) => Integer(a + b),
+        (String(a), String(b)) => String(a.to_owned() + b)
     }),
 
     (subtract, Minus, {
@@ -115,7 +118,8 @@ impl_binary_operator! {
 
     (multiply, Multiply, {
         (Float(a), Float(b)) => Float(a * b),
-        (Integer(a), Integer(b)) => Integer(a * b)
+        (Integer(a), Integer(b)) => Integer(a * b),
+        (Integer(count), String(b)) => String(b.repeat(*count as usize))
     }),
 
     (divide, Divide, {
@@ -146,7 +150,8 @@ impl_binary_operator! {
     (equal, Equals, {
         (Float(a), Float(b)) => Boolean(a == b),
         (Integer(a), Integer(b)) => Boolean(a == b),
-        (Boolean(a), Boolean(b)) => Boolean(a == b)
+        (Boolean(a), Boolean(b)) => Boolean(a == b),
+        (String(a), String(b)) => Boolean(a == b)
     }),
 
     (and, And, {
@@ -182,6 +187,7 @@ impl ValueKind {
             Self::Float(_) => "float",
             Self::Integer(_) => "integer",
             Self::Boolean(_) => "boolean",
+            Self::String(_) => "string",
         }
     }
 }
@@ -198,6 +204,7 @@ impl Display for ValueKind {
             Self::Float(f) => f.to_string(),
             Self::Integer(i) => i.to_string(),
             Self::Boolean(b) => b.to_string(),
+            Self::String(s) => s.clone(),
         })
     }
 }

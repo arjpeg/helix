@@ -39,6 +39,9 @@ pub enum NodeKind {
     /// A boolean literal.
     Boolean(bool),
 
+    /// A string literal.
+    String(String),
+
     /// A reference to an identifier
     Identifier(String),
 }
