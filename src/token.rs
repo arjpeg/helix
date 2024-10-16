@@ -60,6 +60,9 @@ pub enum Operator {
     /// The division operator (`/`)
     Divide,
 
+    /// The assignment operator (`=`)
+    Assign,
+
     /// The equals operator (`==`)
     Equals,
     /// The not equals operator (`!=`)
@@ -171,6 +174,8 @@ impl Operator {
             ('|', Some('|')) => Self::Or,
             ('!', _) => Self::Not,
 
+            ('=', _) => Self::Assign,
+
             (_, _) => return None,
         })
     }
@@ -247,6 +252,7 @@ impl Display for Operator {
             Self::Minus => "-",
             Self::Multiply => "*",
             Self::Divide => "/",
+            Self::Assign => "=",
             Self::Equals => "==",
             Self::NotEquals => "!=",
             Self::LessThan => "<",

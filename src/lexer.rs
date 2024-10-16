@@ -67,6 +67,8 @@ impl<'a> Lexer<'a> {
             c if c.is_operator_start() => {
                 let next = self.cursor.advance().expect("should have next char");
 
+                println!("{}", next);
+
                 let operator = Operator::from_chars(next, self.cursor.peek().copied())
                     .expect("operator should be valid as first char sequence was valid start");
 

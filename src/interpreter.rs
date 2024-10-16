@@ -51,7 +51,9 @@ impl Interpreter {
             OP::GreaterThanEquals => Value::greater_than_or_equal,
             OP::And => Value::and,
             OP::Or => Value::or,
-            OP::Not => panic!("operator `not` should not have been parsed as a binary operator"),
+            OP::Not | OP::Assign => {
+                panic!("operator `{op}` should not have been parsed as a binary operator")
+            }
         };
 
         operator(&lhs, &rhs)
