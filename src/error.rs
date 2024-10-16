@@ -32,6 +32,8 @@ pub enum LexerError {
     UnknownSymbol(String),
     #[error("encountered a malformed number '{0}'")]
     MalformedNumber(String),
+    #[error("encountered an unterminated string literal")]
+    UnterminatedString,
 }
 
 /// An error that occurred during the generation of the AST.

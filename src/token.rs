@@ -21,6 +21,8 @@ pub enum TokenKind {
     Integer(i64),
     /// A floating point literal.
     Float(f64),
+    /// A string literal.
+    String(String),
 
     /// An identifier.
     Identifier(String),
@@ -298,6 +300,7 @@ impl Display for TokenKind {
         f.write_str(&match self {
             Self::Integer(lit) => lit.to_string(),
             Self::Float(lit) => lit.to_string(),
+            Self::String(string) => string.clone(),
             Self::Identifier(ident) => ident.clone(),
             Self::Operator(op) => op.to_string(),
             Self::Keyword(keyword) => keyword.to_string(),

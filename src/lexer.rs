@@ -64,10 +64,10 @@ impl<'a> Lexer<'a> {
 
             c if c.is_xid_start() => self.tokenize_identifier(),
 
+            '"' => self.tokenize_string()?,
+
             c if c.is_operator_start() => {
                 let next = self.cursor.advance().expect("should have next char");
-
-                println!("{}", next);
 
                 let operator = Operator::from_chars(next, self.cursor.peek().copied())
                     .expect("operator should be valid as first char sequence was valid start");
@@ -150,6 +150,25 @@ impl<'a> Lexer<'a> {
             _ => Err(Error {
                 span,
                 kind: LexerError::MalformedNumber(self.source[span].to_string()).into(),
+            }),
+        }
+    }
+
+    /// Consumes a string literal.
+    fn tokenize_string(&mut self) -> Result<TokenKind> {
+        self.cursor.advance();
+
+        let start = self.cursor.pos;
+        self.cursor.advance_while(|c| *c != '"');
+        let span = Span::new(start..self.cursor.pos, self.key);
+
+        self.cursor.advance();
+
+        match self.cursor.current {
+            Some('"') => Ok(TokenKind::String(self.source[span].to_string())),
+            _ => Err(Error {
+                span,
+                kind: LexerError::UnterminatedString.into(),
             }),
         }
     }

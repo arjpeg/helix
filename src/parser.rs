@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn test_unary_operators() {
         let Ok(NodeKind::UnaryOp {
-            operator: Operator::Minus,
+            operator: UnaryOperator::Minus,
             operand,
         }) = parse("-20")
         else {
@@ -248,7 +248,7 @@ mod tests {
         assert_eq!(operand.kind, NodeKind::Integer(20));
 
         let Ok(NodeKind::UnaryOp {
-            operator: Operator::Minus,
+            operator: UnaryOperator::Minus,
             operand,
         }) = parse("--20")
         else {
@@ -258,7 +258,7 @@ mod tests {
         assert!(matches!(
             operand.kind,
             NodeKind::UnaryOp {
-                operator: Operator::Minus,
+                operator: UnaryOperator::Minus,
                 ..
             }
         ));
