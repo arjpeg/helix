@@ -1,4 +1,7 @@
-use crate::{lexer::token::OpKind, source::Spanned};
+use crate::{
+    lexer::token::{OpKind, UnaryOp},
+    source::Spanned,
+};
 
 /// A statement in the AST.
 #[derive(Debug, Clone)]
@@ -24,5 +27,13 @@ pub enum Expression {
         operator: OpKind,
         /// The right hand side operand.
         rhs: Box<Spanned<Expression>>,
+    },
+
+    /// A unary operation acting on one [`Expression`].
+    UnaryOperation {
+        /// The unary operator acting on the `operand`.
+        operator: UnaryOp,
+        /// The value being acted on.
+        operand: Box<Spanned<Expression>>,
     },
 }

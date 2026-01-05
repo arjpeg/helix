@@ -2,7 +2,7 @@ pub mod ast;
 pub mod error;
 
 use crate::{
-    lexer::token::{OpKind, Token},
+    lexer::token::{OpKind, Token, UnaryOp},
     parser::{
         ast::{Expression, Statement},
         error::{ParsingError, Result},
@@ -42,15 +42,55 @@ impl Parser {
     }
 
     fn expr(&mut self) -> ExprResult {
-        self.binary_expr()
+        self.equality()
     }
 
-    fn binary_expr(&mut self) -> ExprResult {
-        self.reduce_binary_op(Self::term, &[OpKind::Plus, OpKind::Minus])
+    fn equality(&mut self) -> ExprResult {
+        self.reduce_binary_op(Self::comparison, &[OpKind::Equals, OpKind::NotEquals])
+    }
+
+    fn comparison(&mut self) -> ExprResult {
+        self.reduce_binary_op(
+            Self::term,
+            &[
+                OpKind::GreaterThan,
+                OpKind::GreaterThanEquals,
+                OpKind::LessThan,
+                OpKind::LessThanEquals,
+            ],
+        )
     }
 
     fn term(&mut self) -> ExprResult {
-        self.reduce_binary_op(Self::atom, &[OpKind::Star, OpKind::Slash])
+        self.reduce_binary_op(Self::factor, &[OpKind::Plus, OpKind::Minus])
+    }
+
+    fn factor(&mut self) -> ExprResult {
+        self.reduce_binary_op(Self::unary, &[OpKind::Star, OpKind::Slash])
+    }
+
+    fn unary(&mut self) -> ExprResult {
+        if let Some(Spanned {
+            value: Token::Operator(op),
+            span: op_span,
+        }) = self.peek()
+            && let Ok(op) = UnaryOp::try_from(op)
+        {
+            self.consume()?;
+
+            let expression = self.unary()?;
+            let span = Span::merge(op_span, expression.span);
+
+            Ok(Spanned::wrap(
+                Expression::UnaryOperation {
+                    operator: op,
+                    operand: Box::new(expression),
+                },
+                span,
+            ))
+        } else {
+            self.atom()
+        }
     }
 
     /// Parses an atom (simplest part of an expression).

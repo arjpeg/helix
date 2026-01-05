@@ -42,6 +42,17 @@ pub enum OpKind {
     LessThanEquals,
 }
 
+/// A unary operator in the source code (never constructed during tokenization).
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum UnaryOp {
+    /// The '+' operator.
+    Plus,
+    /// The '-' operator.
+    Minus,
+    /// The '!' operator.
+    Bang,
+}
+
 pub trait CharTokenExt {
     /// Returns `true` if the provided character is the beginning of a operator sequence.
     fn is_operator_start(&self) -> bool;
@@ -80,6 +91,19 @@ impl TryFrom<(char, Option<char>)> for OpKind {
             ('<', _) => Self::LessThan,
             ('!', _) => Self::Bang,
             ('=', _) => Self::Assign,
+            _ => return Err(()),
+        })
+    }
+}
+
+impl TryFrom<OpKind> for UnaryOp {
+    type Error = ();
+
+    fn try_from(value: OpKind) -> Result<Self, Self::Error> {
+        Ok(match value {
+            OpKind::Plus => Self::Plus,
+            OpKind::Minus => Self::Minus,
+            OpKind::Bang => Self::Bang,
             _ => return Err(()),
         })
     }
