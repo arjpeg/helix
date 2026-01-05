@@ -1,5 +1,5 @@
 /// The smallest lexical unit in the source code.
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Token {
     /// An integer literal.
     Integer(u64),
@@ -12,7 +12,7 @@ pub enum Token {
 }
 
 /// A literal operator in the source code.
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum OpKind {
     /// The '+' operator.
     Plus,
@@ -45,7 +45,7 @@ pub enum OpKind {
 }
 
 /// Any literal grouping symbol in the source code.
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Grouping {
     /// A '(' parenthesis.
     OpeningParenthesis,
@@ -54,7 +54,7 @@ pub enum Grouping {
 }
 
 /// A unary operator in the source code (never constructed during tokenization).
-#[derive(Debug, Clone, PartialEq, PartialOrd)]
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum UnaryOp {
     /// The '+' operator.
     Plus,

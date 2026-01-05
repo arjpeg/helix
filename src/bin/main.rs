@@ -6,7 +6,7 @@ fn main() {
     let mut engine = Engine::new();
 
     let result = engine.register(Source {
-        content: "1 + 2 * 3",
+        content: "1 + 2 + 3",
         path: Path::new("<stdin>"),
     });
 

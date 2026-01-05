@@ -1,9 +1,6 @@
 use thiserror::Error;
 
-use crate::{lexer::token::Token, source::Spanned};
-
-/// A type alias for the result of an operation that occured during parsing.
-pub type Result<T, E = Spanned<ParsingError>> = std::result::Result<T, E>;
+use crate::lexer::token::Token;
 
 /// An error that occured during the parsing process.
 #[derive(Debug, Clone, PartialEq, Error)]

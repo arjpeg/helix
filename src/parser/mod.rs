@@ -5,13 +5,13 @@ use crate::{
     lexer::token::{Grouping, OpKind, Token, UnaryOp},
     parser::{
         ast::{Expression, Statement},
-        error::{ParsingError, Result},
+        error::ParsingError,
     },
     source::{Span, Spanned},
 };
 
-type StatementResult = Result<Spanned<Statement>>;
-type ExprResult = Result<Spanned<Expression>>;
+type StatementResult = Result<Spanned<Statement>, Spanned<ParsingError>>;
+type ExprResult = Result<Spanned<Expression>, Spanned<ParsingError>>;
 
 /// Converts a list of [`Token`]s into an Abstract Syntax Tree using recursive descent.
 pub struct Parser {
@@ -114,7 +114,10 @@ impl Parser {
                     ));
                 }
 
-                Spanned::wrap(expr.value, Span::merge(token.span, next.span))
+                Spanned::wrap(
+                    Expression::Grouping(Box::new(expr)),
+                    Span::merge(token.span, next.span),
+                )
             }
 
             found => {
@@ -132,7 +135,7 @@ impl Parser {
     }
 
     /// Consumes a single token, returning an error if it wasn't present.
-    fn consume(&mut self) -> Result<Spanned<Token>> {
+    fn consume(&mut self) -> Result<Spanned<Token>, Spanned<ParsingError>> {
         let result = self.tokens.get(self.cursor).cloned().ok_or(Spanned::wrap(
             ParsingError::UnexpectedEof,
             self.tokens.last().unwrap().span,

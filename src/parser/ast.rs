@@ -19,6 +19,9 @@ pub enum Expression {
     /// An integer literal.
     Integer(u64),
 
+    /// An expression surrounded by parenthesis to change the order of evaluation.
+    Grouping(Box<Spanned<Expression>>),
+
     /// A (infix) binary operation between two other [`Expression`]s.
     BinaryOperation {
         /// The left hand side operand.
