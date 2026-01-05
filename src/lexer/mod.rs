@@ -6,7 +6,7 @@ use unicode_xid::UnicodeXID;
 use crate::{
     lexer::{
         error::{Result, TokenizationError},
-        token::{OpKind, Token},
+        token::{CharTokenExt, OpKind, Token},
     },
     source::{Source, Span, Spanned},
 };
@@ -66,13 +66,18 @@ impl Tokenizer {
         Spanned::wrap(Token::Symbol(span.text()), span)
     }
 
-    /// Tokenizes a single operator.
+    /// Tokenizes a single operator (may span multiple characters).
     fn next_operator(&mut self) -> Spanned<Token> {
-        let span = Span::new(self.source, self.cursor..self.cursor + 1);
-        Spanned::wrap(
-            Token::Operator(OpKind::try_from(self.advance().unwrap()).unwrap()),
-            span,
-        )
+        let start = self.cursor;
+        let operator = OpKind::try_from((self.advance().unwrap(), self.peek())).unwrap();
+
+        if operator.len() == 2 {
+            self.advance();
+        }
+
+        let span = Span::new(self.source, start..self.cursor);
+
+        Spanned::wrap(Token::Operator(operator), span)
     }
 
     /// Tokenizes a single integer literal.
@@ -98,7 +103,7 @@ impl Iterator for Tokenizer {
 
             c if c.is_ascii_digit() => self.next_integer(),
 
-            '+' | '-' | '*' | '/' => Ok(self.next_operator()),
+            c if c.is_operator_start() => Ok(self.next_operator()),
 
             _ => {
                 let span = self.advance_while(|c| !c.is_whitespace());
