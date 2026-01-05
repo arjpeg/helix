@@ -1,0 +1,9 @@
+[package]
+name = "helix"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+owo-colors = "4.2.3"
+thiserror = "2.0.16"
+unicode-xid = "0.2.6"
