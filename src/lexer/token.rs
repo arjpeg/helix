@@ -7,6 +7,8 @@ pub enum Token {
     Symbol(&'static str),
     /// Any operator.
     Operator(OpKind),
+    /// Any grouping symbol.
+    Grouping(Grouping),
 }
 
 /// A literal operator in the source code.
@@ -42,6 +44,15 @@ pub enum OpKind {
     LessThanEquals,
 }
 
+/// Any literal grouping symbol in the source code.
+#[derive(Debug, Clone, PartialEq, PartialOrd)]
+pub enum Grouping {
+    /// A '(' parenthesis.
+    OpeningParenthesis,
+    /// A ')' parenthesis.
+    ClosingParenthesis,
+}
+
 /// A unary operator in the source code (never constructed during tokenization).
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum UnaryOp {
@@ -56,11 +67,17 @@ pub enum UnaryOp {
 pub trait CharTokenExt {
     /// Returns `true` if the provided character is the beginning of a operator sequence.
     fn is_operator_start(&self) -> bool;
+    /// Returns `true` if the provided character is a valid grouping symbol.
+    fn is_grouping(&self) -> bool;
 }
 
 impl CharTokenExt for char {
     fn is_operator_start(&self) -> bool {
         matches!(self, '+' | '-' | '*' | '/' | '=' | '!' | '>' | '<')
+    }
+
+    fn is_grouping(&self) -> bool {
+        matches!(self, '(' | ')')
     }
 }
 
@@ -104,6 +121,18 @@ impl TryFrom<OpKind> for UnaryOp {
             OpKind::Plus => Self::Plus,
             OpKind::Minus => Self::Minus,
             OpKind::Bang => Self::Bang,
+            _ => return Err(()),
+        })
+    }
+}
+
+impl TryFrom<char> for Grouping {
+    type Error = ();
+
+    fn try_from(value: char) -> Result<Self, Self::Error> {
+        Ok(match value {
+            '(' => Self::OpeningParenthesis,
+            ')' => Self::ClosingParenthesis,
             _ => return Err(()),
         })
     }

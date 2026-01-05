@@ -6,7 +6,7 @@ use unicode_xid::UnicodeXID;
 use crate::{
     lexer::{
         error::{Result, TokenizationError},
-        token::{CharTokenExt, OpKind, Token},
+        token::{CharTokenExt, Grouping, OpKind, Token},
     },
     source::{Source, Span, Spanned},
 };
@@ -66,6 +66,16 @@ impl Tokenizer {
         Spanned::wrap(Token::Symbol(span.text()), span)
     }
 
+    /// Tokenizes a single grouping symbol.
+    fn next_grouping(&mut self) -> Spanned<Token> {
+        let span = Span::new(self.source, self.cursor..self.cursor + 1);
+
+        Spanned::wrap(
+            Token::Grouping(Grouping::try_from(self.advance().unwrap()).unwrap()),
+            span,
+        )
+    }
+
     /// Tokenizes a single operator (may span multiple characters).
     fn next_operator(&mut self) -> Spanned<Token> {
         let start = self.cursor;
@@ -82,7 +92,7 @@ impl Tokenizer {
 
     /// Tokenizes a single integer literal.
     fn next_integer(&mut self) -> Result<Spanned<Token>> {
-        let span = self.advance_while(|c| !c.is_whitespace());
+        let span = self.advance_while(|c| c.is_ascii_digit());
         let literal = span.text();
 
         literal
@@ -104,6 +114,8 @@ impl Iterator for Tokenizer {
             c if c.is_ascii_digit() => self.next_integer(),
 
             c if c.is_operator_start() => Ok(self.next_operator()),
+
+            c if c.is_grouping() => Ok(self.next_grouping()),
 
             _ => {
                 let span = self.advance_while(|c| !c.is_whitespace());

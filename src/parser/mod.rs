@@ -2,7 +2,7 @@ pub mod ast;
 pub mod error;
 
 use crate::{
-    lexer::token::{OpKind, Token, UnaryOp},
+    lexer::token::{Grouping, OpKind, Token, UnaryOp},
     parser::{
         ast::{Expression, Statement},
         error::{ParsingError, Result},
@@ -98,7 +98,25 @@ impl Parser {
         let token = self.consume()?;
 
         let expression = match token.value {
-            Token::Integer(int) => Expression::Integer(int),
+            Token::Integer(int) => Spanned::wrap(Expression::Integer(int), token.span),
+
+            Token::Grouping(Grouping::OpeningParenthesis) => {
+                let expr = self.expr()?;
+                let next = self.consume()?;
+
+                if next.value != Token::Grouping(Grouping::ClosingParenthesis) {
+                    return Err(Spanned::wrap(
+                        ParsingError::UnexpectedToken {
+                            expected: "to find a closing parenthesis",
+                            found: next.value,
+                        },
+                        next.span,
+                    ));
+                }
+
+                Spanned::wrap(expr.value, Span::merge(token.span, next.span))
+            }
+
             found => {
                 return Err(Spanned::wrap(
                     ParsingError::UnexpectedToken {
@@ -110,7 +128,7 @@ impl Parser {
             }
         };
 
-        Ok(Spanned::wrap(expression, token.span))
+        Ok(expression)
     }
 
     /// Consumes a single token, returning an error if it wasn't present.

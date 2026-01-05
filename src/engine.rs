@@ -24,7 +24,7 @@ impl Engine {
 
     /// Registers a source file into the engine, parsing it and making it ready for execution.
     pub fn register(&mut self, source: Source) -> Result<Source, Spanned<Error>> {
-        let tokens = dbg!(Tokenizer::new(source).collect::<Result<Vec<_>, _>>()?);
+        let tokens = Tokenizer::new(source).collect::<Result<Vec<_>, _>>()?;
         let ast = dbg!(Parser::new(tokens).parse_source()?);
 
         self.sources.insert(source, ast);
