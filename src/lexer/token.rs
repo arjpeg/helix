@@ -2,7 +2,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Token {
     /// An integer literal.
-    Integer(u64),
+    Int(u64),
     /// A symbol (usually represents a variable name).
     Symbol(&'static str),
     /// Any operator.
@@ -48,20 +48,9 @@ pub enum OpKind {
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Grouping {
     /// A '(' parenthesis.
-    OpeningParenthesis,
+    OpeningParen,
     /// A ')' parenthesis.
-    ClosingParenthesis,
-}
-
-/// A unary operator in the source code (never constructed during tokenization).
-#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
-pub enum UnaryOp {
-    /// The '+' operator.
-    Plus,
-    /// The '-' operator.
-    Minus,
-    /// The '!' operator.
-    Bang,
+    ClosingParen,
 }
 
 pub trait CharTokenExt {
@@ -113,26 +102,13 @@ impl TryFrom<(char, Option<char>)> for OpKind {
     }
 }
 
-impl TryFrom<OpKind> for UnaryOp {
-    type Error = ();
-
-    fn try_from(value: OpKind) -> Result<Self, Self::Error> {
-        Ok(match value {
-            OpKind::Plus => Self::Plus,
-            OpKind::Minus => Self::Minus,
-            OpKind::Bang => Self::Bang,
-            _ => return Err(()),
-        })
-    }
-}
-
 impl TryFrom<char> for Grouping {
     type Error = ();
 
     fn try_from(value: char) -> Result<Self, Self::Error> {
         Ok(match value {
-            '(' => Self::OpeningParenthesis,
-            ')' => Self::ClosingParenthesis,
+            '(' => Self::OpeningParen,
+            ')' => Self::ClosingParen,
             _ => return Err(()),
         })
     }

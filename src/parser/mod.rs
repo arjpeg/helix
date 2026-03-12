@@ -124,7 +124,7 @@ impl Parser {
                 return Err(Spanned::wrap(
                     ParsingError::UnexpectedToken {
                         expected: "an atom",
-                        found: found,
+                        found,
                     },
                     token.span,
                 ));

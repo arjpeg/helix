@@ -39,12 +39,8 @@ impl Interpreter {
                 let lhs_result = self.expression(&lhs.value, lhs.span)?;
                 let rhs_result = self.expression(&rhs.value, rhs.span)?;
 
-                dbg!(Value::binary_operation(
-                    lhs_result.value,
-                    *operator,
-                    rhs_result.value
-                ))
-                .map(|value| Spanned::wrap(value, span))
+                Value::binary_operation(lhs_result.value, *operator, rhs_result.value)
+                    .map(|value| Spanned::wrap(value, span))
             }
 
             Expression::UnaryOperation { operator, operand } => todo!(),
