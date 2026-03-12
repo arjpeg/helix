@@ -2,9 +2,9 @@ pub mod ast;
 pub mod error;
 
 use crate::{
-    lexer::token::{Grouping, OpKind, Token, UnaryOp},
+    lexer::token::{Grouping, Token},
     parser::{
-        ast::{Expression, Statement},
+        ast::{BinaryOp, Expression, Statement, UnaryOp},
         error::ParsingError,
     },
     source::{Span, Spanned},
@@ -46,27 +46,27 @@ impl Parser {
     }
 
     fn equality(&mut self) -> ExprResult {
-        self.reduce_binary_op(Self::comparison, &[OpKind::Equals, OpKind::NotEquals])
+        self.reduce_binary_op(Self::comparison, &[BinaryOp::Equals, BinaryOp::NotEquals])
     }
 
     fn comparison(&mut self) -> ExprResult {
         self.reduce_binary_op(
             Self::term,
             &[
-                OpKind::GreaterThan,
-                OpKind::GreaterThanEquals,
-                OpKind::LessThan,
-                OpKind::LessThanEquals,
+                BinaryOp::GreaterThan,
+                BinaryOp::GreaterThanEquals,
+                BinaryOp::LessThan,
+                BinaryOp::LessThanEquals,
             ],
         )
     }
 
     fn term(&mut self) -> ExprResult {
-        self.reduce_binary_op(Self::factor, &[OpKind::Plus, OpKind::Minus])
+        self.reduce_binary_op(Self::factor, &[BinaryOp::Plus, BinaryOp::Minus])
     }
 
     fn factor(&mut self) -> ExprResult {
-        self.reduce_binary_op(Self::unary, &[OpKind::Star, OpKind::Slash])
+        self.reduce_binary_op(Self::unary, &[BinaryOp::Star, BinaryOp::Slash])
     }
 
     fn unary(&mut self) -> ExprResult {
@@ -98,13 +98,13 @@ impl Parser {
         let token = self.consume()?;
 
         let expression = match token.value {
-            Token::Integer(int) => Spanned::wrap(Expression::Integer(int), token.span),
+            Token::Int(int) => Spanned::wrap(Expression::Integer(int), token.span),
 
-            Token::Grouping(Grouping::OpeningParenthesis) => {
+            Token::Grouping(Grouping::OpeningParen) => {
                 let expr = self.expr()?;
                 let next = self.consume()?;
 
-                if next.value != Token::Grouping(Grouping::ClosingParenthesis) {
+                if next.value != Token::Grouping(Grouping::ClosingParen) {
                     return Err(Spanned::wrap(
                         ParsingError::UnexpectedToken {
                             expected: "to find a closing parenthesis",
@@ -114,10 +114,7 @@ impl Parser {
                     ));
                 }
 
-                Spanned::wrap(
-                    Expression::Grouping(Box::new(expr)),
-                    Span::merge(token.span, next.span),
-                )
+                Spanned::wrap(expr.value, Span::merge(token.span, next.span))
             }
 
             found => {
@@ -153,7 +150,7 @@ impl Parser {
 
     /// Builds a binary expression by repeatedly applying `f` while the next token matches the
     /// given operators.
-    fn reduce_binary_op<F>(&mut self, mut f: F, ops: &[OpKind]) -> ExprResult
+    fn reduce_binary_op<F>(&mut self, mut f: F, operators: &[BinaryOp]) -> ExprResult
     where
         F: FnMut(&mut Self) -> ExprResult,
     {
@@ -161,7 +158,8 @@ impl Parser {
 
         while let Some(token) = self.peek()
             && let Token::Operator(op) = token.value
-            && ops.contains(&op)
+            && let Ok(operator) = BinaryOp::try_from(op)
+            && operators.contains(&operator)
         {
             self.consume()?;
 
@@ -171,7 +169,7 @@ impl Parser {
             lhs = Spanned::wrap(
                 Expression::BinaryOperation {
                     lhs: Box::new(lhs),
-                    operator: op,
+                    operator,
                     rhs: Box::new(rhs),
                 },
                 span,

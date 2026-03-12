@@ -11,7 +11,6 @@ use crate::{
 pub struct Interpreter {}
 
 impl Interpreter {
-    /// Creates a new [`Interpreter`].
     pub fn new() -> Self {
         Self {}
     }
@@ -33,8 +32,6 @@ impl Interpreter {
         match expression {
             Expression::Integer(n) => Ok(Spanned::wrap(Value::Integer(*n), span)),
 
-            Expression::Grouping(expr) => self.expression(&expr.value, expr.span),
-
             Expression::BinaryOperation { lhs, operator, rhs } => {
                 let lhs_result = self.expression(&lhs.value, lhs.span)?;
                 let rhs_result = self.expression(&rhs.value, rhs.span)?;
@@ -43,7 +40,11 @@ impl Interpreter {
                     .map(|value| Spanned::wrap(value, span))
             }
 
-            Expression::UnaryOperation { operator, operand } => todo!(),
+            Expression::UnaryOperation { operator, operand } => {
+                let operand = self.expression(&operand.value, operand.span)?.value;
+
+                Value::unary_operation(*operator, operand).map(|value| Spanned::wrap(value, span))
+            }
         }
     }
 }

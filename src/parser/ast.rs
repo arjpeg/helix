@@ -14,10 +14,7 @@ pub enum Statement {
 #[derive(Debug, Clone)]
 pub enum Expression {
     /// An integer literal.
-    Integer(u64),
-
-    /// An expression surrounded by parenthesis to change the order of evaluation.
-    Grouping(Box<Spanned<Expression>>),
+    Integer(i64),
 
     /// A (infix) binary operation between two other [`Expression`]s.
     BinaryOperation {

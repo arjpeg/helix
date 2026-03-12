@@ -108,7 +108,7 @@ impl Tokenizer {
 
         literal
             .parse()
-            .map(|n| Spanned::wrap(Token::Integer(n), span))
+            .map(|n| Spanned::wrap(Token::Int(n), span))
             .map_err(|_| Spanned::wrap(TokenizationError::InvalidIntegerLiteral(literal), span))
     }
 }
@@ -165,22 +165,19 @@ mod tests {
             .collect()
     }
 
-    // --- Integers ---
-
     #[test]
     fn test_integer() {
-        assert_eq!(tokens_ok("42"), vec![Token::Integer(42)]);
+        assert_eq!(tokens_ok("42"), vec![Token::Int(42)]);
     }
 
     #[test]
     fn test_integer_adjacent_operator() {
-        // 123+23 should lex as three tokens
         assert_eq!(
             tokens_ok("123+23"),
             vec![
-                Token::Integer(123),
+                Token::Int(123),
                 Token::Operator(OpKind::Plus),
-                Token::Integer(23),
+                Token::Int(23),
             ]
         );
     }
@@ -197,18 +194,15 @@ mod tests {
 
     #[test]
     fn test_integer_mixed_in_expression() {
-        // 1+2abc should produce integer, operator, then error
         let results = tokenize("1+2abc");
         assert_eq!(results.len(), 3);
-        assert_eq!(results[0].as_ref().unwrap().value, Token::Integer(1));
+        assert_eq!(results[0].as_ref().unwrap().value, Token::Int(1));
         assert_eq!(
             results[1].as_ref().unwrap().value,
             Token::Operator(OpKind::Plus)
         );
         assert!(results[2].is_err());
     }
-
-    // --- Symbols ---
 
     #[test]
     fn test_symbol() {
@@ -224,8 +218,6 @@ mod tests {
     fn test_symbol_with_digits() {
         assert_eq!(tokens_ok("foo123"), vec![Token::Symbol("foo123")]);
     }
-
-    // --- Operators ---
 
     #[test]
     fn test_single_char_operators() {
@@ -251,25 +243,21 @@ mod tests {
         );
     }
 
-    // --- Groupings ---
-
     #[test]
     fn test_groupings() {
         assert_eq!(
             tokens_ok("("),
-            vec![Token::Grouping(Grouping::OpeningParenthesis)]
+            vec![Token::Grouping(Grouping::OpeningParen)]
         );
         assert_eq!(
             tokens_ok(")"),
-            vec![Token::Grouping(Grouping::ClosingParenthesis)]
+            vec![Token::Grouping(Grouping::ClosingParen)]
         );
     }
 
-    // --- Whitespace ---
-
     #[test]
     fn test_whitespace_skipped() {
-        assert_eq!(tokens_ok("  42  "), vec![Token::Integer(42)]);
+        assert_eq!(tokens_ok("  42  "), vec![Token::Int(42)]);
     }
 
     #[test]
@@ -279,12 +267,10 @@ mod tests {
             vec![
                 Token::Symbol("foo"),
                 Token::Operator(OpKind::Plus),
-                Token::Integer(42),
+                Token::Int(42),
             ]
         );
     }
-
-    // --- Spans ---
 
     #[test]
     fn test_span_correctness() {
@@ -298,8 +284,6 @@ mod tests {
         assert_eq!(op.span.end, 4);
     }
 
-    // --- Unknown symbols ---
-
     #[test]
     fn test_unknown_symbol() {
         let results = tokenize("@");
@@ -309,8 +293,6 @@ mod tests {
             TokenizationError::UnknownSymbol("@")
         ));
     }
-
-    // --- Empty input ---
 
     #[test]
     fn test_empty_input() {

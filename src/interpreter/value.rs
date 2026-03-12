@@ -1,18 +1,18 @@
 use std::cmp::Ordering;
 
-use crate::parser::ast::BinaryOp;
+use crate::parser::ast::{BinaryOp, UnaryOp};
 
 /// A helix value in the living runtime.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
     /// An integer.
-    Integer(u64),
+    Integer(i64),
     /// A boolean.
     Boolean(bool),
 }
 
 impl Value {
-    /// Performs a binary operation between two values.
+    /// Performs a binary operation between two [`Value`]s.
     pub fn binary_operation(lhs: Self, operator: BinaryOp, rhs: Self) -> Result<Self, ()> {
         match operator {
             BinaryOp::Plus => Self::add(lhs, rhs),
@@ -28,8 +28,17 @@ impl Value {
         }
     }
 
+    /// Performs a unary operation on a [`Value`].
+    pub fn unary_operation(operator: UnaryOp, operand: Self) -> Result<Self, ()> {
+        match operator {
+            UnaryOp::Plus => Self::pos(operand),
+            UnaryOp::Minus => Self::neg(operand),
+            UnaryOp::Bang => Self::not(operand),
+        }
+    }
+
     /// Attempts to extract the [`Value`] as an integer, returning the underlying u64.
-    pub fn as_integer(&self) -> Option<u64> {
+    pub fn as_integer(&self) -> Option<i64> {
         match self {
             Self::Integer(n) => Some(*n),
             _ => None,
@@ -45,7 +54,7 @@ impl Value {
     }
 }
 
-/// Creates an implementation of a binary operation reducer between two `Values`.
+/// Creates an implementation of a binary operation reducer between two [`Value`]s.
 macro_rules! binary_op {
     (
         $name:ident,
@@ -68,6 +77,29 @@ macro_rules! binary_op {
     };
 }
 
+/// Creates an implementation of a unary operation reducer acting on a [`Value`].
+macro_rules! unary_op {
+    (
+        $name:ident,
+        {
+            $( $pattern:pat => $body:expr ),* $(,)?
+        }
+    ) => {
+        impl Value {
+            pub fn $name(operand: Self) -> Result<Self, ()> {
+                #[allow(unused)]
+                use Value::*;
+
+                #[allow(unreachable_patterns)]
+                match (operand) {
+                    $( $pattern => Ok($body), )*
+                    _ => Err(()),
+                }
+            }
+        }
+    };
+}
+
 binary_op!(add, {
     (Integer(a), Integer(b)) => Integer(a + b)
 });
@@ -82,6 +114,19 @@ binary_op!(multiply, {
 
 binary_op!(divide, {
     (Integer(a), Integer(b)) => Integer(a / b)
+});
+
+unary_op!(pos, {
+    Integer(a) => Integer(a)
+});
+
+unary_op!(neg, {
+    Integer(a) => Integer(-a)
+});
+
+unary_op!(not, {
+    Integer(a) => Integer(!a),
+    Boolean(a) => Boolean(!a)
 });
 
 impl PartialOrd for Value {
@@ -129,8 +174,8 @@ impl Value {
     }
 }
 
-impl From<u64> for Value {
-    fn from(value: u64) -> Self {
+impl From<i64> for Value {
+    fn from(value: i64) -> Self {
         Self::Integer(value)
     }
 }
@@ -145,7 +190,7 @@ impl From<bool> for Value {
 mod tests {
     use super::*;
 
-    fn int(n: u64) -> Value {
+    fn int(n: i64) -> Value {
         Value::Integer(n)
     }
     fn bool(b: bool) -> Value {
@@ -267,8 +312,54 @@ mod tests {
     }
 
     #[test]
+    fn test_pos() {
+        assert_eq!(Value::pos(int(5)), Ok(int(5)));
+        assert_eq!(Value::pos(int(-3)), Ok(int(-3)));
+    }
+
+    #[test]
+    fn test_pos_on_boolean_fails() {
+        assert_eq!(Value::pos(bool(true)), Err(()));
+    }
+
+    #[test]
+    fn test_neg() {
+        assert_eq!(Value::neg(int(5)), Ok(int(-5)));
+        assert_eq!(Value::neg(int(-3)), Ok(int(3)));
+        assert_eq!(Value::neg(int(0)), Ok(int(0)));
+    }
+
+    #[test]
+    fn test_neg_on_boolean_fails() {
+        assert_eq!(Value::neg(bool(true)), Err(()));
+    }
+
+    #[test]
+    fn test_not_boolean() {
+        assert_eq!(Value::not(bool(true)), Ok(bool(false)));
+        assert_eq!(Value::not(bool(false)), Ok(bool(true)));
+    }
+
+    #[test]
+    fn test_not_integer() {
+        // bitwise not
+        assert_eq!(Value::not(int(0)), Ok(int(-1)));
+        assert_eq!(Value::not(int(-1)), Ok(int(0)));
+    }
+
+    #[test]
+    fn test_unary_operation_dispatch() {
+        assert_eq!(Value::unary_operation(UnaryOp::Minus, int(5)), Ok(int(-5)));
+        assert_eq!(
+            Value::unary_operation(UnaryOp::Bang, bool(true)),
+            Ok(bool(false))
+        );
+        assert_eq!(Value::unary_operation(UnaryOp::Plus, int(3)), Ok(int(3)));
+    }
+
+    #[test]
     fn test_from() {
-        assert_eq!(Value::from(42u64), int(42));
+        assert_eq!(Value::from(42i64), int(42));
         assert_eq!(Value::from(true), bool(true));
     }
 

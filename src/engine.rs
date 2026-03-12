@@ -18,7 +18,6 @@ pub struct Engine {
 }
 
 impl Engine {
-    /// Creates a new [`Engine`].
     pub fn new() -> Self {
         Self {
             sources: HashMap::new(),

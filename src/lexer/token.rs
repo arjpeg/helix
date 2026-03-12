@@ -2,7 +2,7 @@
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Token {
     /// An integer literal.
-    Int(u64),
+    Int(i64),
     /// A symbol (usually represents a variable name).
     Symbol(&'static str),
     /// Any operator.
