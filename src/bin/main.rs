@@ -1,8 +1,5 @@
 use clap::Parser;
-use helix::error::Error;
-use helix::interpreter::value::Value;
-use helix::source::Spanned;
-use helix::{engine::Engine, error, source::Source};
+use helix::{error, run_program, run_repl, source::Source};
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
 
@@ -15,7 +12,6 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
-    let mut engine = Engine::new();
 
     match cli.file {
         Some(path) => {
@@ -32,17 +28,16 @@ fn main() {
                 path: Box::leak(path.into_boxed_path()),
             };
 
-            match run(&mut engine, source) {
-                Ok(_) => {}
-                Err(e) => error::print_error(e),
+            if let Err(e) = run_program(source) {
+                error::print_error(e);
             }
         }
 
-        None => repl(&mut engine),
+        None => repl(),
     }
 }
 
-fn repl(engine: &mut Engine) {
+fn repl() {
     println!("helix REPL (ctrl+c to exit)");
     let stdin = io::stdin();
 
@@ -61,15 +56,10 @@ fn repl(engine: &mut Engine) {
             path: Path::new("<repl>"),
         };
 
-        match run(engine, source) {
+        match run_repl(source) {
             Ok(Some(value)) => println!("{value}"),
             Ok(None) => {}
             Err(e) => error::print_error(e),
         }
     }
-}
-
-fn run(engine: &mut Engine, source: Source) -> Result<Option<Value>, Spanned<Error>> {
-    let source = engine.register(source)?;
-    engine.excecute(source)
 }

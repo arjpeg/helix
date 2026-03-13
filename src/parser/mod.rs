@@ -31,14 +31,36 @@ impl Parser {
     pub fn parse_source(&mut self) -> StatementResult {
         let expr = self.expr()?;
 
-        if let Some(token) = self.peek() {
-            return Err(token.map(|t| ParsingError::UnexpectedToken {
+        match self.peek() {
+            Some(Spanned {
+                value: Token::Eof, ..
+            }) => Ok(expr.map(|expr| Statement::Expression { expr })),
+
+            Some(token) => Err(token.map(|t| ParsingError::UnexpectedToken {
                 expected: "the end of file",
                 found: t,
-            }));
-        }
+            })),
 
-        Ok(expr.map(|expr| Statement::Expression { expr }))
+            _ => unreachable!("should always have an EOF token"),
+        }
+    }
+
+    /// Parses a source file as a REPL file.
+    pub fn parse_repl(&mut self) -> StatementResult {
+        let expr = self.expr()?;
+
+        match self.peek() {
+            Some(Spanned {
+                value: Token::Eof, ..
+            }) => Ok(expr.map(|expr| Statement::Expression { expr })),
+
+            Some(token) => Err(token.map(|t| ParsingError::UnexpectedToken {
+                expected: "the end of file",
+                found: t,
+            })),
+
+            _ => unreachable!("should always have an EOF token"),
+        }
     }
 
     fn expr(&mut self) -> ExprResult {

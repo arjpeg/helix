@@ -17,12 +17,19 @@ pub struct Tokenizer {
     source: Source,
     /// The current byte position within the `source`.
     cursor: usize,
+
+    /// `true` if the eof token has already been emitted, `false` otherwise.
+    eof_emitted: bool,
 }
 
 impl Tokenizer {
     /// Creates a new [`Tokenizer`].
     pub fn new(source: Source) -> Self {
-        Self { source, cursor: 0 }
+        Self {
+            source,
+            cursor: 0,
+            eof_emitted: false,
+        }
     }
 
     /// Returns the remaining characters to be tokenized.
@@ -125,7 +132,20 @@ impl Iterator for Tokenizer {
     fn next(&mut self) -> Option<Self::Item> {
         self.skip_whitespace();
 
-        Some(match self.peek()? {
+        if self.eof_emitted {
+            return None;
+        }
+
+        let Some(c) = self.peek() else {
+            self.eof_emitted = true;
+
+            return Some(Ok(Spanned {
+                value: Token::Eof,
+                span: Span::new(self.source, self.cursor..self.cursor + 1),
+            }));
+        };
+
+        Some(match c {
             c if c == '_' || c.is_xid_start() => Ok(self.next_symbol()),
 
             c if c.is_ascii_digit() => self.next_integer(),

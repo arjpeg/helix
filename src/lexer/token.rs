@@ -11,6 +11,9 @@ pub enum Token {
     Operator(OpKind),
     /// Any grouping symbol.
     Grouping(Grouping),
+
+    /// The end of file (EOF).
+    Eof,
 }
 
 /// A literal operator in the source code.
