@@ -32,4 +32,7 @@ pub enum RuntimeError {
         /// The value being operated on.
         operand: Value,
     },
+
+    #[error("attempted to divide by zero")]
+    DivideByZero,
 }

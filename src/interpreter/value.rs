@@ -87,7 +87,7 @@ macro_rules! binary_op {
                 #[allow(unused)]
                 use BinaryOp::*;
 
-                #[allow(unreachable_patterns)]
+                #[allow(unreachable_code)]
                 match (lhs, rhs) {
                     $( $pattern => Ok($body), )*
                     (lhs, rhs) => Err(super::RuntimeError::InvalidBinaryOperation {
@@ -142,6 +142,7 @@ binary_op!(multiply: Star, {
 });
 
 binary_op!(divide: Slash, {
+    (Integer(_), Integer(0)) => return Err(RuntimeError::DivideByZero),
     (Integer(a), Integer(b)) => Integer(a / b)
 });
 
