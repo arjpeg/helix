@@ -1,7 +1,10 @@
 use owo_colors::OwoColorize;
 use thiserror::Error;
 
-use crate::{lexer::error::TokenizationError, parser::error::ParsingError, source::Spanned};
+use crate::{
+    interpreter::error::RuntimeError, lexer::error::TokenizationError, parser::error::ParsingError,
+    source::Spanned,
+};
 
 /// All errors that can occur during program execution.
 #[derive(Debug, Clone, PartialEq, Error)]
@@ -9,6 +12,7 @@ use crate::{lexer::error::TokenizationError, parser::error::ParsingError, source
 pub enum Error {
     Tokenization(TokenizationError),
     Parsing(ParsingError),
+    Runtime(RuntimeError),
 }
 
 /// Pretty prints an error to the console.
@@ -57,5 +61,11 @@ impl From<Spanned<TokenizationError>> for Spanned<Error> {
 impl From<Spanned<ParsingError>> for Spanned<Error> {
     fn from(value: Spanned<ParsingError>) -> Self {
         value.map(Error::Parsing)
+    }
+}
+
+impl From<Spanned<RuntimeError>> for Spanned<Error> {
+    fn from(value: Spanned<RuntimeError>) -> Self {
+        value.map(Error::Runtime)
     }
 }

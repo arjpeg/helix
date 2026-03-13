@@ -1,6 +1,9 @@
 use std::cmp::Ordering;
 
-use crate::parser::ast::{BinaryOp, UnaryOp};
+use crate::{
+    interpreter::error::RuntimeError,
+    parser::ast::{BinaryOp, UnaryOp},
+};
 
 /// A helix value in the living runtime.
 #[derive(Debug, PartialEq, Clone)]
@@ -13,7 +16,11 @@ pub enum Value {
 
 impl Value {
     /// Performs a binary operation between two [`Value`]s.
-    pub fn binary_operation(lhs: Self, operator: BinaryOp, rhs: Self) -> Result<Self, ()> {
+    pub fn binary_operation(
+        lhs: Self,
+        operator: BinaryOp,
+        rhs: Self,
+    ) -> Result<Self, RuntimeError> {
         // TODO: implement short-circuiting?
         match operator {
             BinaryOp::Plus => Self::add(lhs, rhs),
@@ -32,7 +39,7 @@ impl Value {
     }
 
     /// Performs a unary operation on a [`Value`].
-    pub fn unary_operation(operator: UnaryOp, operand: Self) -> Result<Self, ()> {
+    pub fn unary_operation(operator: UnaryOp, operand: Self) -> Result<Self, RuntimeError> {
         match operator {
             UnaryOp::Plus => Self::pos(operand),
             UnaryOp::Minus => Self::neg(operand),
@@ -55,25 +62,39 @@ impl Value {
             _ => None,
         }
     }
+
+    /// Returns the canonical type name of this [`Value`].
+    pub fn type_name(&self) -> &'static str {
+        match self {
+            Value::Integer(_) => "integer",
+            Value::Boolean(_) => "boolean",
+        }
+    }
 }
 
 /// Creates an implementation of a binary operation reducer between two [`Value`]s.
 macro_rules! binary_op {
     (
-        $name:ident,
+        $name:ident: $operator:ident,
         {
             $( $pattern:pat => $body:expr ),* $(,)?
         }
     ) => {
         impl Value {
-            pub fn $name(lhs: Self, rhs: Self) -> Result<Self, ()> {
+            pub fn $name(lhs: Self, rhs: Self) -> Result<Self, super::RuntimeError> {
                 #[allow(unused)]
                 use Value::*;
+                #[allow(unused)]
+                use BinaryOp::*;
 
                 #[allow(unreachable_patterns)]
                 match (lhs, rhs) {
                     $( $pattern => Ok($body), )*
-                    _ => Err(()),
+                    (lhs, rhs) => Err(super::RuntimeError::InvalidBinaryOperation {
+                        operator: $operator,
+                        lhs,
+                        rhs,
+                    }),
                 }
             }
         }
@@ -83,59 +104,64 @@ macro_rules! binary_op {
 /// Creates an implementation of a unary operation reducer acting on a [`Value`].
 macro_rules! unary_op {
     (
-        $name:ident,
+        $name:ident: $operator:ident,
         {
             $( $pattern:pat => $body:expr ),* $(,)?
         }
     ) => {
         impl Value {
-            pub fn $name(operand: Self) -> Result<Self, ()> {
+            pub fn $name(operand: Self) -> Result<Self, RuntimeError> {
                 #[allow(unused)]
                 use Value::*;
+                #[allow(unused)]
+                use UnaryOp::*;
 
                 #[allow(unreachable_patterns)]
                 match (operand) {
                     $( $pattern => Ok($body), )*
-                    _ => Err(()),
+                    operand => Err(super::RuntimeError::InvalidUnaryOperation {
+                        operator: $operator,
+                        operand
+                    }),
                 }
             }
         }
     };
 }
 
-binary_op!(add, {
+binary_op!(add: Plus, {
     (Integer(a), Integer(b)) => Integer(a + b)
 });
 
-binary_op!(subtract, {
+binary_op!(subtract: Minus, {
     (Integer(a), Integer(b)) => Integer(a - b)
 });
 
-binary_op!(multiply, {
+binary_op!(multiply: Star, {
     (Integer(a), Integer(b)) => Integer(a * b)
 });
 
-binary_op!(divide, {
+binary_op!(divide: Slash, {
     (Integer(a), Integer(b)) => Integer(a / b)
 });
 
-binary_op!(and, {
+binary_op!(and: And, {
     (Boolean(a), Boolean(b)) => Boolean(a && b)
 });
 
-binary_op!(or, {
+binary_op!(or: Or, {
     (Boolean(a), Boolean(b)) => Boolean(a || b)
 });
 
-unary_op!(pos, {
+unary_op!(pos: Plus, {
     Integer(a) => Integer(a)
 });
 
-unary_op!(neg, {
+unary_op!(neg: Minus, {
     Integer(a) => Integer(-a)
 });
 
-unary_op!(not, {
+unary_op!(not: Bang, {
     Integer(a) => Integer(!a),
     Boolean(a) => Boolean(!a)
 });
@@ -150,36 +176,43 @@ impl PartialOrd for Value {
 }
 
 impl Value {
-    pub fn equals(lhs: Self, rhs: Self) -> Result<Self, ()> {
+    pub fn equals(lhs: Self, rhs: Self) -> Result<Self, RuntimeError> {
         Ok(Self::Boolean(lhs == rhs))
     }
 
-    pub fn not_equals(lhs: Self, rhs: Self) -> Result<Self, ()> {
+    pub fn not_equals(lhs: Self, rhs: Self) -> Result<Self, RuntimeError> {
         Ok(Self::Boolean(lhs != rhs))
     }
 
-    pub fn less_than(lhs: Self, rhs: Self) -> Result<Self, ()> {
+    /// Attempts to get the relative ordering between two [`Value`]s, returning a [`RuntimeError`]
+    /// if the operator could not be applied.
+    fn compare(lhs: Self, rhs: Self, operator: BinaryOp) -> Result<Ordering, RuntimeError> {
+        lhs.partial_cmp(&rhs)
+            .ok_or(RuntimeError::InvalidBinaryOperation { operator, lhs, rhs })
+    }
+
+    pub fn less_than(lhs: Self, rhs: Self) -> Result<Self, RuntimeError> {
         Ok(Self::Boolean(
-            lhs.partial_cmp(&rhs).ok_or(())? == Ordering::Less,
+            Self::compare(lhs, rhs, BinaryOp::LessThan)? == Ordering::Less,
         ))
     }
 
-    pub fn greater_than(lhs: Self, rhs: Self) -> Result<Self, ()> {
+    pub fn greater_than(lhs: Self, rhs: Self) -> Result<Self, RuntimeError> {
         Ok(Self::Boolean(
-            lhs.partial_cmp(&rhs).ok_or(())? == Ordering::Greater,
+            Self::compare(lhs, rhs, BinaryOp::GreaterThan)? == Ordering::Greater,
         ))
     }
 
-    pub fn less_than_equals(lhs: Self, rhs: Self) -> Result<Self, ()> {
+    pub fn less_than_equals(lhs: Self, rhs: Self) -> Result<Self, RuntimeError> {
         Ok(Self::Boolean(matches!(
-            lhs.partial_cmp(&rhs).ok_or(())?,
+            Self::compare(lhs, rhs, BinaryOp::LessThanEquals)?,
             Ordering::Less | Ordering::Equal
         )))
     }
 
-    pub fn greater_than_equals(lhs: Self, rhs: Self) -> Result<Self, ()> {
+    pub fn greater_than_equals(lhs: Self, rhs: Self) -> Result<Self, RuntimeError> {
         Ok(Self::Boolean(matches!(
-            lhs.partial_cmp(&rhs).ok_or(())?,
+            Self::compare(lhs, rhs, BinaryOp::GreaterThanEquals)?,
             Ordering::Greater | Ordering::Equal
         )))
     }

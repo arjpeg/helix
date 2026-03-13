@@ -36,8 +36,9 @@ impl Engine {
     }
 
     /// Excecutes the interpreter on the loaded source file, blocking until the program terminates.
-    pub fn excecute(&mut self, source: Source) {
-        self.interpreter
-            .excecute(self.sources.get(&source).unwrap());
+    pub fn excecute(&mut self, source: Source) -> Result<(), Spanned<Error>> {
+        Ok(self
+            .interpreter
+            .excecute(self.sources.get(&source).unwrap())?)
     }
 }

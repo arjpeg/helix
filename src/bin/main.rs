@@ -1,4 +1,6 @@
 use clap::Parser;
+use helix::error::Error;
+use helix::source::Spanned;
 use helix::{engine::Engine, error, source::Source};
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -29,8 +31,8 @@ fn main() {
                 path: Box::leak(path.into_boxed_path()),
             };
 
-            match engine.register(source) {
-                Ok(s) => engine.excecute(s),
+            match run(&mut engine, source) {
+                Ok(_) => {}
                 Err(e) => error::print_error(e),
             }
         }
@@ -42,6 +44,7 @@ fn main() {
 fn repl(engine: &mut Engine) {
     println!("helix REPL (ctrl+c to exit)");
     let stdin = io::stdin();
+
     loop {
         print!("> ");
         io::stdout().flush().unwrap();
@@ -57,9 +60,14 @@ fn repl(engine: &mut Engine) {
             path: Path::new("<repl>"),
         };
 
-        match engine.register(source) {
-            Ok(s) => engine.excecute(s),
+        match run(engine, source) {
+            Ok(_) => {}
             Err(e) => error::print_error(e),
         }
     }
+}
+
+fn run(engine: &mut Engine, source: Source) -> Result<(), Spanned<Error>> {
+    let source = engine.register(source)?;
+    engine.excecute(source)
 }

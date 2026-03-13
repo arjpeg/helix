@@ -1,10 +1,13 @@
+pub mod error;
 pub mod value;
 
 use crate::{
-    interpreter::value::Value,
+    interpreter::{error::RuntimeError, value::Value},
     parser::ast::{Expression, Statement},
     source::{Span, Spanned},
 };
+
+type Result<T> = std::result::Result<T, Spanned<RuntimeError>>;
 
 /// A basic tree walking interpreter, responsible for evaluating source ASTs.
 #[derive(Debug, Clone)]
@@ -16,11 +19,11 @@ impl Interpreter {
     }
 
     /// Excecutes a source file, running it until completion.
-    pub fn excecute(&mut self, tree: &Spanned<Statement>) {
-        self.statement(&tree.value, tree.span).unwrap();
+    pub fn excecute(&mut self, tree: &Spanned<Statement>) -> Result<()> {
+        self.statement(&tree.value, tree.span)
     }
 
-    fn statement(&mut self, statement: &Statement, span: Span) -> Result<(), ()> {
+    fn statement(&mut self, statement: &Statement, span: Span) -> Result<()> {
         match statement {
             Statement::Expression { expr } => dbg!(self.expression(expr, span)),
         }?;
@@ -28,7 +31,7 @@ impl Interpreter {
         Ok(())
     }
 
-    fn expression(&mut self, expression: &Expression, span: Span) -> Result<Spanned<Value>, ()> {
+    fn expression(&mut self, expression: &Expression, span: Span) -> Result<Spanned<Value>> {
         match expression {
             Expression::Integer(n) => Ok(Spanned::wrap(Value::Integer(*n), span)),
 
@@ -38,12 +41,15 @@ impl Interpreter {
 
                 Value::binary_operation(lhs_result.value, *operator, rhs_result.value)
                     .map(|value| Spanned::wrap(value, span))
+                    .map_err(|error| Spanned::wrap(error, span))
             }
 
             Expression::UnaryOperation { operator, operand } => {
                 let operand = self.expression(&operand.value, operand.span)?.value;
 
-                Value::unary_operation(*operator, operand).map(|value| Spanned::wrap(value, span))
+                Value::unary_operation(*operator, operand)
+                    .map(|value| Spanned::wrap(value, span))
+                    .map_err(|error| Spanned::wrap(error, span))
             }
         }
     }
