@@ -1,5 +1,6 @@
 use clap::Parser;
 use helix::error::Error;
+use helix::interpreter::value::Value;
 use helix::source::Spanned;
 use helix::{engine::Engine, error, source::Source};
 use std::io::{self, BufRead, Write};
@@ -61,13 +62,14 @@ fn repl(engine: &mut Engine) {
         };
 
         match run(engine, source) {
-            Ok(_) => {}
+            Ok(Some(value)) => println!("{value}"),
+            Ok(None) => {}
             Err(e) => error::print_error(e),
         }
     }
 }
 
-fn run(engine: &mut Engine, source: Source) -> Result<(), Spanned<Error>> {
+fn run(engine: &mut Engine, source: Source) -> Result<Option<Value>, Spanned<Error>> {
     let source = engine.register(source)?;
     engine.excecute(source)
 }

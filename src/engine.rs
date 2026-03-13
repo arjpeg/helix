@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
     error::Error,
-    interpreter::Interpreter,
+    interpreter::{Interpreter, value::Value},
     lexer::Tokenizer,
     parser::{Parser, ast::Statement},
     source::{Source, Spanned},
@@ -36,7 +36,7 @@ impl Engine {
     }
 
     /// Excecutes the interpreter on the loaded source file, blocking until the program terminates.
-    pub fn excecute(&mut self, source: Source) -> Result<(), Spanned<Error>> {
+    pub fn excecute(&mut self, source: Source) -> Result<Option<Value>, Spanned<Error>> {
         Ok(self
             .interpreter
             .excecute(self.sources.get(&source).unwrap())?)

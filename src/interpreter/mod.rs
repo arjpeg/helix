@@ -19,16 +19,14 @@ impl Interpreter {
     }
 
     /// Excecutes a source file, running it until completion.
-    pub fn excecute(&mut self, tree: &Spanned<Statement>) -> Result<()> {
+    pub fn excecute(&mut self, tree: &Spanned<Statement>) -> Result<Option<Value>> {
         self.statement(&tree.value, tree.span)
     }
 
-    fn statement(&mut self, statement: &Statement, span: Span) -> Result<()> {
+    fn statement(&mut self, statement: &Statement, span: Span) -> Result<Option<Value>> {
         match statement {
-            Statement::Expression { expr } => dbg!(self.expression(expr, span)),
-        }?;
-
-        Ok(())
+            Statement::Expression { expr } => return Ok(Some(self.expression(expr, span)?.value)),
+        };
     }
 
     fn expression(&mut self, expression: &Expression, span: Span) -> Result<Spanned<Value>> {
