@@ -2,7 +2,7 @@ pub mod ast;
 pub mod error;
 
 use crate::{
-    lexer::token::{Grouping, Token},
+    lexer::token::{Grouping, Keyword, Token},
     parser::{
         ast::{BinaryOp, Expression, Statement, UnaryOp},
         error::ParsingError,
@@ -107,6 +107,10 @@ impl Parser {
 
         let expression = match token.value {
             Token::Int(int) => Spanned::wrap(Expression::Integer(int), token.span),
+
+            Token::Keyword(Keyword::True) => Spanned::wrap(Expression::Boolean(true), token.span),
+
+            Token::Keyword(Keyword::False) => Spanned::wrap(Expression::Boolean(false), token.span),
 
             Token::Grouping(Grouping::OpeningParen) => {
                 let expr = self.expr()?;

@@ -33,6 +33,8 @@ impl Interpreter {
         match expression {
             Expression::Integer(n) => Ok(Spanned::wrap(Value::Integer(*n), span)),
 
+            Expression::Boolean(b) => Ok(Spanned::wrap(Value::Boolean(*b), span)),
+
             Expression::BinaryOperation { lhs, operator, rhs } => {
                 let lhs_result = self.expression(&lhs.value, lhs.span)?;
                 let rhs_result = self.expression(&rhs.value, rhs.span)?;

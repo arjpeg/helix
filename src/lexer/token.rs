@@ -62,6 +62,10 @@ pub enum Keyword {
     And,
     /// The 'or' keyword.
     Or,
+    /// The 'true' keyword.
+    True,
+    /// The 'false' keyword.
+    False,
 }
 
 pub trait CharTokenExt {
@@ -132,6 +136,8 @@ impl TryFrom<&str> for Keyword {
         Ok(match value {
             "and" => Self::And,
             "or" => Self::Or,
+            "true" => Self::True,
+            "false" => Self::False,
             _ => return Err(()),
         })
     }

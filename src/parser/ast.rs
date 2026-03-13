@@ -18,6 +18,8 @@ pub enum Statement {
 pub enum Expression {
     /// An integer literal.
     Integer(i64),
+    /// A boolean literal.
+    Boolean(bool),
 
     /// A (infix) binary operation between two other [`Expression`]s.
     BinaryOperation {
@@ -132,6 +134,7 @@ impl TryFrom<Keyword> for BinaryOp {
         Ok(match value {
             Keyword::And => Self::And,
             Keyword::Or => Self::Or,
+            _ => return Err(()),
         })
     }
 }
