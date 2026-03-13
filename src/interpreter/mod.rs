@@ -26,7 +26,19 @@ impl Interpreter {
     fn statement(&mut self, statement: &Statement, span: Span) -> Result<Option<Value>> {
         match statement {
             Statement::Expression { expr } => return Ok(Some(self.expression(expr, span)?.value)),
+
+            Statement::Program { stmts } => {
+                for Spanned {
+                    value: statement,
+                    span,
+                } in stmts
+                {
+                    self.statement(statement, *span)?;
+                }
+            }
         };
+
+        Ok(None)
     }
 
     fn expression(&mut self, expression: &Expression, span: Span) -> Result<Spanned<Value>> {

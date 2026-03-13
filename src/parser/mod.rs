@@ -47,6 +47,16 @@ impl Parser {
 
     /// Parses a source file as a REPL file.
     pub fn parse_repl(&mut self) -> StatementResult {
+        // quick fix for empty repl inputs
+        if let Some(
+            s @ Spanned {
+                value: Token::Eof, ..
+            },
+        ) = self.peek()
+        {
+            return Ok(s.map(|_| Statement::Program { stmts: vec![] }));
+        }
+
         let expr = self.expr()?;
 
         match self.peek() {

@@ -6,7 +6,13 @@ use crate::{
 /// A statement in the AST.
 #[derive(Debug, Clone)]
 pub enum Statement {
-    /// An expression statement that wasn't saved.
+    /// A complete helix program.
+    Program {
+        /// The list of statements to execute, in order.
+        stmts: Vec<Spanned<Statement>>,
+    },
+
+    /// A standalone expression.
     Expression {
         /// The expression to evaluate.
         expr: Expression,

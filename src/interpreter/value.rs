@@ -272,9 +272,11 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn test_divide_by_zero() {
-        let _ = Value::divide(int(1), int(0));
+        assert_eq!(
+            Value::divide(int(1), int(0)),
+            Err(RuntimeError::DivideByZero)
+        );
     }
 
     #[test]

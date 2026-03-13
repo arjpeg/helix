@@ -141,7 +141,7 @@ impl Iterator for Tokenizer {
 
             return Some(Ok(Spanned {
                 value: Token::Eof,
-                span: Span::new(self.source, self.cursor..self.cursor + 1),
+                span: Span::new(self.source, self.cursor.saturating_sub(1)..self.cursor),
             }));
         };
 
@@ -181,7 +181,17 @@ mod tests {
     }
 
     fn tokenize(content: &'static str) -> Vec<Result<Spanned<Token>>> {
-        Tokenizer::new(make_source(content)).collect()
+        Tokenizer::new(make_source(content))
+            .filter(|t| {
+                !matches!(
+                    t,
+                    Ok(Spanned {
+                        value: Token::Eof,
+                        ..
+                    })
+                )
+            })
+            .collect()
     }
 
     fn tokens_ok(content: &'static str) -> Vec<Token> {
