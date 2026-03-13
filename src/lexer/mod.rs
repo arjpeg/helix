@@ -6,7 +6,7 @@ use unicode_xid::UnicodeXID;
 use crate::{
     lexer::{
         error::{Result, TokenizationError},
-        token::{CharTokenExt, Grouping, OpKind, Token},
+        token::{CharTokenExt, Grouping, Keyword, OpKind, Token},
     },
     source::{Source, Span, Spanned},
 };
@@ -63,7 +63,13 @@ impl Tokenizer {
     /// Tokenizes a single symbol (keyword or identifier).
     fn next_symbol(&mut self) -> Spanned<Token> {
         let span = self.advance_while(|c| c.is_xid_continue());
-        Spanned::wrap(Token::Symbol(span.text()), span)
+        let symbol = span.text();
+
+        let token = Keyword::try_from(symbol)
+            .map(Token::Keyword)
+            .unwrap_or(Token::Symbol(symbol));
+
+        Spanned::wrap(token, span)
     }
 
     /// Tokenizes a single grouping symbol.
@@ -207,6 +213,20 @@ mod tests {
     #[test]
     fn test_symbol() {
         assert_eq!(tokens_ok("foo"), vec![Token::Symbol("foo")]);
+    }
+
+    #[test]
+    fn test_keyword() {
+        assert_eq!(
+            tokens_ok("hello and or but not"),
+            vec![
+                Token::Symbol("hello"),
+                Token::Keyword(Keyword::And),
+                Token::Keyword(Keyword::Or),
+                Token::Symbol("but"),
+                Token::Symbol("not"),
+            ]
+        );
     }
 
     #[test]

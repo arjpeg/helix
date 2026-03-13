@@ -3,7 +3,9 @@
 pub enum Token {
     /// An integer literal.
     Int(i64),
-    /// A symbol (usually represents a variable name).
+    /// A keyword.
+    Keyword(Keyword),
+    /// An unknown symbol (usually represents a variable name).
     Symbol(&'static str),
     /// Any operator.
     Operator(OpKind),
@@ -51,6 +53,15 @@ pub enum Grouping {
     OpeningParen,
     /// A ')' parenthesis.
     ClosingParen,
+}
+
+/// Any reserved keyword in the source code.
+#[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
+pub enum Keyword {
+    /// The 'and' keyword.
+    And,
+    /// The 'or' keyword.
+    Or,
 }
 
 pub trait CharTokenExt {
@@ -109,6 +120,18 @@ impl TryFrom<char> for Grouping {
         Ok(match value {
             '(' => Self::OpeningParen,
             ')' => Self::ClosingParen,
+            _ => return Err(()),
+        })
+    }
+}
+
+impl TryFrom<&str> for Keyword {
+    type Error = ();
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        Ok(match value {
+            "and" => Self::And,
+            "or" => Self::Or,
             _ => return Err(()),
         })
     }

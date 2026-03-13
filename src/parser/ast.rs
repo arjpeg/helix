@@ -1,4 +1,7 @@
-use crate::{lexer::token::OpKind, source::Spanned};
+use crate::{
+    lexer::token::{Keyword, OpKind, Token},
+    source::Spanned,
+};
 
 /// A statement in the AST.
 #[derive(Debug, Clone)]
@@ -60,6 +63,11 @@ pub enum BinaryOp {
     LessThan,
     /// The '<=' operator.
     LessThanEquals,
+
+    /// The 'and' operator.
+    And,
+    /// The 'or' operator.
+    Or,
 }
 
 /// A unary operator applied on an [`Expression`].
@@ -86,6 +94,18 @@ impl TryFrom<OpKind> for UnaryOp {
     }
 }
 
+impl TryFrom<Token> for BinaryOp {
+    type Error = ();
+
+    fn try_from(value: Token) -> Result<Self, Self::Error> {
+        match value {
+            Token::Operator(op) => Self::try_from(op),
+            Token::Keyword(keyword) => Self::try_from(keyword),
+            _ => return Err(()),
+        }
+    }
+}
+
 impl TryFrom<OpKind> for BinaryOp {
     type Error = ();
 
@@ -102,6 +122,16 @@ impl TryFrom<OpKind> for BinaryOp {
             OpKind::LessThan => Self::LessThan,
             OpKind::LessThanEquals => Self::LessThanEquals,
             _ => return Err(()),
+        })
+    }
+}
+impl TryFrom<Keyword> for BinaryOp {
+    type Error = ();
+
+    fn try_from(value: Keyword) -> Result<Self, Self::Error> {
+        Ok(match value {
+            Keyword::And => Self::And,
+            Keyword::Or => Self::Or,
         })
     }
 }

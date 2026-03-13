@@ -14,6 +14,7 @@ pub enum Value {
 impl Value {
     /// Performs a binary operation between two [`Value`]s.
     pub fn binary_operation(lhs: Self, operator: BinaryOp, rhs: Self) -> Result<Self, ()> {
+        // TODO: implement short-circuiting?
         match operator {
             BinaryOp::Plus => Self::add(lhs, rhs),
             BinaryOp::Minus => Self::subtract(lhs, rhs),
@@ -25,6 +26,8 @@ impl Value {
             BinaryOp::GreaterThanEquals => Self::greater_than_equals(lhs, rhs),
             BinaryOp::LessThan => Self::less_than(lhs, rhs),
             BinaryOp::LessThanEquals => Self::less_than_equals(lhs, rhs),
+            BinaryOp::And => Self::and(lhs, rhs),
+            BinaryOp::Or => Self::or(lhs, rhs),
         }
     }
 
@@ -114,6 +117,14 @@ binary_op!(multiply, {
 
 binary_op!(divide, {
     (Integer(a), Integer(b)) => Integer(a / b)
+});
+
+binary_op!(and, {
+    (Boolean(a), Boolean(b)) => Boolean(a && b)
+});
+
+binary_op!(or, {
+    (Boolean(a), Boolean(b)) => Boolean(a || b)
 });
 
 unary_op!(pos, {

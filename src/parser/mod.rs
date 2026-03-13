@@ -42,7 +42,15 @@ impl Parser {
     }
 
     fn expr(&mut self) -> ExprResult {
-        self.equality()
+        self.or()
+    }
+
+    fn or(&mut self) -> ExprResult {
+        self.reduce_binary_op(Self::and, &[BinaryOp::Or])
+    }
+
+    fn and(&mut self) -> ExprResult {
+        self.reduce_binary_op(Self::equality, &[BinaryOp::And])
     }
 
     fn equality(&mut self) -> ExprResult {
@@ -157,8 +165,7 @@ impl Parser {
         let mut lhs = f(self)?;
 
         while let Some(token) = self.peek()
-            && let Token::Operator(op) = token.value
-            && let Ok(operator) = BinaryOp::try_from(op)
+            && let Ok(operator) = BinaryOp::try_from(token.value)
             && operators.contains(&operator)
         {
             self.consume()?;
