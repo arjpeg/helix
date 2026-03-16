@@ -21,9 +21,13 @@ pub fn print_error(error: Spanned<Error>) {
     let span = error.span;
     let source = span.source;
 
-    let line_start = source.content[..span.start].rfind('\n').unwrap_or(0);
+    let line_start = source.content[..span.start]
+        .rfind('\n')
+        .map(|i| i + 1)
+        .unwrap_or(0);
     let line_end = source.content[span.end..]
         .find('\n')
+        .map(|i| i + span.end)
         .unwrap_or(source.content.len());
 
     let line_number = source.content[..span.start]
@@ -44,9 +48,9 @@ pub fn print_error(error: Spanned<Error>) {
         line_number.cyan().dimmed()
     );
 
-    println!("    {line}");
+    println!("{}    {line}", ">".black());
     println!(
-        "    {repeat}{arrows}",
+        "     {repeat}{arrows}",
         repeat = " ".repeat(line_offset),
         arrows = "^".repeat(span.end - span.start)
     );
