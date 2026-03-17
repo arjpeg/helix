@@ -43,10 +43,14 @@ impl Tokenizer {
     }
 
     /// Advances the cursor forward by one character, returning it if not at eof.
-    fn advance(&mut self) -> Option<char> {
+    fn advance(&mut self) -> Option<Spanned<char>> {
         let c = self.peek()?;
+
+        let start = self.cursor;
         self.cursor += c.len_utf8();
-        Some(c)
+        let end = self.cursor;
+
+        Some(Spanned::wrap(c, Span::new(self.source, start..end)))
     }
 
     /// Advances the cursor past all whitespace characters.
@@ -81,18 +85,15 @@ impl Tokenizer {
 
     /// Tokenizes a single grouping symbol.
     fn next_grouping(&mut self) -> Spanned<Token> {
-        let span = Span::new(self.source, self.cursor..self.cursor + 1);
-
-        Spanned::wrap(
-            Token::Grouping(Grouping::try_from(self.advance().unwrap()).unwrap()),
-            span,
-        )
+        self.advance()
+            .unwrap()
+            .map(|c| Grouping::try_from(c).unwrap().into())
     }
 
     /// Tokenizes a single operator (may span multiple characters).
     fn next_operator(&mut self) -> Spanned<Token> {
         let start = self.cursor;
-        let operator = OpKind::try_from((self.advance().unwrap(), self.peek())).unwrap();
+        let operator = OpKind::try_from((self.advance().unwrap().value, self.peek())).unwrap();
 
         if operator.len() == 2 {
             self.advance();
@@ -139,10 +140,10 @@ impl Iterator for Tokenizer {
         let Some(c) = self.peek() else {
             self.eof_emitted = true;
 
-            return Some(Ok(Spanned {
-                value: Token::Eof,
-                span: Span::new(self.source, self.cursor.saturating_sub(1)..self.cursor),
-            }));
+            return Some(Ok(Spanned::wrap(
+                Token::Eof,
+                Span::new(self.source, self.cursor.saturating_sub(1)..self.cursor),
+            )));
         };
 
         Some(match c {
@@ -153,6 +154,8 @@ impl Iterator for Tokenizer {
             c if c.is_operator_start() => Ok(self.next_operator()),
 
             c if c.is_grouping() => Ok(self.next_grouping()),
+
+            ';' => Ok(self.advance().unwrap().map(|_| Token::Semicolon)),
 
             _ => {
                 let span = self.advance_while(|c| !c.is_whitespace());

@@ -11,6 +11,8 @@ pub enum Token {
     Operator(OpKind),
     /// Any grouping symbol.
     Grouping(Grouping),
+    /// A semicolon, marking the end of a statement.
+    Semicolon,
 
     /// The end of file (EOF).
     Eof,
@@ -143,5 +145,23 @@ impl TryFrom<&str> for Keyword {
             "false" => Self::False,
             _ => return Err(()),
         })
+    }
+}
+
+impl From<Keyword> for Token {
+    fn from(value: Keyword) -> Self {
+        Self::Keyword(value)
+    }
+}
+
+impl From<OpKind> for Token {
+    fn from(value: OpKind) -> Self {
+        Self::Operator(value)
+    }
+}
+
+impl From<Grouping> for Token {
+    fn from(value: Grouping) -> Self {
+        Self::Grouping(value)
     }
 }

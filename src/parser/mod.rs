@@ -29,20 +29,33 @@ impl Parser {
 
     /// Parses a full source file.
     pub fn parse_source(&mut self) -> StatementResult {
-        let expr = self.expr()?;
+        let mut stmts = Vec::new();
 
-        match self.peek() {
-            Some(Spanned {
-                value: Token::Eof, ..
-            }) => Ok(expr.map(|expr| Statement::Expression { expr })),
+        // TODO: move statement parsing into declaration parser
+        while self.peek().map(|t| t.value) != Some(Token::Eof) {
+            let expr = self.expr()?;
 
-            Some(token) => Err(token.map(|t| ParsingError::UnexpectedToken {
-                expected: "the end of file",
-                found: t,
-            })),
+            let next = self.consume()?;
 
-            _ => unreachable!("should always have an EOF token"),
+            if next.value != Token::Semicolon {
+                return Err(Spanned::wrap(
+                    ParsingError::UnexpectedToken {
+                        expected: "to find a semicolon",
+                        found: next.value,
+                    },
+                    next.span,
+                ));
+            }
+
+            stmts.push(Spanned::wrap(
+                Statement::Expression { expr: expr.value },
+                expr.span,
+            ));
         }
+
+        let span = Span::merge(stmts.first().unwrap().span, stmts.last().unwrap().span);
+
+        Ok(Spanned::wrap(Statement::Program { stmts }, span))
     }
 
     /// Parses a source file as a REPL file.
@@ -61,7 +74,8 @@ impl Parser {
 
         match self.peek() {
             Some(Spanned {
-                value: Token::Eof, ..
+                value: Token::Eof | Token::Semicolon,
+                ..
             }) => Ok(expr.map(|expr| Statement::Expression { expr })),
 
             Some(token) => Err(token.map(|t| ParsingError::UnexpectedToken {
