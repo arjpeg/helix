@@ -16,6 +16,8 @@ pub enum Statement {
     Expression {
         /// The expression to evaluate.
         expr: Expression,
+        /// Whether or not the expression was terminated with a semicolon (is a tail).
+        has_semicolon: bool,
     },
 }
 
@@ -43,6 +45,14 @@ pub enum Expression {
         operator: UnaryOp,
         /// The value being acted on.
         operand: Box<Spanned<Expression>>,
+    },
+
+    /// A grouping of statements, delimited by a pair of '{' and '}'.
+    Block {
+        /// The list of statements to execute, in order.
+        stmts: Vec<Spanned<Statement>>,
+        /// The optional tail expression of this block (what it returns).
+        tail: Option<Box<Spanned<Expression>>>,
     },
 }
 

@@ -12,6 +12,8 @@ pub enum Value {
     Integer(i64),
     /// A boolean.
     Boolean(bool),
+    /// The unit type, ().
+    Unit,
 }
 
 impl Value {
@@ -68,6 +70,7 @@ impl Value {
         match self {
             Value::Integer(_) => "integer",
             Value::Boolean(_) => "boolean",
+            Value::Unit => "unit",
         }
     }
 }
@@ -236,6 +239,7 @@ impl fmt::Display for Value {
         match self {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Boolean(b) => write!(f, "{b}"),
+            Self::Unit => write!(f, "()"),
         }
     }
 }

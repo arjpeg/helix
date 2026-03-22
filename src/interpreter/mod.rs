@@ -25,8 +25,6 @@ impl Interpreter {
 
     fn statement(&mut self, statement: &Statement, span: Span) -> Result<Option<Value>> {
         match statement {
-            Statement::Expression { expr } => return Ok(Some(self.expression(expr, span)?.value)),
-
             Statement::Program { stmts } => {
                 for Spanned {
                     value: statement,
@@ -35,6 +33,10 @@ impl Interpreter {
                 {
                     self.statement(statement, *span)?;
                 }
+            }
+
+            Statement::Expression { expr, .. } => {
+                return Ok(Some(self.expression(expr, span)?.value));
             }
         };
 
@@ -62,6 +64,22 @@ impl Interpreter {
                 Value::unary_operation(*operator, operand)
                     .map(|value| Spanned::wrap(value, span))
                     .map_err(|error| Spanned::wrap(error, span))
+            }
+
+            Expression::Block { stmts, tail } => {
+                for Spanned {
+                    value: statement,
+                    span,
+                } in stmts
+                {
+                    self.statement(statement, *span)?;
+                }
+
+                if let Some(tail) = tail {
+                    self.expression(&tail.value, tail.span)
+                } else {
+                    Ok(Spanned::wrap(Value::Unit, span))
+                }
             }
         }
     }

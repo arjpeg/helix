@@ -58,6 +58,10 @@ pub enum Grouping {
     OpeningParen,
     /// A ')' parenthesis.
     ClosingParen,
+    /// A '{' curly bracket.
+    OpeningCurly,
+    /// A '}' curly bracket.
+    ClosingCurly,
 }
 
 /// Any reserved keyword in the source code.
@@ -86,7 +90,7 @@ impl CharTokenExt for char {
     }
 
     fn is_grouping(&self) -> bool {
-        matches!(self, '(' | ')')
+        matches!(self, '(' | ')' | '{' | '}')
     }
 }
 
@@ -129,6 +133,8 @@ impl TryFrom<char> for Grouping {
         Ok(match value {
             '(' => Self::OpeningParen,
             ')' => Self::ClosingParen,
+            '{' => Self::OpeningCurly,
+            '}' => Self::ClosingCurly,
             _ => return Err(()),
         })
     }

@@ -31,26 +31,29 @@ impl Parser {
     pub fn parse_source(&mut self) -> StatementResult {
         let mut stmts = Vec::new();
 
-        // TODO: move statement parsing into declaration parser
         while self.peek().map(|t| t.value) != Some(Token::Eof) {
-            let expr = self.expr()?;
+            let statement = self.statement()?;
 
-            let next = self.consume()?;
+            // require semicolons to end all (non block) expression statements in a program
+            if let Statement::Expression {
+                expr,
+                has_semicolon,
+            } = &statement.value
+            {
+                let is_block = matches!(expr, Expression::Block { .. });
 
-            if next.value != Token::Semicolon {
-                return Err(Spanned::wrap(
-                    ParsingError::UnexpectedToken {
-                        expected: "to find a semicolon",
-                        found: next.value,
-                    },
-                    next.span,
-                ));
+                if !has_semicolon && !is_block {
+                    return Err(Spanned::wrap(
+                        ParsingError::UnexpectedToken {
+                            expected: "a ';'",
+                            found: self.peek().unwrap().value,
+                        },
+                        statement.span,
+                    ));
+                }
             }
 
-            stmts.push(Spanned::wrap(
-                Statement::Expression { expr: expr.value },
-                expr.span,
-            ));
+            stmts.push(statement);
         }
 
         let span = Span::merge(stmts.first().unwrap().span, stmts.last().unwrap().span);
@@ -61,13 +64,12 @@ impl Parser {
     /// Parses a source file as a REPL file.
     pub fn parse_repl(&mut self) -> StatementResult {
         // quick fix for empty repl inputs
-        if let Some(
-            s @ Spanned {
-                value: Token::Eof, ..
-            },
-        ) = self.peek()
+        if let Some(Spanned {
+            value: Token::Eof,
+            span,
+        }) = self.peek()
         {
-            return Ok(s.map(|_| Statement::Program { stmts: vec![] }));
+            return Ok(Spanned::wrap(Statement::Program { stmts: vec![] }, span));
         }
 
         let expr = self.expr()?;
@@ -76,12 +78,40 @@ impl Parser {
             Some(Spanned {
                 value: Token::Eof | Token::Semicolon,
                 ..
-            }) => Ok(expr.map(|expr| Statement::Expression { expr })),
+            }) => Ok(expr.map(|expr| Statement::Expression {
+                expr,
+                has_semicolon: false,
+            })),
 
             Some(token) => Err(token.map(|t| ParsingError::UnexpectedToken {
                 expected: "the end of file",
                 found: t,
             })),
+
+            _ => unreachable!("should always have an EOF token"),
+        }
+    }
+
+    fn statement(&mut self) -> StatementResult {
+        match self.peek() {
+            Some(_) => {
+                let expr = self.expr()?;
+
+                Ok(expr.map(|expr| Statement::Expression {
+                    expr,
+                    has_semicolon: match self.peek() {
+                        Some(Spanned {
+                            value: Token::Semicolon,
+                            ..
+                        }) => {
+                            let _ = self.consume();
+                            true
+                        }
+
+                        _ => false,
+                    },
+                }))
+            }
 
             _ => unreachable!("should always have an EOF token"),
         }
@@ -147,6 +177,52 @@ impl Parser {
         }
     }
 
+    fn block(&mut self, opening: Spanned<Token>) -> ExprResult {
+        let Token::Grouping(Grouping::OpeningCurly) = opening.value else {
+            return Err(opening.map(|t| ParsingError::UnexpectedToken {
+                expected: "to find find '{'",
+                found: t,
+            }));
+        };
+
+        let mut stmts = Vec::new();
+        let mut tail = None;
+
+        // keep parsing statements until we reach a }
+        while let Some(token) = self.peek()
+            && !matches!(
+                token.value,
+                Token::Grouping(Grouping::ClosingCurly) | Token::Eof,
+            )
+        {
+            let statement = self.statement()?;
+
+            if let Statement::Expression {
+                expr,
+                has_semicolon: false,
+            } = statement.value
+            {
+                tail = Some(Box::new(Spanned::wrap(expr, statement.span)));
+                break;
+            }
+
+            stmts.push(statement);
+        }
+
+        let closing = self.consume()?;
+
+        let Token::Grouping(Grouping::ClosingCurly) = closing.value else {
+            return Err(closing.map(|t| ParsingError::UnexpectedToken {
+                expected: "to find find '}'",
+                found: t,
+            }));
+        };
+
+        let span = Span::merge(opening.span, closing.span);
+
+        Ok(Spanned::wrap(Expression::Block { stmts, tail }, span))
+    }
+
     /// Parses an atom (simplest part of an expression).
     fn atom(&mut self) -> ExprResult {
         let token = self.consume()?;
@@ -175,10 +251,12 @@ impl Parser {
                 Spanned::wrap(expr.value, Span::merge(token.span, next.span))
             }
 
+            Token::Grouping(Grouping::OpeningCurly) => return self.block(token),
+
             found => {
                 return Err(Spanned::wrap(
                     ParsingError::UnexpectedToken {
-                        expected: "an atom",
+                        expected: "an expression",
                         found,
                     },
                     token.span,

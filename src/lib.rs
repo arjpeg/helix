@@ -17,6 +17,8 @@ pub fn run_program(source: Source) -> Result<(), Spanned<Error>> {
     let tokens = Tokenizer::new(source).collect::<Result<Vec<_>, _>>()?;
     let ast = Parser::new(tokens).parse_source()?;
 
+    dbg!(&ast);
+
     let _ = Interpreter::new().excecute(&ast)?;
 
     Ok(())
