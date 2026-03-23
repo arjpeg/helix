@@ -1,4 +1,5 @@
 use clap::Parser;
+use helix::interpreter::value::Value;
 use helix::{error, run_program, run_repl, source::Source};
 use std::io::{self, BufRead, Write};
 use std::path::{Path, PathBuf};
@@ -57,8 +58,8 @@ fn repl() {
         };
 
         match run_repl(source) {
-            Ok(Some(value)) => println!("{value}"),
-            Ok(None) => {}
+            Ok(Some(value)) if value != Value::Unit => println!("{value}"),
+            Ok(_) => {}
             Err(e) => error::print_error(e),
         }
     }
