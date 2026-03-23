@@ -50,12 +50,14 @@ impl Parser {
                 let is_block = matches!(expr, Expression::Block { .. });
 
                 if !has_semicolon && !is_block {
+                    let token = self.consume()?;
+
                     return Err(Spanned::wrap(
                         ParsingError::UnexpectedToken {
                             expected: "a ';'",
-                            found: self.peek().unwrap(),
+                            found: token.value,
                         },
-                        statement.span,
+                        token.span,
                     ));
                 }
             }
@@ -95,6 +97,13 @@ impl Parser {
             }
 
             stmts.push(statement);
+        }
+
+        if self.peek() != Some(Token::Eof) {
+            return Err(self.consume()?.map(|t| ParsingError::UnexpectedToken {
+                expected: "the end of file",
+                found: t,
+            }));
         }
 
         let first = stmts
@@ -279,7 +288,7 @@ impl Parser {
                 if next.value != Token::Grouping(Grouping::ClosingParen) {
                     return Err(Spanned::wrap(
                         ParsingError::UnexpectedToken {
-                            expected: "to find a closing parenthesis",
+                            expected: "to find ')'",
                             found: next.value,
                         },
                         next.span,

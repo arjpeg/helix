@@ -1,7 +1,6 @@
 use clap::Parser;
-use helix::interpreter::value::Value;
-use helix::{error, run_program, run_repl, source::Source};
-use std::io::{self, BufRead, Write};
+use helix::{error, interpreter::value::Value, run_program, run_repl, source::Source};
+use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 use std::path::{Path, PathBuf};
 
 #[derive(Parser)]
@@ -40,16 +39,17 @@ fn main() {
 
 fn repl() {
     println!("helix REPL (ctrl+c to exit)");
-    let stdin = io::stdin();
+
+    let mut line_editor = Reedline::create();
+    let prompt = DefaultPrompt {
+        left_prompt: DefaultPromptSegment::Basic("".into()),
+        ..Default::default()
+    };
 
     loop {
-        print!("> ");
-        io::stdout().flush().unwrap();
-
-        let mut line = String::new();
-        if stdin.lock().read_line(&mut line).is_err() || line.is_empty() {
+        let Ok(Signal::Success(line)) = line_editor.read_line(&prompt) else {
             break;
-        }
+        };
 
         let content: &'static str = Box::leak(line.trim().to_string().into_boxed_str());
         let source = Source {
