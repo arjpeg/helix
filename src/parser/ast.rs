@@ -12,6 +12,9 @@ pub enum Statement {
         stmts: Vec<Spanned<Statement>>,
     },
 
+    /// A statement that prints the result of the [`Expression`] to stdout.
+    Print(Spanned<Expression>),
+
     /// A standalone expression.
     Expression {
         /// The expression to evaluate.

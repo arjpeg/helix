@@ -29,17 +29,16 @@ impl Parser {
 
     /// Parses a full source file.
     pub fn parse_source(&mut self) -> StatementResult {
-        if let Some(Spanned {
-            value: Token::Eof,
-            span,
-        }) = self.peek()
-        {
-            return Ok(Spanned::wrap(Statement::Program { stmts: vec![] }, span));
+        if self.peek() == Some(Token::Eof) {
+            return Ok(Spanned::wrap(
+                Statement::Program { stmts: vec![] },
+                self.consume()?.span,
+            ));
         }
 
         let mut stmts = Vec::new();
 
-        while self.peek().map(|t| t.value) != Some(Token::Eof) {
+        while self.peek() != Some(Token::Eof) {
             let statement = self.statement()?;
 
             // require semicolons to end all (non block) expression statements in a program
@@ -54,7 +53,7 @@ impl Parser {
                     return Err(Spanned::wrap(
                         ParsingError::UnexpectedToken {
                             expected: "a ';'",
-                            found: self.peek().unwrap().value,
+                            found: self.peek().unwrap(),
                         },
                         statement.span,
                     ));
@@ -71,46 +70,84 @@ impl Parser {
 
     /// Parses a source file as a REPL file.
     pub fn parse_repl(&mut self) -> StatementResult {
-        if let Some(Spanned {
-            value: Token::Eof,
-            span,
-        }) = self.peek()
-        {
-            return Ok(Spanned::wrap(Statement::Program { stmts: vec![] }, span));
+        if self.peek() == Some(Token::Eof) {
+            return Ok(Spanned::wrap(
+                Statement::Program { stmts: vec![] },
+                self.consume()?.span,
+            ));
         }
 
-        let expr = self.expr()?;
+        let mut stmts = Vec::new();
+        let mut tail = None;
 
-        match self.peek() {
-            Some(Spanned {
-                value: Token::Eof | Token::Semicolon,
-                ..
-            }) => Ok(expr.map(|expr| Statement::Expression {
+        while let Some(token) = self.peek()
+            && token != Token::Eof
+        {
+            let statement = self.statement()?;
+
+            if let Statement::Expression {
                 expr,
                 has_semicolon: false,
-            })),
+            } = statement.value
+            {
+                tail = Some(Box::new(Spanned::wrap(expr, statement.span)));
+                break;
+            }
 
-            Some(token) => Err(token.map(|t| ParsingError::UnexpectedToken {
-                expected: "the end of file",
-                found: t,
-            })),
-
-            _ => unreachable!("should always have an EOF token"),
+            stmts.push(statement);
         }
+
+        let first = stmts
+            .first()
+            .map(|stmt| stmt.span)
+            .unwrap_or_else(|| tail.as_ref().unwrap().span);
+
+        let last = stmts
+            .last()
+            .map(|stmt| stmt.span)
+            .unwrap_or_else(|| tail.as_ref().unwrap().span);
+
+        let span = Span::merge(first, last);
+
+        Ok(Spanned::wrap(
+            Statement::Expression {
+                expr: Expression::Block { stmts, tail },
+                has_semicolon: false,
+            },
+            span,
+        ))
     }
 
     fn statement(&mut self) -> StatementResult {
         match self.peek() {
+            Some(Token::Keyword(Keyword::Print)) => {
+                let keyword_span = self.consume()?.span;
+                let expr = self.expr()?;
+
+                if self.peek() != Some(Token::Semicolon) {
+                    return Err(Spanned::wrap(
+                        ParsingError::UnexpectedToken {
+                            expected: "a ';'",
+                            found: self.peek().unwrap(),
+                        },
+                        self.consume()?.span,
+                    ));
+                };
+
+                let semicolon_span = self.consume()?.span;
+
+                let span = Span::merge(keyword_span, semicolon_span);
+
+                Ok(Spanned::wrap(Statement::Print(expr), span))
+            }
+
             Some(_) => {
                 let expr = self.expr()?;
 
                 Ok(expr.map(|expr| Statement::Expression {
                     expr,
                     has_semicolon: match self.peek() {
-                        Some(Spanned {
-                            value: Token::Semicolon,
-                            ..
-                        }) => {
+                        Some(Token::Semicolon) => {
                             let _ = self.consume();
                             true
                         }
@@ -161,13 +198,10 @@ impl Parser {
     }
 
     fn unary(&mut self) -> ExprResult {
-        if let Some(Spanned {
-            value: Token::Operator(op),
-            span: op_span,
-        }) = self.peek()
+        if let Some(Token::Operator(op)) = self.peek()
             && let Ok(op) = UnaryOp::try_from(op)
         {
-            self.consume()?;
+            let op_span = self.consume()?.span;
 
             let expression = self.unary()?;
             let span = Span::merge(op_span, expression.span);
@@ -197,10 +231,7 @@ impl Parser {
 
         // keep parsing statements until we reach a }
         while let Some(token) = self.peek()
-            && !matches!(
-                token.value,
-                Token::Grouping(Grouping::ClosingCurly) | Token::Eof,
-            )
+            && !matches!(token, Token::Grouping(Grouping::ClosingCurly) | Token::Eof)
         {
             let statement = self.statement()?;
 
@@ -287,8 +318,8 @@ impl Parser {
     }
 
     /// Peeks at the next token without advancing the cursor.
-    fn peek(&mut self) -> Option<Spanned<Token>> {
-        self.tokens.get(self.cursor).cloned()
+    fn peek(&mut self) -> Option<Token> {
+        self.tokens.get(self.cursor).cloned().map(|s| s.value)
     }
 
     /// Builds a binary expression by repeatedly applying `f` while the next token matches the
@@ -300,7 +331,7 @@ impl Parser {
         let mut lhs = f(self)?;
 
         while let Some(token) = self.peek()
-            && let Ok(operator) = BinaryOp::try_from(token.value)
+            && let Ok(operator) = BinaryOp::try_from(token)
             && operators.contains(&operator)
         {
             self.consume()?;
@@ -343,20 +374,30 @@ mod tests {
     }
 
     fn parse_repl(src: &'static str) -> Expression {
-        let tokens: Vec<_> = Tokenizer::new(make_source(src))
-            .map(|t| t.unwrap())
-            .collect();
+        let tokens = Tokenizer::new(make_source(src))
+            .collect::<Result<_, _>>()
+            .unwrap();
 
-        let mut parser = Parser::new(tokens);
-        match parser.parse_repl().unwrap().value {
-            Statement::Expression { expr, .. } => expr,
+        match Parser::new(tokens).parse_repl().unwrap().value {
+            Statement::Expression {
+                expr: Expression::Block { mut stmts, tail },
+                ..
+            } => tail
+                .map(|expr| expr.value)
+                .or_else(|| match stmts.remove(0).value {
+                    Statement::Expression { expr, .. } => Some(expr),
+                    _ => None,
+                })
+                .expect("should have at least one expression in repl for testing"),
+
             other => panic!("expected Expression statement, got {other:?}"),
         }
     }
+
     fn parse_source(src: &'static str) -> Vec<Spanned<Statement>> {
-        let tokens: Vec<_> = Tokenizer::new(make_source(src))
-            .map(|t| t.unwrap())
-            .collect();
+        let tokens = Tokenizer::new(make_source(src))
+            .collect::<Result<_, _>>()
+            .unwrap();
 
         match Parser::new(tokens).parse_source().unwrap().value {
             Statement::Program { stmts } => stmts,
@@ -433,7 +474,6 @@ mod tests {
 
     #[test]
     fn precedence_mul_over_add() {
-        // 1 + 2 * 3  =>  1 + (2 * 3)
         let (lhs, op, rhs) = as_binop(parse_repl("1 + 2 * 3"));
         assert_eq!(op, BinaryOp::Plus);
         assert!(matches!(lhs, Expression::Integer(1)));
@@ -443,7 +483,6 @@ mod tests {
 
     #[test]
     fn left_associativity() {
-        // 1 - 2 - 3  =>  (1 - 2) - 3
         let (lhs, op, rhs) = as_binop(parse_repl("1 - 2 - 3"));
         assert_eq!(op, BinaryOp::Minus);
         let (_, inner_op, _) = as_binop(lhs);
@@ -453,7 +492,6 @@ mod tests {
 
     #[test]
     fn logical_and_or_precedence() {
-        // true or false and false  =>  true or (false and false)
         let (_, op, rhs) = as_binop(parse_repl("true or false and false"));
         assert_eq!(op, BinaryOp::Or);
         let (_, inner_op, _) = as_binop(rhs);
@@ -462,7 +500,6 @@ mod tests {
 
     #[test]
     fn parenthesized_overrides_precedence() {
-        // (1 + 2) * 3  =>  (1 + 2) * 3, outer op is *
         let (lhs, op, _) = as_binop(parse_repl("(1 + 2) * 3"));
         assert_eq!(op, BinaryOp::Star);
         let (_, inner_op, _) = as_binop(lhs);
@@ -652,6 +689,20 @@ mod tests {
             Expression::BinaryOperation { lhs, rhs, .. } => {
                 assert_eq!(lhs.span.text(), "1");
                 assert_eq!(rhs.span.text(), "2 * 3");
+            }
+            other => panic!("{other:?}"),
+        }
+    }
+
+    #[test]
+    fn span_binop_includes_whitespace_between_operands() {
+        let stmts = parse_source("1   +   2;");
+        let (expr, _, _) = unwrap_expr(stmts.into_iter().next().unwrap());
+        match expr {
+            Expression::BinaryOperation { lhs, rhs, .. } => {
+                // individual operand spans should not include surrounding whitespace
+                assert_eq!(lhs.span.text(), "1");
+                assert_eq!(rhs.span.text(), "2");
             }
             other => panic!("{other:?}"),
         }

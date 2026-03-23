@@ -38,6 +38,13 @@ impl Interpreter {
             Statement::Expression { expr, .. } => {
                 return Ok(Some(self.expression(expr, span)?.value));
             }
+
+            Statement::Print(expression) => {
+                println!(
+                    "{}",
+                    self.expression(&expression.value, expression.span)?.value
+                );
+            }
         };
 
         Ok(None)

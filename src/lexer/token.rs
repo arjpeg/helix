@@ -75,6 +75,8 @@ pub enum Keyword {
     True,
     /// The 'false' keyword.
     False,
+    /// The 'print' keyword.
+    Print,
 }
 
 pub trait CharTokenExt {
@@ -149,6 +151,7 @@ impl TryFrom<&str> for Keyword {
             "or" => Self::Or,
             "true" => Self::True,
             "false" => Self::False,
+            "print" => Self::Print,
             _ => return Err(()),
         })
     }
