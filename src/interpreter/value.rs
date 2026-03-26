@@ -73,6 +73,20 @@ impl Value {
             Value::Unit => "unit",
         }
     }
+
+    /// Returns if this type is considered truthy.
+    ///
+    /// The behavior across types is as follows:
+    ///     Value::Boolean(b) => returns b
+    ///     Value::Integer(n) => returns false if n == 0, true else
+    ///     Value::Unit => returns false
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Value::Boolean(b) => *b,
+            Value::Integer(n) => *n != 0,
+            Value::Unit => false,
+        }
+    }
 }
 
 /// Creates an implementation of a binary operation reducer between two [`Value`]s.

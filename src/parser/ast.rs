@@ -31,6 +31,9 @@ pub enum Statement {
         value: Spanned<Expression>,
     },
 
+    /// Asserts that the given [`Expression`] evaluates to `true`.
+    Assert(Spanned<Expression>),
+
     /// A standalone expression.
     Expression {
         /// The expression to evaluate.

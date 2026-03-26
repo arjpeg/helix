@@ -123,70 +123,11 @@ impl Parser {
 
     fn statement(&mut self) -> StatementResult {
         match self.peek() {
-            Some(Token::Keyword(Keyword::Print)) => {
-                let keyword_span = self.consume()?.span;
-                let expr = self.expr()?;
+            Some(Token::Keyword(Keyword::Print)) => self.print(),
 
-                if self.peek() != Some(Token::Semicolon) {
-                    return Err(Spanned::wrap(
-                        ParsingError::UnexpectedToken {
-                            expected: "a ';'",
-                            found: self.peek().unwrap(),
-                        },
-                        self.consume()?.span,
-                    ));
-                };
+            Some(Token::Keyword(Keyword::Let)) => self.let_declaration(),
 
-                let semicolon_span = self.consume()?.span;
-
-                let span = Span::merge(keyword_span, semicolon_span);
-
-                Ok(Spanned::wrap(Statement::Print(expr), span))
-            }
-
-            Some(Token::Keyword(Keyword::Let)) => {
-                let keyword_span = self.consume()?.span;
-
-                let token = self.consume()?;
-                let Token::Symbol(symbol) = token.value else {
-                    return Err(token.map(|t| ParsingError::UnexpectedToken {
-                        expected: "a binding name",
-                        found: t,
-                    }));
-                };
-
-                if self.peek() != Some(Token::Operator(OpKind::Assign)) {
-                    return Err(token.map(|t| ParsingError::UnexpectedToken {
-                        expected: "'='",
-                        found: t,
-                    }));
-                }
-                self.consume()?;
-
-                let expr = self.expr()?;
-
-                if self.peek() != Some(Token::Semicolon) {
-                    return Err(Spanned::wrap(
-                        ParsingError::UnexpectedToken {
-                            expected: "a ';'",
-                            found: self.peek().unwrap(),
-                        },
-                        self.consume()?.span,
-                    ));
-                };
-
-                let semicolon_span = self.consume()?.span;
-
-                let span = Span::merge(keyword_span, semicolon_span);
-
-                Ok(Spanned::wrap(
-                    Statement::Declaration {
-                        symbol,
-                        value: expr,
-                    },
-                    span,
-                ))
-            }
+            Some(Token::Keyword(Keyword::Assert)) => self.assert(),
 
             Some(_) => {
                 let expr = self.expr()?;
@@ -206,6 +147,92 @@ impl Parser {
 
             _ => unreachable!("should always have an EOF token"),
         }
+    }
+
+    fn print(&mut self) -> StatementResult {
+        let keyword_span = self.consume()?.span;
+        let expr = self.expr()?;
+
+        if self.peek() != Some(Token::Semicolon) {
+            return Err(Spanned::wrap(
+                ParsingError::UnexpectedToken {
+                    expected: "a ';'",
+                    found: self.peek().unwrap(),
+                },
+                self.consume()?.span,
+            ));
+        };
+
+        let semicolon_span = self.consume()?.span;
+
+        let span = Span::merge(keyword_span, semicolon_span);
+
+        Ok(Spanned::wrap(Statement::Print(expr), span))
+    }
+
+    fn let_declaration(&mut self) -> StatementResult {
+        let keyword_span = self.consume()?.span;
+
+        let token = self.consume()?;
+        let Token::Symbol(symbol) = token.value else {
+            return Err(token.map(|t| ParsingError::UnexpectedToken {
+                expected: "a binding name",
+                found: t,
+            }));
+        };
+
+        if self.peek() != Some(Token::Operator(OpKind::Assign)) {
+            return Err(token.map(|t| ParsingError::UnexpectedToken {
+                expected: "'='",
+                found: t,
+            }));
+        }
+        self.consume()?;
+
+        let expr = self.expr()?;
+
+        if self.peek() != Some(Token::Semicolon) {
+            return Err(Spanned::wrap(
+                ParsingError::UnexpectedToken {
+                    expected: "a ';'",
+                    found: self.peek().unwrap(),
+                },
+                self.consume()?.span,
+            ));
+        };
+
+        let semicolon_span = self.consume()?.span;
+
+        let span = Span::merge(keyword_span, semicolon_span);
+
+        Ok(Spanned::wrap(
+            Statement::Declaration {
+                symbol,
+                value: expr,
+            },
+            span,
+        ))
+    }
+
+    fn assert(&mut self) -> StatementResult {
+        let keyword_span = self.consume()?.span;
+        let expr = self.expr()?;
+
+        if self.peek() != Some(Token::Semicolon) {
+            return Err(Spanned::wrap(
+                ParsingError::UnexpectedToken {
+                    expected: "a ';'",
+                    found: self.peek().unwrap(),
+                },
+                self.consume()?.span,
+            ));
+        };
+
+        let semicolon_span = self.consume()?.span;
+
+        let span = Span::merge(keyword_span, semicolon_span);
+
+        Ok(Spanned::wrap(Statement::Assert(expr), span))
     }
 
     fn expr(&mut self) -> ExprResult {

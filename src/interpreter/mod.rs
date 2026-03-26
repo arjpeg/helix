@@ -79,6 +79,17 @@ impl Interpreter {
                 );
             }
 
+            Statement::Assert(expression) => {
+                let value = self.expression(&expression.value, expression.span)?.value;
+
+                if !value.is_truthy() {
+                    return Err(Spanned::wrap(
+                        RuntimeError::AssertionFailed(value),
+                        expression.span,
+                    ));
+                }
+            }
+
             Statement::Declaration {
                 symbol,
                 value: expr,

@@ -41,4 +41,7 @@ pub enum RuntimeError {
         /// The symbol of the binding.
         symbol: &'static str,
     },
+
+    #[error("assertion failed: expression evaluated to non-truthy type, `{0}`")]
+    AssertionFailed(Value),
 }
