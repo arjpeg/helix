@@ -7,9 +7,13 @@ use crate::lexer::token::Token;
 pub enum ParsingError {
     #[error("unexpectedly reached the end of file")]
     UnexpectedEof,
+
     #[error("expected to find {expected}, but found a token of type `{found:?}`")]
     UnexpectedToken {
         expected: &'static str,
         found: Token,
     },
+
+    #[error("invalid left-hand side of assignment")]
+    InvalidAssignmentLhs,
 }

@@ -9,7 +9,7 @@ use crate::{
     source::{Span, Spanned},
 };
 
-type Result<T> = std::result::Result<T, Spanned<RuntimeError>>;
+type Result<T, E = Spanned<RuntimeError>> = std::result::Result<T, E>;
 
 /// A lexical environment in which bindings exist.
 #[derive(Debug, Clone, PartialEq)]
@@ -52,7 +52,7 @@ impl Interpreter {
             }
 
             // same as executing a block, but we don't pop the parent environment
-            Statement::ReplInput { stmts, tail } => {
+            Statement::Repl { stmts, tail } => {
                 for Spanned {
                     value: statement,
                     span,
@@ -122,6 +122,16 @@ impl Interpreter {
                 }
             }
 
+            Expression::Assignment { symbol, expr } => {
+                let value = self.expression(&expr.value, expr.span)?;
+
+                self.environment
+                    .borrow_mut()
+                    .assign(symbol.value, value.value.clone())
+                    .map(|_| value)
+                    .map_err(|e| Spanned::wrap(e, symbol.span))
+            }
+
             Expression::BinaryOperation { lhs, operator, rhs } => {
                 let lhs_result = self.expression(&lhs.value, lhs.span)?;
                 let rhs_result = self.expression(&rhs.value, rhs.span)?;
@@ -183,6 +193,20 @@ impl Environment {
                 .map(|env| env.borrow().search(symbol))
                 .flatten()
         })
+    }
+
+    /// Attempts to assign an existing symbol to the closest enclosing scope.
+    pub fn assign(&mut self, symbol: &'static str, value: Value) -> Result<(), RuntimeError> {
+        if let Some(binding) = self.bindings.get_mut(symbol) {
+            *binding = value;
+            return Ok(());
+        }
+
+        if let Some(parent) = &self.parent {
+            parent.borrow_mut().assign(symbol, value)
+        } else {
+            Err(RuntimeError::UnboundBinding { symbol })
+        }
     }
 }
 

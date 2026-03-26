@@ -118,7 +118,7 @@ impl Parser {
 
         let span = Span::merge(first, last);
 
-        Ok(Spanned::wrap(Statement::ReplInput { stmts, tail }, span))
+        Ok(Spanned::wrap(Statement::Repl { stmts, tail }, span))
     }
 
     fn statement(&mut self) -> StatementResult {
@@ -236,7 +236,37 @@ impl Parser {
     }
 
     fn expr(&mut self) -> ExprResult {
-        self.or()
+        self.assignment()
+    }
+
+    fn assignment(&mut self) -> ExprResult {
+        let expr = self.or()?;
+
+        // check if this is an assignment expression
+        if self.peek() == Some(Token::Operator(OpKind::Assign)) {
+            // try to convert the expr into a valid l-value
+            let Expression::Variable { symbol } = expr.value else {
+                return Err(expr.map(|_| ParsingError::InvalidAssignmentLhs))?;
+            };
+
+            let lhs_span = expr.span;
+
+            self.consume()?;
+
+            let value = self.expr()?;
+
+            let span = Span::merge(lhs_span, value.span);
+
+            return Ok(Spanned::wrap(
+                Expression::Assignment {
+                    symbol: Spanned::wrap(symbol, lhs_span),
+                    expr: Box::new(value),
+                },
+                span,
+            ));
+        }
+
+        Ok(expr)
     }
 
     fn or(&mut self) -> ExprResult {

@@ -13,7 +13,7 @@ pub enum Statement {
     },
 
     /// A [Statement::Program] that can optionally return a tail value.
-    ReplInput {
+    Repl {
         /// The list of statements to execute, in order.
         stmts: Vec<Spanned<Statement>>,
         /// The optional tail expression of this input (what it returns).
@@ -55,6 +55,14 @@ pub enum Expression {
     Variable {
         /// The symbol of the binding.
         symbol: &'static str,
+    },
+
+    /// An assignment to an existing variable.
+    Assignment {
+        /// The symbol of the binding.
+        symbol: Spanned<&'static str>,
+        /// The value to assign.
+        expr: Box<Spanned<Expression>>,
     },
 
     /// A (infix) binary operation between two other [`Expression`]s.
