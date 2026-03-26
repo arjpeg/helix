@@ -12,8 +12,24 @@ pub enum Statement {
         stmts: Vec<Spanned<Statement>>,
     },
 
+    /// A [Statement::Program] that can optionally return a tail value.
+    ReplInput {
+        /// The list of statements to execute, in order.
+        stmts: Vec<Spanned<Statement>>,
+        /// The optional tail expression of this input (what it returns).
+        tail: Option<Box<Spanned<Expression>>>,
+    },
+
     /// A statement that prints the result of the [`Expression`] to stdout.
     Print(Spanned<Expression>),
+
+    /// A declaration of a variable binding.
+    Declaration {
+        /// The name of the binding to declare.
+        symbol: &'static str,
+        /// The value to assign.
+        value: Spanned<Expression>,
+    },
 
     /// A standalone expression.
     Expression {
@@ -31,6 +47,12 @@ pub enum Expression {
     Integer(i64),
     /// A boolean literal.
     Boolean(bool),
+
+    /// A reference to a variable.
+    Variable {
+        /// The symbol of the binding.
+        symbol: &'static str,
+    },
 
     /// A (infix) binary operation between two other [`Expression`]s.
     BinaryOperation {

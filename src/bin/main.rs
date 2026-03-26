@@ -1,5 +1,5 @@
 use clap::Parser;
-use helix::{error, interpreter::value::Value, run_program, run_repl, source::Source};
+use helix::{Engine, error, interpreter::value::Value, source::Source};
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 use std::path::{Path, PathBuf};
 
@@ -12,6 +12,7 @@ struct Cli {
 
 fn main() {
     let cli = Cli::parse();
+    let mut engine = Engine::new();
 
     match cli.file {
         Some(path) => {
@@ -28,7 +29,12 @@ fn main() {
                 path: Box::leak(path.into_boxed_path()),
             };
 
-            if let Err(e) = run_program(source) {
+            if let Err(e) = engine.register_program(source) {
+                error::print_error(e);
+                return;
+            }
+
+            if let Err(e) = engine.execute(source) {
                 error::print_error(e);
             }
         }
@@ -46,6 +52,8 @@ fn repl() {
         ..Default::default()
     };
 
+    let mut engine = Engine::new();
+
     loop {
         let Ok(Signal::Success(line)) = line_editor.read_line(&prompt) else {
             break;
@@ -57,7 +65,12 @@ fn repl() {
             path: Path::new("<repl>"),
         };
 
-        match run_repl(source) {
+        if let Err(e) = engine.register_repl(source) {
+            error::print_error(e);
+            continue;
+        }
+
+        match engine.execute(source) {
             Ok(Some(value)) if value != Value::Unit => println!("{value}"),
             Ok(_) => {}
             Err(e) => error::print_error(e),

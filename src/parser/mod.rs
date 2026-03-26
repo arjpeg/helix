@@ -2,7 +2,7 @@ pub mod ast;
 pub mod error;
 
 use crate::{
-    lexer::token::{Grouping, Keyword, Token},
+    lexer::token::{Grouping, Keyword, OpKind, Token},
     parser::{
         ast::{BinaryOp, Expression, Statement, UnaryOp},
         error::ParsingError,
@@ -118,13 +118,7 @@ impl Parser {
 
         let span = Span::merge(first, last);
 
-        Ok(Spanned::wrap(
-            Statement::Expression {
-                expr: Expression::Block { stmts, tail },
-                has_semicolon: false,
-            },
-            span,
-        ))
+        Ok(Spanned::wrap(Statement::ReplInput { stmts, tail }, span))
     }
 
     fn statement(&mut self) -> StatementResult {
@@ -148,6 +142,50 @@ impl Parser {
                 let span = Span::merge(keyword_span, semicolon_span);
 
                 Ok(Spanned::wrap(Statement::Print(expr), span))
+            }
+
+            Some(Token::Keyword(Keyword::Let)) => {
+                let keyword_span = self.consume()?.span;
+
+                let token = self.consume()?;
+                let Token::Symbol(symbol) = token.value else {
+                    return Err(token.map(|t| ParsingError::UnexpectedToken {
+                        expected: "a binding name",
+                        found: t,
+                    }));
+                };
+
+                if self.peek() != Some(Token::Operator(OpKind::Assign)) {
+                    return Err(token.map(|t| ParsingError::UnexpectedToken {
+                        expected: "'='",
+                        found: t,
+                    }));
+                }
+                self.consume()?;
+
+                let expr = self.expr()?;
+
+                if self.peek() != Some(Token::Semicolon) {
+                    return Err(Spanned::wrap(
+                        ParsingError::UnexpectedToken {
+                            expected: "a ';'",
+                            found: self.peek().unwrap(),
+                        },
+                        self.consume()?.span,
+                    ));
+                };
+
+                let semicolon_span = self.consume()?.span;
+
+                let span = Span::merge(keyword_span, semicolon_span);
+
+                Ok(Spanned::wrap(
+                    Statement::Declaration {
+                        symbol,
+                        value: expr,
+                    },
+                    span,
+                ))
             }
 
             Some(_) => {
@@ -230,7 +268,7 @@ impl Parser {
     fn block(&mut self, opening: Spanned<Token>) -> ExprResult {
         let Token::Grouping(Grouping::OpeningCurly) = opening.value else {
             return Err(opening.map(|t| ParsingError::UnexpectedToken {
-                expected: "to find find '{'",
+                expected: "to find '{'",
                 found: t,
             }));
         };
@@ -260,7 +298,7 @@ impl Parser {
 
         let Token::Grouping(Grouping::ClosingCurly) = closing.value else {
             return Err(closing.map(|t| ParsingError::UnexpectedToken {
-                expected: "to find find '}'",
+                expected: "'}'",
                 found: t,
             }));
         };
@@ -281,6 +319,8 @@ impl Parser {
 
             Token::Keyword(Keyword::False) => Spanned::wrap(Expression::Boolean(false), token.span),
 
+            Token::Symbol(symbol) => Spanned::wrap(Expression::Variable { symbol }, token.span),
+
             Token::Grouping(Grouping::OpeningParen) => {
                 let expr = self.expr()?;
                 let next = self.consume()?;
@@ -288,7 +328,7 @@ impl Parser {
                 if next.value != Token::Grouping(Grouping::ClosingParen) {
                     return Err(Spanned::wrap(
                         ParsingError::UnexpectedToken {
-                            expected: "to find ')'",
+                            expected: "')'",
                             found: next.value,
                         },
                         next.span,

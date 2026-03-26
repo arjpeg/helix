@@ -35,4 +35,10 @@ pub enum RuntimeError {
 
     #[error("attempted to divide by zero")]
     DivideByZero,
+
+    #[error("variable binding `{symbol}` does not exist")]
+    UnboundBinding {
+        /// The symbol of the binding.
+        symbol: &'static str,
+    },
 }

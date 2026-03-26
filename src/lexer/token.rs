@@ -77,6 +77,8 @@ pub enum Keyword {
     False,
     /// The 'print' keyword.
     Print,
+    /// The 'let' keyword.
+    Let,
 }
 
 pub trait CharTokenExt {
@@ -152,6 +154,7 @@ impl TryFrom<&str> for Keyword {
             "true" => Self::True,
             "false" => Self::False,
             "print" => Self::Print,
+            "let" => Self::Let,
             _ => return Err(()),
         })
     }
