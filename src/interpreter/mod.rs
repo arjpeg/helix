@@ -171,6 +171,24 @@ impl Interpreter {
 
                 result
             }
+
+            Expression::If {
+                predicate,
+                body,
+                else_clause,
+            } => {
+                let predicate = self.expression(&predicate.value, predicate.span)?.value;
+
+                if predicate.is_truthy() {
+                    self.expression(&body.value, body.span)
+                } else {
+                    if let Some(else_clause) = else_clause {
+                        self.expression(&else_clause.value, else_clause.span)
+                    } else {
+                        Ok(Spanned::wrap(Value::Unit, span))
+                    }
+                }
+            }
         }
     }
 }

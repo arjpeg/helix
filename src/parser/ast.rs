@@ -90,6 +90,16 @@ pub enum Expression {
         /// The optional tail expression of this block (what it returns).
         tail: Option<Box<Spanned<Expression>>>,
     },
+
+    /// A sequence of statements to be run iff the predicate evaluates to a truthy value.
+    If {
+        /// The predicate to run the `body`.
+        predicate: Box<Spanned<Expression>>,
+        /// The code to run if the `predicate` is true.
+        body: Box<Spanned<Expression>>,
+        /// The optional else clause to run if the `predicate` is false.
+        else_clause: Option<Box<Spanned<Expression>>>,
+    },
 }
 
 /// A binary operator applied between two [`Expression`]s.

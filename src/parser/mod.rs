@@ -365,6 +365,70 @@ impl Parser {
         Ok(Spanned::wrap(Expression::Block { stmts, tail }, span))
     }
 
+    fn if_expr(&mut self, if_token: Spanned<Token>) -> ExprResult {
+        let Token::Keyword(Keyword::If) = if_token.value else {
+            return Err(if_token.map(|t| ParsingError::UnexpectedToken {
+                expected: "to find 'if'",
+                found: t,
+            }));
+        };
+
+        let predicate = Box::new(self.expr()?);
+
+        let opening = self.consume()?;
+        let body = Box::new(self.block(opening)?);
+
+        // check if we have an else clause
+        if self.peek() == Some(Token::Keyword(Keyword::Else)) {
+            let else_token = self.consume()?;
+
+            // does the else have another if?
+            if self.peek() == Some(Token::Keyword(Keyword::If)) {
+                let else_if_token = self.consume()?;
+
+                let mut else_clause = self.if_expr(else_if_token)?;
+                else_clause.span = Span::merge(else_token.span, else_clause.span);
+
+                let span = Span::merge(if_token.span, else_clause.span);
+
+                return Ok(Spanned::wrap(
+                    Expression::If {
+                        predicate,
+                        body,
+                        else_clause: Some(Box::new(else_clause)),
+                    },
+                    span,
+                ));
+            }
+
+            // parse a normal else body
+            let opening = self.consume()?;
+            let else_body = Box::new(self.block(opening)?);
+
+            let span = Span::merge(if_token.span, else_body.span);
+
+            return Ok(Spanned::wrap(
+                Expression::If {
+                    predicate,
+                    body,
+                    else_clause: Some(else_body),
+                },
+                span,
+            ));
+        }
+
+        let span = Span::merge(if_token.span, body.span);
+
+        Ok(Spanned::wrap(
+            Expression::If {
+                predicate,
+                body,
+                else_clause: None,
+            },
+            span,
+        ))
+    }
+
     /// Parses an atom (simplest part of an expression).
     fn atom(&mut self) -> ExprResult {
         let token = self.consume()?;
@@ -396,6 +460,8 @@ impl Parser {
             }
 
             Token::Grouping(Grouping::OpeningCurly) => return self.block(token),
+
+            Token::Keyword(Keyword::If) => return self.if_expr(token),
 
             found => {
                 return Err(Spanned::wrap(

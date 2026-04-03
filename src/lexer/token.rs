@@ -67,20 +67,30 @@ pub enum Grouping {
 /// Any reserved keyword in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Keyword {
-    /// The 'and' keyword.
+    /// The 'and' keyword checks if two boolean values are both true.
     And,
-    /// The 'or' keyword.
+    /// The 'or' keyword checks if either of two boolean values are true.
     Or,
-    /// The 'true' keyword.
+
+    /// The 'true' keyword, acting as the `true` boolean literal.
     True,
-    /// The 'false' keyword.
+    /// The 'false' keyword, acting as the `false` boolean literal.
     False,
-    /// The 'print' keyword.
+
+    /// The 'print' keyword outputs the value of the subsequent expression.
     Print,
-    /// The 'let' keyword.
+
+    /// The 'let' keyword binds a symbol (known as the binding) to a value.
     Let,
-    /// The 'assert' keyword.
+
+    /// The 'assert' keyword runs a runtime assertion to ensure the subsequent expression is truthy.
     Assert,
+
+    /// The 'if' keyword begins a standard if expression to run code iff a condition is truthy.
+    If,
+    /// The 'else' keyword executes code if its corresponding if predicated evaluated to a non
+    /// truthy value.
+    Else,
 }
 
 pub trait CharTokenExt {
@@ -158,6 +168,8 @@ impl TryFrom<&str> for Keyword {
             "print" => Self::Print,
             "let" => Self::Let,
             "assert" => Self::Assert,
+            "if" => Self::If,
+            "else" => Self::Else,
             _ => return Err(()),
         })
     }
