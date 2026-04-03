@@ -440,6 +440,8 @@ impl Parser {
 
             Token::Keyword(Keyword::False) => Spanned::wrap(Expression::Boolean(false), token.span),
 
+            Token::String(string) => Spanned::wrap(Expression::String(string.into()), token.span),
+
             Token::Symbol(symbol) => Spanned::wrap(Expression::Variable { symbol }, token.span),
 
             Token::Grouping(Grouping::OpeningParen) => {
@@ -551,10 +553,7 @@ mod tests {
             .unwrap();
 
         match Parser::new(tokens).parse_repl().unwrap().value {
-            Statement::Expression {
-                expr: Expression::Block { mut stmts, tail },
-                ..
-            } => tail
+            Statement::Repl { mut stmts, tail } => tail
                 .map(|expr| expr.value)
                 .or_else(|| match stmts.remove(0).value {
                     Statement::Expression { expr, .. } => Some(expr),
@@ -836,20 +835,8 @@ mod tests {
     #[test]
     fn span_block_covers_braces() {
         let src = "{ 1 + 2 }";
-        let tokens: Vec<_> = Tokenizer::new(make_source(src))
-            .map(|t| t.unwrap())
-            .collect();
-
-        let _ = match Parser::new(tokens).parse_repl().unwrap().value {
-            Statement::Expression { expr, .. } => expr,
-            other => panic!("{other:?}"),
-        };
-
-        let tokens: Vec<_> = Tokenizer::new(make_source(src))
-            .map(|t| t.unwrap())
-            .collect();
-        let spanned = Parser::new(tokens).parse_repl().unwrap();
-        assert_eq!(spanned.span.text(), "{ 1 + 2 }");
+        let (_, _, span) = unwrap_expr(parse_source(src).into_iter().next().unwrap());
+        assert_eq!(span.text(), "{ 1 + 2 }");
     }
 
     #[test]

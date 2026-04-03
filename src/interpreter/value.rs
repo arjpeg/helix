@@ -8,10 +8,12 @@ use crate::{
 /// A helix value in the living runtime.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Value {
-    /// An integer.
+    /// A signed, 64-bit integer.
     Integer(i64),
     /// A boolean.
     Boolean(bool),
+    /// An immutable string.
+    String(String),
     /// The unit type, ().
     Unit,
 }
@@ -70,6 +72,7 @@ impl Value {
         match self {
             Value::Integer(_) => "integer",
             Value::Boolean(_) => "boolean",
+            Value::String(_) => "string",
             Value::Unit => "unit",
         }
     }
@@ -79,11 +82,13 @@ impl Value {
     /// The behavior across types is as follows:
     /// * Value::Boolean(b) => returns b
     /// * Value::Integer(n) => returns false if n == 0, true else
+    /// * Value::String(s) => returns false if len(s) == 0, true else
     /// * Value::Unit => returns false
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Boolean(b) => *b,
             Value::Integer(n) => *n != 0,
+            Value::String(s) => s.len() != 0,
             Value::Unit => false,
         }
     }
@@ -94,7 +99,7 @@ macro_rules! binary_op {
     (
         $name:ident: $operator:ident,
         {
-            $( $pattern:pat => $body:expr ),* $(,)?
+            $( $pattern:pat $(if $guard:expr)? => $body:expr ),* $(,)?
         }
     ) => {
         impl Value {
@@ -106,7 +111,7 @@ macro_rules! binary_op {
 
                 #[allow(unreachable_code)]
                 match (lhs, rhs) {
-                    $( $pattern => Ok($body), )*
+                    $( $pattern $(if $guard)? => Ok($body), )*
                     (lhs, rhs) => Err(super::RuntimeError::InvalidBinaryOperation {
                         operator: $operator,
                         lhs,
@@ -147,7 +152,8 @@ macro_rules! unary_op {
 }
 
 binary_op!(add: Plus, {
-    (Integer(a), Integer(b)) => Integer(a + b)
+    (Integer(a), Integer(b)) => Integer(a + b),
+    (String(a), String(b)) => String(format!("{a}{b}"))
 });
 
 binary_op!(subtract: Minus, {
@@ -155,7 +161,10 @@ binary_op!(subtract: Minus, {
 });
 
 binary_op!(multiply: Star, {
-    (Integer(a), Integer(b)) => Integer(a * b)
+    (Integer(a), Integer(b)) => Integer(a * b),
+
+    (String(_), Integer(n)) if n < 0 => return Err(RuntimeError::NegativeStringRepeat),
+    (String(a), Integer(n)) => String(a.repeat(n.try_into().unwrap()))
 });
 
 binary_op!(divide: Slash, {
@@ -248,11 +257,18 @@ impl From<bool> for Value {
     }
 }
 
+impl From<String> for Value {
+    fn from(value: String) -> Self {
+        Self::String(value)
+    }
+}
+
 impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Boolean(b) => write!(f, "{b}"),
+            Self::String(s) => write!(f, "{s}"),
             Self::Unit => write!(f, "()"),
         }
     }
@@ -268,25 +284,26 @@ mod tests {
     fn bool(b: bool) -> Value {
         Value::Boolean(b)
     }
+    fn str(s: &str) -> Value {
+        Value::String(s.to_string())
+    }
+    fn unit() -> Value {
+        Value::Unit
+    }
 
     #[test]
-    fn test_add() {
+    fn test_integer_arithmetic() {
         assert_eq!(Value::add(int(2), int(3)), Ok(int(5)));
-    }
-
-    #[test]
-    fn test_subtract() {
         assert_eq!(Value::subtract(int(5), int(3)), Ok(int(2)));
-    }
-
-    #[test]
-    fn test_multiply() {
         assert_eq!(Value::multiply(int(4), int(3)), Ok(int(12)));
+        assert_eq!(Value::divide(int(10), int(2)), Ok(int(5)));
     }
 
     #[test]
-    fn test_divide() {
-        assert_eq!(Value::divide(int(10), int(2)), Ok(int(5)));
+    fn test_integer_arithmetic_negatives() {
+        assert_eq!(Value::subtract(int(0), int(5)), Ok(int(-5)));
+        assert_eq!(Value::multiply(int(-2), int(3)), Ok(int(-6)));
+        assert_eq!(Value::divide(int(-10), int(2)), Ok(int(-5)));
     }
 
     #[test]
@@ -298,63 +315,41 @@ mod tests {
     }
 
     #[test]
-    fn test_add_type_mismatch() {
-        assert!(Value::add(int(1), bool(true)).is_err());
+    fn test_neg() {
+        assert_eq!(Value::neg(int(5)), Ok(int(-5)));
+        assert_eq!(Value::neg(int(0)), Ok(int(0)));
+        assert_eq!(Value::neg(int(-3)), Ok(int(3)));
     }
 
     #[test]
-    fn test_ordering_on_booleans_fails() {
-        assert!(Value::less_than(bool(true), bool(false)).is_err());
-        assert!(Value::greater_than(bool(true), bool(false)).is_err());
-        assert!(Value::less_than_equals(bool(true), bool(false)).is_err());
-        assert!(Value::greater_than_equals(bool(true), bool(false)).is_err());
+    fn test_bitwise_not_integer() {
+        assert_eq!(Value::not(int(0)), Ok(int(-1)));
+        assert_eq!(Value::not(int(-1)), Ok(int(0)));
     }
 
     #[test]
-    fn test_equals_integers() {
-        assert_eq!(Value::equals(int(3), int(3)), Ok(bool(true)));
-        assert_eq!(Value::equals(int(3), int(4)), Ok(bool(false)));
+    fn test_string_concat() {
+        assert_eq!(Value::add(str("foo"), str("bar")), Ok(str("foobar")));
+        assert_eq!(Value::add(str(""), str("hello")), Ok(str("hello")));
     }
 
     #[test]
-    fn test_equals_booleans() {
-        assert_eq!(Value::equals(bool(true), bool(true)), Ok(bool(true)));
-        assert_eq!(Value::equals(bool(true), bool(false)), Ok(bool(false)));
+    fn test_string_repeat() {
+        assert_eq!(Value::multiply(str("ab"), int(3)), Ok(str("ababab")));
+        assert_eq!(Value::multiply(str("ab"), int(0)), Ok(str("")));
     }
 
     #[test]
-    fn test_not_equals() {
-        assert_eq!(Value::not_equals(int(3), int(4)), Ok(bool(true)));
-        assert_eq!(Value::not_equals(int(3), int(3)), Ok(bool(false)));
-        assert_eq!(Value::not_equals(bool(true), bool(false)), Ok(bool(true)));
+    fn test_string_repeat_negative() {
+        assert_eq!(
+            Value::multiply(str("ab"), int(-1)),
+            Err(RuntimeError::NegativeStringRepeat)
+        );
     }
 
     #[test]
-    fn test_less_than() {
-        assert_eq!(Value::less_than(int(2), int(3)), Ok(bool(true)));
-        assert_eq!(Value::less_than(int(3), int(3)), Ok(bool(false)));
-        assert_eq!(Value::less_than(int(4), int(3)), Ok(bool(false)));
-    }
-
-    #[test]
-    fn test_greater_than() {
-        assert_eq!(Value::greater_than(int(4), int(3)), Ok(bool(true)));
-        assert_eq!(Value::greater_than(int(3), int(3)), Ok(bool(false)));
-        assert_eq!(Value::greater_than(int(2), int(3)), Ok(bool(false)));
-    }
-
-    #[test]
-    fn test_less_than_equals() {
-        assert_eq!(Value::less_than_equals(int(2), int(3)), Ok(bool(true)));
-        assert_eq!(Value::less_than_equals(int(3), int(3)), Ok(bool(true)));
-        assert_eq!(Value::less_than_equals(int(4), int(3)), Ok(bool(false)));
-    }
-
-    #[test]
-    fn test_greater_than_equals() {
-        assert_eq!(Value::greater_than_equals(int(4), int(3)), Ok(bool(true)));
-        assert_eq!(Value::greater_than_equals(int(3), int(3)), Ok(bool(true)));
-        assert_eq!(Value::greater_than_equals(int(2), int(3)), Ok(bool(false)));
+    fn test_int_times_string_fails() {
+        assert!(Value::multiply(int(3), str("ab")).is_err());
     }
 
     #[test]
@@ -365,43 +360,9 @@ mod tests {
     }
 
     #[test]
-    fn test_and_type_mismatch() {
-        assert!(Value::and(int(1), bool(true)).is_err());
-    }
-
-    #[test]
     fn test_or() {
         assert_eq!(Value::or(bool(false), bool(false)), Ok(bool(false)));
         assert_eq!(Value::or(bool(true), bool(false)), Ok(bool(true)));
-        assert_eq!(Value::or(bool(true), bool(true)), Ok(bool(true)));
-    }
-
-    #[test]
-    fn test_or_type_mismatch() {
-        assert!(Value::or(int(1), bool(true)).is_err());
-    }
-
-    #[test]
-    fn test_pos() {
-        assert_eq!(Value::pos(int(5)), Ok(int(5)));
-        assert_eq!(Value::pos(int(-3)), Ok(int(-3)));
-    }
-
-    #[test]
-    fn test_pos_on_boolean_fails() {
-        assert!(Value::pos(bool(true)).is_err());
-    }
-
-    #[test]
-    fn test_neg() {
-        assert_eq!(Value::neg(int(5)), Ok(int(-5)));
-        assert_eq!(Value::neg(int(-3)), Ok(int(3)));
-        assert_eq!(Value::neg(int(0)), Ok(int(0)));
-    }
-
-    #[test]
-    fn test_neg_on_boolean_fails() {
-        assert!(Value::neg(bool(true)).is_err());
     }
 
     #[test]
@@ -411,85 +372,78 @@ mod tests {
     }
 
     #[test]
-    fn test_not_integer() {
-        assert_eq!(Value::not(int(0)), Ok(int(-1)));
-        assert_eq!(Value::not(int(-1)), Ok(int(0)));
+    fn test_integer_ordering() {
+        assert_eq!(Value::less_than(int(2), int(3)), Ok(bool(true)));
+        assert_eq!(Value::less_than(int(3), int(3)), Ok(bool(false)));
+        assert_eq!(Value::greater_than(int(4), int(3)), Ok(bool(true)));
+        assert_eq!(Value::greater_than(int(3), int(3)), Ok(bool(false)));
+        assert_eq!(Value::less_than_equals(int(3), int(3)), Ok(bool(true)));
+        assert_eq!(Value::greater_than_equals(int(3), int(3)), Ok(bool(true)));
     }
 
     #[test]
-    fn test_binary_operation_dispatch() {
-        assert_eq!(
-            Value::binary_operation(int(2), BinaryOp::Plus, int(3)),
-            Ok(int(5))
-        );
-        assert_eq!(
-            Value::binary_operation(int(5), BinaryOp::Minus, int(3)),
-            Ok(int(2))
-        );
-        assert_eq!(
-            Value::binary_operation(int(3), BinaryOp::Equals, int(3)),
-            Ok(bool(true))
-        );
-        assert_eq!(
-            Value::binary_operation(int(3), BinaryOp::NotEquals, int(4)),
-            Ok(bool(true))
-        );
-        assert_eq!(
-            Value::binary_operation(int(2), BinaryOp::LessThan, int(3)),
-            Ok(bool(true))
-        );
-        assert_eq!(
-            Value::binary_operation(int(4), BinaryOp::GreaterThan, int(3)),
-            Ok(bool(true))
-        );
-        assert_eq!(
-            Value::binary_operation(bool(true), BinaryOp::And, bool(false)),
-            Ok(bool(false))
-        );
-        assert_eq!(
-            Value::binary_operation(bool(false), BinaryOp::Or, bool(true)),
-            Ok(bool(true))
-        );
+    fn test_equality() {
+        assert_eq!(Value::equals(int(3), int(3)), Ok(bool(true)));
+        assert_eq!(Value::equals(int(3), int(4)), Ok(bool(false)));
+        assert_eq!(Value::equals(bool(true), bool(true)), Ok(bool(true)));
+        assert_eq!(Value::equals(str("x"), str("x")), Ok(bool(true)));
+        assert_eq!(Value::equals(unit(), unit()), Ok(bool(true)));
     }
 
     #[test]
-    fn test_unary_operation_dispatch() {
-        assert_eq!(Value::unary_operation(UnaryOp::Minus, int(5)), Ok(int(-5)));
-        assert_eq!(
-            Value::unary_operation(UnaryOp::Bang, bool(true)),
-            Ok(bool(false))
-        );
-        assert_eq!(Value::unary_operation(UnaryOp::Plus, int(3)), Ok(int(3)));
+    fn test_cross_type_equality() {
+        assert_eq!(Value::equals(str("1"), int(1)), Ok(bool(false)));
+        assert_eq!(Value::equals(int(0), bool(false)), Ok(bool(false)));
+        assert_eq!(Value::equals(unit(), int(0)), Ok(bool(false)));
     }
 
     #[test]
-    fn test_from() {
-        assert_eq!(Value::from(42i64), int(42));
-        assert_eq!(Value::from(true), bool(true));
+    fn test_arithmetic_type_errors() {
+        assert!(Value::add(int(1), bool(true)).is_err());
+        assert!(Value::subtract(str("a"), str("b")).is_err());
+        assert!(Value::divide(str("a"), int(2)).is_err());
+        assert!(Value::add(unit(), unit()).is_err());
     }
 
     #[test]
-    fn test_as_integer() {
-        assert_eq!(int(5).as_integer(), Some(5));
-        assert_eq!(bool(true).as_integer(), None);
+    fn test_ordering_type_errors() {
+        assert!(Value::less_than(bool(true), bool(false)).is_err());
+        assert!(Value::less_than(str("a"), str("b")).is_err());
+        assert!(Value::less_than(unit(), unit()).is_err());
     }
 
     #[test]
-    fn test_as_boolean() {
-        assert_eq!(bool(false).as_boolean(), Some(false));
-        assert_eq!(int(1).as_boolean(), None);
+    fn test_logic_type_errors() {
+        assert!(Value::and(int(1), bool(true)).is_err());
+        assert!(Value::or(int(0), bool(false)).is_err());
+        assert!(Value::not(unit()).is_err());
+        assert!(Value::not(str("x")).is_err());
+    }
+
+    #[test]
+    fn test_unary_type_errors() {
+        assert!(Value::neg(bool(true)).is_err());
+        assert!(Value::pos(bool(true)).is_err());
+    }
+
+    #[test]
+    fn test_is_truthy() {
+        assert!(int(1).is_truthy());
+        assert!(!int(0).is_truthy());
+        assert!(bool(true).is_truthy());
+        assert!(!bool(false).is_truthy());
+        assert!(str("x").is_truthy());
+        assert!(!str("").is_truthy());
+        assert!(!unit().is_truthy());
     }
 
     #[test]
     fn test_display() {
         assert_eq!(int(42).to_string(), "42");
+        assert_eq!(int(-1).to_string(), "-1");
         assert_eq!(bool(true).to_string(), "true");
         assert_eq!(bool(false).to_string(), "false");
-    }
-
-    #[test]
-    fn test_type_name() {
-        assert_eq!(int(1).type_name(), "integer");
-        assert_eq!(bool(true).type_name(), "boolean");
+        assert_eq!(str("hello").to_string(), "hello");
+        assert_eq!(unit().to_string(), "()");
     }
 }

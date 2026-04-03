@@ -125,6 +125,61 @@ impl Tokenizer {
             .map(|n| Spanned::wrap(Token::Int(n), span))
             .map_err(|_| Spanned::wrap(TokenizationError::InvalidIntegerLiteral(literal), span))
     }
+
+    /// Tokenizes a single line string literal.
+    fn next_string(&mut self) -> Result<Spanned<Token>> {
+        let opening = self.advance().unwrap();
+        let mut buf = String::new();
+        let mut last_span = opening.span;
+
+        loop {
+            let Some(c) = self.advance() else {
+                return Err(Spanned::wrap(
+                    TokenizationError::UnterminatedStringLiteral,
+                    Span::merge(opening.span, last_span),
+                ));
+            };
+
+            last_span = c.span;
+
+            match c.value {
+                '\n' => {
+                    return Err(Spanned::wrap(
+                        TokenizationError::UnterminatedStringLiteral,
+                        Span::merge(opening.span, last_span),
+                    ));
+                }
+                '\\' => {
+                    let Some(next) = self.advance() else {
+                        return Err(c.map(|_| TokenizationError::InvalidEscapeSequence("\\(EOF)")));
+                    };
+                    last_span = next.span;
+                    match next.value {
+                        'n' => buf.push('\n'),
+                        't' => buf.push('\t'),
+                        '\\' => buf.push('\\'),
+                        _ => {
+                            let span = Span::merge(c.span, next.span);
+                            return Err(Spanned::wrap(
+                                TokenizationError::InvalidEscapeSequence(span.text()),
+                                span,
+                            ));
+                        }
+                    }
+                }
+
+                ch if ch == opening.value => {
+                    let span = Span::merge(opening.span, last_span);
+                    return Ok(Spanned::wrap(
+                        Token::String(Box::leak(buf.into_boxed_str())),
+                        span,
+                    ));
+                }
+
+                ch => buf.push(ch),
+            }
+        }
+    }
 }
 
 impl Iterator for Tokenizer {
@@ -156,6 +211,8 @@ impl Iterator for Tokenizer {
             c if c.is_grouping() => Ok(self.next_grouping()),
 
             ';' => Ok(self.advance().unwrap().map(|_| Token::Semicolon)),
+
+            '\'' | '\"' => self.next_string(),
 
             _ => {
                 let span = self.advance_while(|c| !c.is_whitespace());
@@ -323,6 +380,103 @@ mod tests {
                 Token::Int(42),
             ]
         );
+    }
+
+    #[test]
+    fn test_string_basic() {
+        assert_eq!(tokens_ok(r#""hello""#), vec![Token::String("hello")]);
+    }
+
+    #[test]
+    fn test_string_single_quotes() {
+        assert_eq!(tokens_ok("'hello'"), vec![Token::String("hello")]);
+    }
+
+    #[test]
+    fn test_string_empty() {
+        assert_eq!(tokens_ok(r#""""#), vec![Token::String("")]);
+    }
+
+    #[test]
+    fn test_string_escape_newline() {
+        assert_eq!(tokens_ok(r#""\n""#), vec![Token::String("\n")]);
+    }
+
+    #[test]
+    fn test_string_escape_tab() {
+        assert_eq!(tokens_ok(r#""\t""#), vec![Token::String("\t")]);
+    }
+
+    #[test]
+    fn test_string_escape_backslash() {
+        assert_eq!(tokens_ok(r#""\\""#), vec![Token::String("\\")]);
+    }
+
+    #[test]
+    fn test_string_unterminated_eof() {
+        let results = tokenize(r#""hello"#);
+        assert!(matches!(
+            results[0].as_ref().unwrap_err().value,
+            TokenizationError::UnterminatedStringLiteral
+        ));
+    }
+
+    #[test]
+    fn test_string_unterminated_newline() {
+        let results = tokenize("\"hello\nworld\"");
+        assert!(matches!(
+            results[0].as_ref().unwrap_err().value,
+            TokenizationError::UnterminatedStringLiteral
+        ));
+    }
+
+    #[test]
+    fn test_string_invalid_escape() {
+        let results = tokenize(r#""\q""#);
+        assert!(matches!(
+            results[0].as_ref().unwrap_err().value,
+            TokenizationError::InvalidEscapeSequence(_)
+        ));
+    }
+
+    #[test]
+    fn test_string_escape_at_eof() {
+        let results = tokenize(r#""\"#);
+        assert!(matches!(
+            results[0].as_ref().unwrap_err().value,
+            TokenizationError::InvalidEscapeSequence("\\(EOF)")
+        ));
+    }
+
+    #[test]
+    fn test_string_span() {
+        let source = make_source(r#""hi""#);
+        let tokens: Vec<_> = Tokenizer::new(source).collect();
+        let t = tokens[0].as_ref().unwrap();
+        assert_eq!(t.span.start, 0);
+        assert_eq!(t.span.end, 4); // includes delimiters in span
+    }
+
+    #[test]
+    fn test_string_in_expression() {
+        assert_eq!(
+            tokens_ok(r#"foo + "bar""#),
+            vec![
+                Token::Symbol("foo"),
+                Token::Operator(OpKind::Plus),
+                Token::String("bar"),
+            ]
+        );
+    }
+
+    #[test]
+    fn test_string_mismatched_quotes() {
+        // "foo' should be unterminated since delimiters must match
+        let results = tokenize(r#""foo'"#);
+        assert!(matches!(
+            results[0].as_ref().unwrap_err().value,
+            TokenizationError::UnterminatedStringLiteral
+        ));
     }
 
     #[test]

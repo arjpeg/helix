@@ -50,6 +50,8 @@ pub enum Expression {
     Integer(i64),
     /// A boolean literal.
     Boolean(bool),
+    /// A string literal.
+    String(String),
 
     /// A reference to a variable.
     Variable {

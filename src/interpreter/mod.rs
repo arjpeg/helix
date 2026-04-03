@@ -114,6 +114,8 @@ impl Interpreter {
 
             Expression::Boolean(b) => Ok(Spanned::wrap(Value::Boolean(*b), span)),
 
+            Expression::String(s) => Ok(Spanned::wrap(Value::String(s.to_owned()), span)),
+
             Expression::Variable { symbol } => {
                 if let Some(value) = self.environment.borrow().search(symbol) {
                     Ok(Spanned::wrap(value, span))

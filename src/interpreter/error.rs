@@ -36,6 +36,9 @@ pub enum RuntimeError {
     #[error("attempted to divide by zero")]
     DivideByZero,
 
+    #[error("attempted to repeat a string a negative number of times")]
+    NegativeStringRepeat,
+
     #[error("variable binding `{symbol}` does not exist")]
     UnboundBinding {
         /// The symbol of the binding.

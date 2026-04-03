@@ -3,6 +3,8 @@
 pub enum Token {
     /// An integer literal.
     Int(i64),
+    /// A string literal.
+    String(&'static str),
     /// A keyword.
     Keyword(Keyword),
     /// An unknown symbol (usually represents a variable name).

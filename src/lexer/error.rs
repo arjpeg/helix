@@ -12,4 +12,8 @@ pub enum TokenizationError {
     UnknownSymbol(&'static str),
     #[error("encountered an invalid integer literal: `{0}`")]
     InvalidIntegerLiteral(&'static str),
+    #[error("encountered an unterminated string literal")]
+    UnterminatedStringLiteral,
+    #[error("encountered an invalid string escape sequence: `{0}`")]
+    InvalidEscapeSequence(&'static str),
 }
