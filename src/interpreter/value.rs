@@ -197,6 +197,7 @@ impl PartialOrd for Value {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         match (self, other) {
             (Self::Integer(a), Self::Integer(b)) => Some(a.cmp(b)),
+            (Self::String(a), Self::String(b)) => Some(a.cmp(b)),
             _ => None,
         }
     }
