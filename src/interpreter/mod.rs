@@ -12,7 +12,7 @@ use crate::{
 type Result<T, E = Spanned<RuntimeError>> = std::result::Result<T, E>;
 
 /// A lexical environment in which bindings exist.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, PartialEq)]
 struct Environment {
     /// The enclosing parent [Environment].
     parent: Option<Rc<RefCell<Environment>>>,
@@ -103,6 +103,16 @@ impl Interpreter {
 
                 self.environment = environment;
             }
+
+            Statement::While { predicate, body } => {
+                while self
+                    .expression(&predicate.value, predicate.span)?
+                    .value
+                    .is_truthy()
+                {
+                    let _ = self.expression(&body.value, body.span);
+                }
+            }
         };
 
         Ok(None)
@@ -183,12 +193,10 @@ impl Interpreter {
 
                 if predicate.is_truthy() {
                     self.expression(&body.value, body.span)
+                } else if let Some(else_clause) = else_clause {
+                    self.expression(&else_clause.value, else_clause.span)
                 } else {
-                    if let Some(else_clause) = else_clause {
-                        self.expression(&else_clause.value, else_clause.span)
-                    } else {
-                        Ok(Spanned::wrap(Value::Unit, span))
-                    }
+                    Ok(Spanned::wrap(Value::Unit, span))
                 }
             }
         }
@@ -199,7 +207,7 @@ impl Environment {
     /// Captures a parent [Environment], creating a new environment with no bindings set.
     pub fn enclose(parent: &Rc<RefCell<Self>>) -> Rc<RefCell<Self>> {
         Rc::new(RefCell::new(Environment {
-            parent: Some(Rc::clone(&parent)),
+            parent: Some(Rc::clone(parent)),
             bindings: HashMap::new(),
         }))
     }
@@ -210,8 +218,7 @@ impl Environment {
         self.bindings.get(symbol).cloned().or_else(|| {
             self.parent
                 .as_ref()
-                .map(|env| env.borrow().search(symbol))
-                .flatten()
+                .and_then(|env| env.borrow().search(symbol))
         })
     }
 
@@ -226,15 +233,6 @@ impl Environment {
             parent.borrow_mut().assign(symbol, value)
         } else {
             Err(RuntimeError::UnboundBinding { symbol })
-        }
-    }
-}
-
-impl Default for Environment {
-    fn default() -> Self {
-        Self {
-            parent: None,
-            bindings: HashMap::new(),
         }
     }
 }

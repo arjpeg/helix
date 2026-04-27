@@ -23,6 +23,14 @@ pub enum Statement {
     /// A statement that prints the result of the [`Expression`] to stdout.
     Print(Spanned<Expression>),
 
+    /// Runs the `body` of the loop while the `predicate` evaluates to a truthy value.
+    While {
+        /// The condition to check at the beginning of each iteration.
+        predicate: Spanned<Expression>,
+        /// The code to execute if the `predicate` was truthy.
+        body: Spanned<Expression>,
+    },
+
     /// A declaration of a variable binding.
     Declaration {
         /// The name of the binding to declare.

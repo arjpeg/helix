@@ -88,7 +88,7 @@ impl Value {
         match self {
             Value::Boolean(b) => *b,
             Value::Integer(n) => *n != 0,
-            Value::String(s) => s.len() != 0,
+            Value::String(s) => !s.is_empty(),
             Value::Unit => false,
         }
     }

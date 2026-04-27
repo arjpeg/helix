@@ -129,6 +129,8 @@ impl Parser {
 
             Some(Token::Keyword(Keyword::Assert)) => self.assert(),
 
+            Some(Token::Keyword(Keyword::While)) => self.r#while(),
+
             Some(_) => {
                 let expr = self.expr()?;
 
@@ -168,6 +170,26 @@ impl Parser {
         let span = Span::merge(keyword_span, semicolon_span);
 
         Ok(Spanned::wrap(Statement::Print(expr), span))
+    }
+
+    fn r#while(&mut self) -> StatementResult {
+        let keyword_span = self.consume()?.span;
+        let predicate = self.expr()?;
+
+        let opening = self.consume()?;
+        let body = self.block(opening)?;
+
+        let mut closing_span = body.span;
+
+        // allow tail semicolons, but don't require them
+        if self.peek() == Some(Token::Semicolon) {
+            closing_span = self.consume()?.span;
+        }
+
+        Ok(Spanned::wrap(
+            Statement::While { predicate, body },
+            Span::merge(keyword_span, closing_span),
+        ))
     }
 
     fn let_declaration(&mut self) -> StatementResult {

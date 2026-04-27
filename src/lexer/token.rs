@@ -93,6 +93,9 @@ pub enum Keyword {
     /// The 'else' keyword executes code if its corresponding if predicated evaluated to a non
     /// truthy value.
     Else,
+
+    /// The 'while' keyword repeatedly executes a body while some predicate is truthy.
+    While,
 }
 
 pub trait CharTokenExt {
@@ -172,6 +175,7 @@ impl TryFrom<&str> for Keyword {
             "assert" => Self::Assert,
             "if" => Self::If,
             "else" => Self::Else,
+            "while" => Self::While,
             _ => return Err(()),
         })
     }
