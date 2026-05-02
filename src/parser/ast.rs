@@ -4,7 +4,7 @@ use crate::{
 };
 
 /// A statement in the AST.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
     /// A complete helix program.
     Program {
@@ -62,7 +62,7 @@ pub enum Statement {
 }
 
 /// An expression in the AST.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Expression {
     /// An integer literal.
     Integer(i64),
@@ -119,6 +119,14 @@ pub enum Expression {
         body: Box<Spanned<Expression>>,
         /// The optional else clause to run if the `predicate` is false.
         else_clause: Option<Box<Spanned<Expression>>>,
+    },
+
+    /// A call to a function like value.
+    Call {
+        /// The operand being called.
+        operand: Box<Spanned<Expression>>,
+        /// The arguments being passed in.
+        arguments: Vec<Spanned<Expression>>,
     },
 }
 

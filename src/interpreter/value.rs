@@ -1,8 +1,9 @@
-use std::{cmp::Ordering, fmt};
+use std::{cell::RefCell, cmp::Ordering, fmt, rc::Rc};
 
 use crate::{
-    interpreter::error::RuntimeError,
-    parser::ast::{BinaryOp, UnaryOp},
+    interpreter::{Environment, error::RuntimeError},
+    parser::ast::{BinaryOp, Expression, UnaryOp},
+    source::Spanned,
 };
 
 /// A helix value in the living runtime.
@@ -14,6 +15,15 @@ pub enum Value {
     Boolean(bool),
     /// An immutable string.
     String(String),
+    /// A function defined from helix.
+    Function {
+        /// The parameters this function accepts.
+        parameters: Vec<Spanned<&'static str>>,
+        /// The code to call when calling this function.
+        body: Spanned<Expression>,
+        /// The environment this function captures during creation.
+        enclosing: Rc<RefCell<Environment>>,
+    },
     /// The unit type, ().
     Unit,
 }
@@ -73,6 +83,7 @@ impl Value {
             Value::Integer(_) => "integer",
             Value::Boolean(_) => "boolean",
             Value::String(_) => "string",
+            Value::Function { .. } => "fn",
             Value::Unit => "unit",
         }
     }
@@ -83,12 +94,14 @@ impl Value {
     /// * Value::Boolean(b) => returns b
     /// * Value::Integer(n) => returns false if n == 0, true else
     /// * Value::String(s) => returns false if len(s) == 0, true else
+    /// * Value::Function() => returns true
     /// * Value::Unit => returns false
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Boolean(b) => *b,
             Value::Integer(n) => *n != 0,
             Value::String(s) => !s.is_empty(),
+            Value::Function { .. } => true,
             Value::Unit => false,
         }
     }
@@ -270,6 +283,7 @@ impl fmt::Display for Value {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Boolean(b) => write!(f, "{b}"),
             Self::String(s) => write!(f, "{s}"),
+            Self::Function { .. } => write!(f, "fn"),
             Self::Unit => write!(f, "()"),
         }
     }

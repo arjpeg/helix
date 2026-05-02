@@ -13,7 +13,7 @@ type Result<T, E = Spanned<RuntimeError>> = std::result::Result<T, E>;
 
 /// A lexical environment in which bindings exist.
 #[derive(Default, Debug, Clone, PartialEq)]
-struct Environment {
+pub struct Environment {
     /// The enclosing parent [Environment].
     parent: Option<Rc<RefCell<Environment>>>,
     /// The variables bound in this enviroment.
@@ -113,6 +113,25 @@ impl Interpreter {
                     let _ = self.expression(&body.value, body.span);
                 }
             }
+
+            Statement::FunctionDeclaration {
+                symbol,
+                parameters,
+                body,
+            } => {
+                let environment = Environment::enclose(&self.environment);
+
+                environment.borrow_mut().bindings.insert(
+                    *symbol,
+                    Value::Function {
+                        parameters: parameters.clone(),
+                        body: body.clone(),
+                        enclosing: Rc::clone(&environment),
+                    },
+                );
+
+                self.environment = environment;
+            }
         };
 
         Ok(None)
@@ -198,6 +217,43 @@ impl Interpreter {
                 } else {
                     Ok(Spanned::wrap(Value::Unit, span))
                 }
+            }
+
+            Expression::Call { operand, arguments } => {
+                let parent = Rc::clone(&self.environment);
+
+                let Value::Function {
+                    parameters,
+                    body,
+                    enclosing,
+                } = self.expression(&operand.value, operand.span)?.value
+                else {
+                    todo!()
+                };
+
+                self.environment = Environment::enclose(&enclosing);
+
+                // define all parameters
+
+                if parameters.len() != arguments.len() {
+                    todo!()
+                }
+
+                for (parameter, argument) in parameters.iter().zip(arguments) {
+                    let argument = self.expression(&argument.value, argument.span)?.value;
+
+                    self.environment
+                        .borrow_mut()
+                        .bindings
+                        .insert(parameter.value, argument);
+                }
+
+                // TODO: add return statement
+                let result = self.expression(&body.value, body.span);
+
+                self.environment = parent;
+
+                result
             }
         }
     }

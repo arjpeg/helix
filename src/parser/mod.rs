@@ -99,12 +99,7 @@ impl Parser {
             stmts.push(statement);
         }
 
-        if self.peek() != Some(Token::Eof) {
-            return Err(self.consume()?.map(|t| ParsingError::UnexpectedToken {
-                expected: "the end of file",
-                found: t,
-            }));
-        }
+        let _ = self.expect(Token::Eof, "the end of file")?;
 
         let first = stmts
             .first()
@@ -131,6 +126,14 @@ impl Parser {
 
             Some(Token::Keyword(Keyword::While)) => self.r#while(),
 
+            // function definition statements must have a name associated with them, otherwise we
+            // treat them as anonymous function definition
+            Some(Token::Keyword(Keyword::Fn))
+                if matches!(self.peek_at(1), Some(Token::Symbol(_))) =>
+            {
+                self.fn_declaration()
+            }
+
             Some(_) => {
                 let expr = self.expr()?;
 
@@ -152,20 +155,9 @@ impl Parser {
     }
 
     fn print(&mut self) -> StatementResult {
-        let keyword_span = self.consume()?.span;
+        let keyword_span = self.expect(Token::Keyword(Keyword::Print), "'print'")?.span;
         let expr = self.expr()?;
-
-        if self.peek() != Some(Token::Semicolon) {
-            return Err(Spanned::wrap(
-                ParsingError::UnexpectedToken {
-                    expected: "a ';'",
-                    found: self.peek().unwrap(),
-                },
-                self.consume()?.span,
-            ));
-        };
-
-        let semicolon_span = self.consume()?.span;
+        let semicolon_span = self.expect(Token::Semicolon, "';'")?.span;
 
         let span = Span::merge(keyword_span, semicolon_span);
 
@@ -173,11 +165,10 @@ impl Parser {
     }
 
     fn r#while(&mut self) -> StatementResult {
-        let keyword_span = self.consume()?.span;
+        let keyword_span = self.expect(Token::Keyword(Keyword::While), "'while'")?.span;
         let predicate = self.expr()?;
 
-        let opening = self.consume()?;
-        let body = self.block(opening)?;
+        let body = self.block()?;
 
         let mut closing_span = body.span;
 
@@ -193,7 +184,7 @@ impl Parser {
     }
 
     fn let_declaration(&mut self) -> StatementResult {
-        let keyword_span = self.consume()?.span;
+        let keyword_span = self.expect(Token::Keyword(Keyword::Let), "'let'")?.span;
 
         let token = self.consume()?;
         let Token::Symbol(symbol) = token.value else {
@@ -203,27 +194,11 @@ impl Parser {
             }));
         };
 
-        if self.peek() != Some(Token::Operator(OpKind::Assign)) {
-            return Err(token.map(|t| ParsingError::UnexpectedToken {
-                expected: "'='",
-                found: t,
-            }));
-        }
-        self.consume()?;
+        self.expect(Token::Operator(OpKind::Assign), "'='")?;
 
         let expr = self.expr()?;
 
-        if self.peek() != Some(Token::Semicolon) {
-            return Err(Spanned::wrap(
-                ParsingError::UnexpectedToken {
-                    expected: "a ';'",
-                    found: self.peek().unwrap(),
-                },
-                self.consume()?.span,
-            ));
-        };
-
-        let semicolon_span = self.consume()?.span;
+        let semicolon_span = self.expect(Token::Semicolon, "';'")?.span;
 
         let span = Span::merge(keyword_span, semicolon_span);
 
@@ -236,13 +211,8 @@ impl Parser {
         ))
     }
 
-    fn fn_declaration(&mut self, keyword: Spanned<Token>) -> StatementResult {
-        let Token::Keyword(Keyword::Fn) = keyword.value else {
-            return Err(keyword.map(|t| ParsingError::UnexpectedToken {
-                expected: "'fn'",
-                found: t,
-            }));
-        };
+    fn fn_declaration(&mut self) -> StatementResult {
+        let keyword = self.expect(Token::Keyword(Keyword::Fn), "'fn'")?;
 
         let token = self.consume()?;
         let Token::Symbol(symbol) = token.value else {
@@ -252,10 +222,9 @@ impl Parser {
             }));
         };
 
-        let parameters = self.parameters()?;
+        let parameters = self.parameters()?.value;
 
-        let opening = self.consume()?;
-        let body = self.block(opening)?;
+        let body = self.block()?;
 
         let span = Span::merge(keyword.span, body.span);
 
@@ -270,20 +239,11 @@ impl Parser {
     }
 
     fn assert(&mut self) -> StatementResult {
-        let keyword_span = self.consume()?.span;
+        let keyword_span = self
+            .expect(Token::Keyword(Keyword::Assert), "'assert'")?
+            .span;
         let expr = self.expr()?;
-
-        if self.peek() != Some(Token::Semicolon) {
-            return Err(Spanned::wrap(
-                ParsingError::UnexpectedToken {
-                    expected: "a ';'",
-                    found: self.peek().unwrap(),
-                },
-                self.consume()?.span,
-            ));
-        };
-
-        let semicolon_span = self.consume()?.span;
+        let semicolon_span = self.expect(Token::Semicolon, "';'")?.span;
 
         let span = Span::merge(keyword_span, semicolon_span);
 
@@ -373,17 +333,32 @@ impl Parser {
                 span,
             ))
         } else {
-            self.atom()
+            self.call()
         }
     }
 
-    fn block(&mut self, opening: Spanned<Token>) -> ExprResult {
-        let Token::Grouping(Grouping::OpeningCurly) = opening.value else {
-            return Err(opening.map(|t| ParsingError::UnexpectedToken {
-                expected: "'{'",
-                found: t,
-            }));
-        };
+    fn call(&mut self) -> ExprResult {
+        let mut expr = self.atom()?;
+
+        while self.peek() == Some(Token::Grouping(Grouping::OpeningParen)) {
+            let arguments = self.arguments()?;
+
+            let span = Span::merge(expr.span, arguments.span);
+
+            expr = Spanned::wrap(
+                Expression::Call {
+                    operand: Box::new(expr),
+                    arguments: arguments.value,
+                },
+                span,
+            );
+        }
+
+        Ok(expr)
+    }
+
+    fn block(&mut self) -> ExprResult {
+        let opening = self.expect(Token::Grouping(Grouping::OpeningCurly), "'{'")?;
 
         let mut stmts = Vec::new();
         let mut tail = None;
@@ -406,32 +381,19 @@ impl Parser {
             stmts.push(statement);
         }
 
-        let closing = self.consume()?;
-
-        let Token::Grouping(Grouping::ClosingCurly) = closing.value else {
-            return Err(closing.map(|t| ParsingError::UnexpectedToken {
-                expected: "'}'",
-                found: t,
-            }));
-        };
+        let closing = self.expect(Token::Grouping(Grouping::ClosingCurly), "'}'")?;
 
         let span = Span::merge(opening.span, closing.span);
 
         Ok(Spanned::wrap(Expression::Block { stmts, tail }, span))
     }
 
-    fn if_expr(&mut self, if_token: Spanned<Token>) -> ExprResult {
-        let Token::Keyword(Keyword::If) = if_token.value else {
-            return Err(if_token.map(|t| ParsingError::UnexpectedToken {
-                expected: "to find 'if'",
-                found: t,
-            }));
-        };
+    fn if_expr(&mut self) -> ExprResult {
+        let if_token = self.expect(Token::Keyword(Keyword::If), "'if'")?;
 
         let predicate = Box::new(self.expr()?);
 
-        let opening = self.consume()?;
-        let body = Box::new(self.block(opening)?);
+        let body = Box::new(self.block()?);
 
         // check if we have an else clause
         if self.peek() == Some(Token::Keyword(Keyword::Else)) {
@@ -439,9 +401,7 @@ impl Parser {
 
             // does the else have another if?
             if self.peek() == Some(Token::Keyword(Keyword::If)) {
-                let else_if_token = self.consume()?;
-
-                let mut else_clause = self.if_expr(else_if_token)?;
+                let mut else_clause = self.if_expr()?;
                 else_clause.span = Span::merge(else_token.span, else_clause.span);
 
                 let span = Span::merge(if_token.span, else_clause.span);
@@ -457,8 +417,7 @@ impl Parser {
             }
 
             // parse a normal else body
-            let opening = self.consume()?;
-            let else_body = Box::new(self.block(opening)?);
+            let else_body = Box::new(self.block()?);
 
             let span = Span::merge(if_token.span, else_body.span);
 
@@ -516,9 +475,15 @@ impl Parser {
                 Spanned::wrap(expr.value, Span::merge(token.span, next.span))
             }
 
-            Token::Grouping(Grouping::OpeningCurly) => return self.block(token),
+            Token::Grouping(Grouping::OpeningCurly) => {
+                self.rewind();
+                return self.block();
+            }
 
-            Token::Keyword(Keyword::If) => return self.if_expr(token),
+            Token::Keyword(Keyword::If) => {
+                self.rewind();
+                return self.if_expr();
+            }
 
             found => {
                 return Err(Spanned::wrap(
@@ -556,24 +521,15 @@ impl Parser {
         self.tokens.get(self.cursor + n).cloned().map(|s| s.value)
     }
 
-    /// Parses a sequence of function parameters enclosed by '(' and ')' and delimeted by ','.
-    fn parameters(&mut self) -> Result<Vec<Spanned<&'static str>>, Spanned<ParsingError>> {
-        let opening = self.consume()?;
+    /// Rewinds the parser's cursor by one token.
+    fn rewind(&mut self) {
+        self.cursor = self.cursor.saturating_sub(1);
+    }
 
-        if opening.value != Token::Grouping(Grouping::OpeningParen) {
-            return Err(Spanned::wrap(
-                ParsingError::UnexpectedToken {
-                    expected: "'('",
-                    found: opening.value,
-                },
-                opening.span,
-            ));
-        }
-
-        let mut parameters = Vec::new();
-
-        while self.peek() != Some(Token::Grouping(Grouping::ClosingParen)) {
-            let token = self.consume()?;
+    /// Parses a sequence of function parameters.
+    fn parameters(&mut self) -> Result<Spanned<Vec<Spanned<&'static str>>>, Spanned<ParsingError>> {
+        self.parenthesized_list(|self_| {
+            let token = self_.consume()?;
 
             let Token::Symbol(parameter) = token.value else {
                 return Err(Spanned::wrap(
@@ -585,33 +541,53 @@ impl Parser {
                 ));
             };
 
-            parameters.push(Spanned::wrap(parameter, token.span));
+            Ok(token.map(|_| parameter))
+        })
+    }
 
-            if self.peek() == Some(Token::Grouping(Grouping::ClosingParen)) {
-                break;
-            }
+    /// Parses a sequence of function arguments.
+    fn arguments(&mut self) -> Result<Spanned<Vec<Spanned<Expression>>>, Spanned<ParsingError>> {
+        self.parenthesized_list(Self::expr)
+    }
 
-            if self.peek() != Some(Token::Comma) {
-                break;
-            }
+    /// Parses a sequence of parseable-items enclosed by '(' and ')' and delimeted by ','.
+    fn parenthesized_list<F, T>(
+        &mut self,
+        mut f: F,
+    ) -> Result<Spanned<Vec<T>>, Spanned<ParsingError>>
+    where
+        F: FnMut(&mut Self) -> Result<T, Spanned<ParsingError>>,
+    {
+        let opening = self.expect(Token::Grouping(Grouping::OpeningParen), "'('")?;
 
-            // advance past the comma
-            let _ = self.consume()?;
+        let mut result = Vec::new();
+
+        while self.peek() != Some(Token::Grouping(Grouping::ClosingParen)) {
+            result.push(f(self)?);
+
+            match self.peek() {
+                // advance past the comma
+                Some(Token::Comma) => {
+                    let _ = self.consume()?;
+                }
+
+                Some(Token::Grouping(Grouping::ClosingParen)) => break,
+
+                _ => {
+                    return Err(self.consume()?.map(|found| ParsingError::UnexpectedToken {
+                        expected: "')' or ','",
+                        found,
+                    }));
+                }
+            };
         }
 
-        let closing = self.consume()?;
+        let closing = self.expect(Token::Grouping(Grouping::ClosingParen), "')'")?;
 
-        if closing.value != Token::Grouping(Grouping::ClosingParen) {
-            return Err(Spanned::wrap(
-                ParsingError::UnexpectedToken {
-                    expected: "')'",
-                    found: closing.value,
-                },
-                closing.span,
-            ));
-        }
-
-        Ok(parameters)
+        Ok(Spanned::wrap(
+            result,
+            Span::merge(opening.span, closing.span),
+        ))
     }
 
     /// Builds a binary expression by repeatedly applying `f` while the next token matches the
@@ -642,6 +618,31 @@ impl Parser {
         }
 
         Ok(lhs)
+    }
+
+    /// Expects the next consumed token to match the provided token, returning an error if it
+    /// didn't.
+    fn expect(
+        &mut self,
+        expected: Token,
+        expected_label: &'static str,
+    ) -> Result<Spanned<Token>, Spanned<ParsingError>> {
+        let token = self.consume()?;
+
+        if token.value != expected {
+            return Err(Spanned::wrap(
+                match token.value {
+                    Token::Eof => ParsingError::UnexpectedEof,
+                    _ => ParsingError::UnexpectedToken {
+                        expected: expected_label,
+                        found: token.value,
+                    },
+                },
+                token.span,
+            ));
+        }
+
+        Ok(token)
     }
 }
 
