@@ -15,6 +15,8 @@ pub enum Token {
     Grouping(Grouping),
     /// A semicolon, marking the end of a statement.
     Semicolon,
+    /// A comma, delineating multiple items in a list.
+    Comma,
 
     /// The end of file (EOF).
     Eof,
@@ -96,6 +98,9 @@ pub enum Keyword {
 
     /// The 'while' keyword repeatedly executes a body while some predicate is truthy.
     While,
+
+    /// The 'fn' keyword begins a new function declaration.
+    Fn,
 }
 
 pub trait CharTokenExt {
@@ -176,6 +181,7 @@ impl TryFrom<&str> for Keyword {
             "if" => Self::If,
             "else" => Self::Else,
             "while" => Self::While,
+            "fn" => Self::Fn,
             _ => return Err(()),
         })
     }

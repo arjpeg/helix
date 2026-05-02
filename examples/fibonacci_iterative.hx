@@ -1,4 +1,4 @@
-let N = 50;
+let N = 10;
 
 let previous = 0;
 let last = 1;

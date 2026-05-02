@@ -39,6 +39,16 @@ pub enum Statement {
         value: Spanned<Expression>,
     },
 
+    /// A declaration of a function binding.
+    FunctionDeclaration {
+        /// The name of the binding to declare.
+        symbol: &'static str,
+        /// The parameters accepted.
+        parameters: Vec<Spanned<&'static str>>,
+        /// The body, or code to execute upon calling the function.
+        body: Spanned<Expression>,
+    },
+
     /// Asserts that the given [`Expression`] evaluates to `true`.
     Assert(Spanned<Expression>),
 

@@ -236,6 +236,39 @@ impl Parser {
         ))
     }
 
+    fn fn_declaration(&mut self, keyword: Spanned<Token>) -> StatementResult {
+        let Token::Keyword(Keyword::Fn) = keyword.value else {
+            return Err(keyword.map(|t| ParsingError::UnexpectedToken {
+                expected: "'fn'",
+                found: t,
+            }));
+        };
+
+        let token = self.consume()?;
+        let Token::Symbol(symbol) = token.value else {
+            return Err(token.map(|t| ParsingError::UnexpectedToken {
+                expected: "a binding name",
+                found: t,
+            }));
+        };
+
+        let parameters = self.parameters()?;
+
+        let opening = self.consume()?;
+        let body = self.block(opening)?;
+
+        let span = Span::merge(keyword.span, body.span);
+
+        Ok(Spanned::wrap(
+            Statement::FunctionDeclaration {
+                symbol,
+                parameters,
+                body,
+            },
+            span,
+        ))
+    }
+
     fn assert(&mut self) -> StatementResult {
         let keyword_span = self.consume()?.span;
         let expr = self.expr()?;
@@ -347,7 +380,7 @@ impl Parser {
     fn block(&mut self, opening: Spanned<Token>) -> ExprResult {
         let Token::Grouping(Grouping::OpeningCurly) = opening.value else {
             return Err(opening.map(|t| ParsingError::UnexpectedToken {
-                expected: "to find '{'",
+                expected: "'{'",
                 found: t,
             }));
         };
@@ -516,6 +549,69 @@ impl Parser {
     /// Peeks at the next token without advancing the cursor.
     fn peek(&mut self) -> Option<Token> {
         self.tokens.get(self.cursor).cloned().map(|s| s.value)
+    }
+
+    /// Peeks `n` tokens ahead of the cursor.
+    fn peek_at(&mut self, n: usize) -> Option<Token> {
+        self.tokens.get(self.cursor + n).cloned().map(|s| s.value)
+    }
+
+    /// Parses a sequence of function parameters enclosed by '(' and ')' and delimeted by ','.
+    fn parameters(&mut self) -> Result<Vec<Spanned<&'static str>>, Spanned<ParsingError>> {
+        let opening = self.consume()?;
+
+        if opening.value != Token::Grouping(Grouping::OpeningParen) {
+            return Err(Spanned::wrap(
+                ParsingError::UnexpectedToken {
+                    expected: "'('",
+                    found: opening.value,
+                },
+                opening.span,
+            ));
+        }
+
+        let mut parameters = Vec::new();
+
+        while self.peek() != Some(Token::Grouping(Grouping::ClosingParen)) {
+            let token = self.consume()?;
+
+            let Token::Symbol(parameter) = token.value else {
+                return Err(Spanned::wrap(
+                    ParsingError::UnexpectedToken {
+                        expected: "a parameter symbol",
+                        found: token.value,
+                    },
+                    token.span,
+                ));
+            };
+
+            parameters.push(Spanned::wrap(parameter, token.span));
+
+            if self.peek() == Some(Token::Grouping(Grouping::ClosingParen)) {
+                break;
+            }
+
+            if self.peek() != Some(Token::Comma) {
+                break;
+            }
+
+            // advance past the comma
+            let _ = self.consume()?;
+        }
+
+        let closing = self.consume()?;
+
+        if closing.value != Token::Grouping(Grouping::ClosingParen) {
+            return Err(Spanned::wrap(
+                ParsingError::UnexpectedToken {
+                    expected: "')'",
+                    found: closing.value,
+                },
+                closing.span,
+            ));
+        }
+
+        Ok(parameters)
     }
 
     /// Builds a binary expression by repeatedly applying `f` while the next token matches the

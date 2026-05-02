@@ -212,6 +212,8 @@ impl Iterator for Tokenizer {
 
             ';' => Ok(self.advance().unwrap().map(|_| Token::Semicolon)),
 
+            ',' => Ok(self.advance().unwrap().map(|_| Token::Comma)),
+
             '\'' | '\"' => self.next_string(),
 
             _ => {
