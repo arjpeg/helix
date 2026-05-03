@@ -98,9 +98,13 @@ pub enum Keyword {
 
     /// The 'while' keyword repeatedly executes a body while some predicate is truthy.
     While,
+    /// The 'break' keyword exits the innermost running loop.
+    Break,
 
-    /// The 'fn' keyword begins a new function declaration.
+    /// The 'fn' keyword begins a new function declaration if followed by a name, else begins a lambda expression.
     Fn,
+    /// The 'return' escapes from the current functions scope, returning a value to the caller.
+    Return,
 }
 
 pub trait CharTokenExt {
@@ -181,7 +185,9 @@ impl TryFrom<&str> for Keyword {
             "if" => Self::If,
             "else" => Self::Else,
             "while" => Self::While,
+            "break" => Self::Break,
             "fn" => Self::Fn,
+            "return" => Self::Return,
             _ => return Err(()),
         })
     }

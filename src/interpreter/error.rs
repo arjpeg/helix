@@ -5,6 +5,21 @@ use crate::{
     parser::ast::{BinaryOp, UnaryOp},
 };
 
+/// Control-flow signals that propagate up the call stack like errors,
+/// but are caught and handled by specific AST nodes rather than surfaced to the user.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Signal {
+    Break,
+    Return(Value),
+}
+
+/// Either a real error or a control-flow signal in flight.
+#[derive(Debug, Clone, PartialEq)]
+pub enum Interrupt {
+    Error(RuntimeError),
+    Signal(Signal),
+}
+
 /// An error that occured while running a program.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum RuntimeError {
@@ -61,6 +76,33 @@ pub enum RuntimeError {
         symbol: &'static str,
     },
 
-    #[error("assertion failed: expression evaluated to non-truthy type, `{0}`")]
+    #[error("assertion failed: expression evaluated to non-truthy value, `{0}`")]
     AssertionFailed(Value),
+
+    #[error("attempted to `break` outside a loop")]
+    Break,
+
+    #[error("attempted to `return` outside a function context")]
+    Return,
+}
+
+impl From<RuntimeError> for Interrupt {
+    fn from(value: RuntimeError) -> Self {
+        Self::Error(value)
+    }
+}
+
+impl From<Signal> for Interrupt {
+    fn from(value: Signal) -> Self {
+        Self::Signal(value)
+    }
+}
+
+impl From<Signal> for RuntimeError {
+    fn from(value: Signal) -> Self {
+        match value {
+            Signal::Break => Self::Break,
+            Signal::Return(_) => Self::Return,
+        }
+    }
 }

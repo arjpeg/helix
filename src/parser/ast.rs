@@ -35,6 +35,9 @@ pub enum Statement {
         body: Spanned<Expression>,
     },
 
+    /// Ends the iteration of the closest running loop.
+    Break,
+
     /// A declaration of a variable binding.
     Declaration {
         /// The name of the binding to declare.
@@ -51,6 +54,12 @@ pub enum Statement {
         parameters: Vec<Spanned<&'static str>>,
         /// The body, or code to execute upon calling the function.
         body: Spanned<Expression>,
+    },
+
+    /// Terminates execution of the current function, returning a value to the caller.
+    Return {
+        /// The value to return back, if any.
+        result: Option<Spanned<Expression>>,
     },
 
     /// Asserts that the given [`Expression`] evaluates to `true`.
@@ -205,7 +214,7 @@ impl TryFrom<Token> for BinaryOp {
         match value {
             Token::Operator(op) => Self::try_from(op),
             Token::Keyword(keyword) => Self::try_from(keyword),
-            _ => return Err(()),
+            _ => Err(()),
         }
     }
 }

@@ -126,6 +126,27 @@ impl Parser {
 
             Some(Token::Keyword(Keyword::While)) => self.r#while(),
 
+            Some(Token::Keyword(Keyword::Break)) => {
+                let statement = self.consume()?.map(|_| Statement::Break);
+                self.expect(Token::Semicolon, "';'")?;
+
+                Ok(statement)
+            }
+
+            Some(Token::Keyword(Keyword::Return)) => {
+                let keyword_span = self.consume()?.span;
+                let result = if self.peek() != Some(Token::Semicolon) {
+                    Some(self.expr()?)
+                } else {
+                    None
+                };
+
+                let semicolon_span = self.expect(Token::Semicolon, "';'")?.span;
+                let span = Span::merge(keyword_span, semicolon_span);
+
+                Ok(Spanned::wrap(Statement::Return { result }, span))
+            }
+
             // function definition statements must have a name associated with them, otherwise we
             // treat them as anonymous function definition
             Some(Token::Keyword(Keyword::Fn))

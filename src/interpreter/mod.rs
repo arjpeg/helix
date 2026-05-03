@@ -4,12 +4,15 @@ pub mod value;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
-    interpreter::{error::RuntimeError, value::Value},
+    interpreter::{
+        error::{Interrupt, RuntimeError, Signal},
+        value::Value,
+    },
     parser::ast::{Expression, Statement},
     source::{Span, Spanned},
 };
 
-type Result<T, E = Spanned<RuntimeError>> = std::result::Result<T, E>;
+type Result<T, E = Spanned<Interrupt>> = std::result::Result<T, E>;
 
 /// A lexical environment in which bindings exist.
 #[derive(Default, Debug, Clone, PartialEq)]
@@ -35,8 +38,16 @@ impl Interpreter {
     }
 
     /// Excecutes a source file, running it until completion.
-    pub fn execute(&mut self, tree: &Spanned<Statement>) -> Result<Option<Value>> {
-        self.statement(&tree.value, tree.span)
+    pub fn execute(
+        &mut self,
+        tree: &Spanned<Statement>,
+    ) -> Result<Option<Value>, Spanned<RuntimeError>> {
+        self.statement(&tree.value, tree.span).map_err(|interrupt| {
+            interrupt.map(|i| match i {
+                Interrupt::Error(e) => e,
+                Interrupt::Signal(s) => RuntimeError::from(s),
+            })
+        })
     }
 
     fn statement(&mut self, statement: &Statement, span: Span) -> Result<Option<Value>> {
@@ -84,7 +95,7 @@ impl Interpreter {
 
                 if !value.is_truthy() {
                     return Err(Spanned::wrap(
-                        RuntimeError::AssertionFailed(value),
+                        RuntimeError::AssertionFailed(value).into(),
                         expression.span,
                     ));
                 }
@@ -110,8 +121,18 @@ impl Interpreter {
                     .value
                     .is_truthy()
                 {
-                    let _ = self.expression(&body.value, body.span);
+                    if let Err(interrupt) = self.expression(&body.value, body.span) {
+                        if interrupt.value == Interrupt::Signal(Signal::Break) {
+                            break;
+                        }
+
+                        return Err(interrupt);
+                    }
                 }
+            }
+
+            Statement::Break => {
+                return Err(Spanned::wrap(Signal::Break.into(), span));
             }
 
             Statement::FunctionDeclaration {
@@ -133,6 +154,15 @@ impl Interpreter {
 
                 self.environment = environment;
             }
+
+            Statement::Return { result } => {
+                let result = match result {
+                    Some(expression) => self.expression(&expression.value, expression.span)?.value,
+                    None => Value::Unit,
+                };
+
+                return Err(Spanned::wrap(Signal::Return(result).into(), span));
+            }
         };
 
         Ok(None)
@@ -150,7 +180,10 @@ impl Interpreter {
                 if let Some(value) = self.environment.borrow().search(symbol) {
                     Ok(Spanned::wrap(value, span))
                 } else {
-                    Err(Spanned::wrap(RuntimeError::UnboundBinding { symbol }, span))
+                    Err(Spanned::wrap(
+                        RuntimeError::UnboundBinding { symbol }.into(),
+                        span,
+                    ))
                 }
             }
 
@@ -161,7 +194,7 @@ impl Interpreter {
                     .borrow_mut()
                     .assign(symbol.value, value.value.clone())
                     .map(|_| value)
-                    .map_err(|e| Spanned::wrap(e, symbol.span))
+                    .map_err(|e| Spanned::wrap(e.into(), symbol.span))
             }
 
             Expression::BinaryOperation { lhs, operator, rhs } => {
@@ -170,7 +203,7 @@ impl Interpreter {
 
                 Value::binary_operation(lhs_result.value, *operator, rhs_result.value)
                     .map(|value| Spanned::wrap(value, span))
-                    .map_err(|error| Spanned::wrap(error, span))
+                    .map_err(|error| Spanned::wrap(error.into(), span))
             }
 
             Expression::UnaryOperation { operator, operand } => {
@@ -178,7 +211,7 @@ impl Interpreter {
 
                 Value::unary_operation(*operator, operand)
                     .map(|value| Spanned::wrap(value, span))
-                    .map_err(|error| Spanned::wrap(error, span))
+                    .map_err(|error| Spanned::wrap(error.into(), span))
             }
 
             Expression::Block { stmts, tail } => {
@@ -252,7 +285,8 @@ impl Interpreter {
                     return Err(Spanned::wrap(
                         RuntimeError::NotCallable {
                             callee: callee.value,
-                        },
+                        }
+                        .into(),
                         callee.span,
                     ));
                 };
@@ -264,7 +298,8 @@ impl Interpreter {
                             name: name.unwrap_or("(anonymous)"),
                             expected: parameters.len(),
                             actual: arguments.len(),
-                        },
+                        }
+                        .into(),
                         callee.span,
                     ));
                 }
@@ -286,10 +321,24 @@ impl Interpreter {
                         .insert(parameter.value, argument);
                 }
 
-                // TODO: add return statement
                 let result = self.expression(&body.value, body.span);
-
                 self.environment = parent;
+
+                if let Err(interrupt) = result {
+                    if let Interrupt::Signal(Signal::Return(value)) = interrupt.value {
+                        return Ok(Spanned::wrap(value, span));
+                    }
+
+                    // convert other signals into errors to prevent stack escaping
+                    return Err(Spanned::wrap(
+                        match interrupt.value {
+                            Interrupt::Error(error) => error,
+                            Interrupt::Signal(signal) => RuntimeError::from(signal),
+                        }
+                        .into(),
+                        span,
+                    ));
+                }
 
                 result
             }
