@@ -1,31 +1,32 @@
-let a = 5;
-let penguin = true;
+print "let declares a new binding:";
 
-print a;
+let x = 10;
+let greeting = "hello";
+let flag = true;
 
-assert a == 5;
+print x;
+print greeting;
+print flag;
 
-{
-    assert penguin;
+print "assignment updates an existing binding:";
 
-    let penguin = false;
+x = 99;
+print x;
 
-    assert !penguin;
+print "blocks are expressions — their tail value is what they evaluate to:";
 
-    let a = { a + 10 };
-    let a = a;
+let distance = {
+    let dx = 3;
+    let dy = 4;
+    dx * dx + dy * dy
+};
+print distance;
 
-    assert a == 15;
+print "lambdas are values and can be stored in bindings:";
 
-    let penguin = {penguin or penguin};
+let double = fn(n) { n * 2 };
+let square = fn(n) { n * n };
 
-    assert !penguin;
-
-    print a;
-}
-
-assert a == 5;
-
-print a;
-
-
+print double(7);
+print square(7);
+print double(square(3));

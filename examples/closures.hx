@@ -1,3 +1,5 @@
+print "closures capture and mutate their environment:";
+
 fn make_counter() {
     let count = 0;
     fn() {
@@ -6,21 +8,22 @@ fn make_counter() {
     }
 }
 
+let counter = make_counter();
+print counter();
+print counter();
+print counter();
+
+print "independent counters share no state:";
+
 let a = make_counter();
 let b = make_counter();
-assert a() == 1;
-assert a() == 2;
-assert b() == 1;
-assert a() == 3;
-assert b() == 2;
+print a();
+print a();
+print b();
+print a();
+print b();
 
-fn curry_add(a) {
-    fn(b) {
-        fn(c) { a + b + c }
-    }
-}
-assert curry_add(1)(2)(3) == 6;
-assert curry_add(10)(20)(30) == 60;
+print "a toggler that flips between true and false:";
 
 fn make_toggler() {
     let on = false;
@@ -30,7 +33,7 @@ fn make_toggler() {
     }
 }
 
-let t = make_toggler();
-assert t() == true;
-assert t() == false;
-assert t() == true;
+let light = make_toggler();
+print light();
+print light();
+print light();

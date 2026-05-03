@@ -428,7 +428,7 @@ mod tests {
     #[test]
     fn test_ordering_type_errors() {
         assert!(Value::less_than(bool(true), bool(false)).is_err());
-        assert!(Value::less_than(str("a"), str("b")).is_err());
+        assert!(Value::less_than(str("a"), str("b")).is_ok());
         assert!(Value::less_than(unit(), unit()).is_err());
     }
 

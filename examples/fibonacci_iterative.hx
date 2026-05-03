@@ -1,17 +1,13 @@
-let N = 10;
+print "fibonacci sequence (iterative):";
 
-let previous = 0;
-let last = 1;
-
+let a = 0;
+let b = 1;
 let i = 0;
 
-while i < N {
-    print previous;
-
-    let temp = last;
-    last = previous + temp;
-    previous = temp;
-
+while i < 10 {
+    print a;
+    let next = a + b;
+    a = b;
+    b = next;
     i = i + 1;
 }
-
