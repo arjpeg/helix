@@ -6,13 +6,17 @@ use crate::{
 /// A statement in the AST.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Statement {
-    /// A complete helix program.
+    /// A complete helix program. Can only ever be created as the root node in an AST.
     Program {
         /// The list of statements to execute, in order.
         stmts: Vec<Spanned<Statement>>,
     },
 
     /// A [Statement::Program] that can optionally return a tail value.
+    ///
+    /// Can only ever be created as the root node in an AST, and is used to support
+    /// Read-Evaluate-Print-Loop (repl) sessions where users can execute fragments of complete
+    /// [`Statement::Program`]s.
     Repl {
         /// The list of statements to execute, in order.
         stmts: Vec<Spanned<Statement>>,
@@ -119,6 +123,14 @@ pub enum Expression {
         body: Box<Spanned<Expression>>,
         /// The optional else clause to run if the `predicate` is false.
         else_clause: Option<Box<Spanned<Expression>>>,
+    },
+
+    /// Creates a new function without a name, also called an anonymous function or a lambda.
+    Lambda {
+        /// The parameters accepted.
+        parameters: Vec<Spanned<&'static str>>,
+        /// The body, or code to execute upon calling the function.
+        body: Box<Spanned<Expression>>,
     },
 
     /// A call to a function like value.

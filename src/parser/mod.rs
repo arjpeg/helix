@@ -388,7 +388,7 @@ impl Parser {
         Ok(Spanned::wrap(Expression::Block { stmts, tail }, span))
     }
 
-    fn if_expr(&mut self) -> ExprResult {
+    fn r#if(&mut self) -> ExprResult {
         let if_token = self.expect(Token::Keyword(Keyword::If), "'if'")?;
 
         let predicate = Box::new(self.expr()?);
@@ -401,7 +401,7 @@ impl Parser {
 
             // does the else have another if?
             if self.peek() == Some(Token::Keyword(Keyword::If)) {
-                let mut else_clause = self.if_expr()?;
+                let mut else_clause = self.r#if()?;
                 else_clause.span = Span::merge(else_token.span, else_clause.span);
 
                 let span = Span::merge(if_token.span, else_clause.span);
@@ -482,7 +482,17 @@ impl Parser {
 
             Token::Keyword(Keyword::If) => {
                 self.rewind();
-                return self.if_expr();
+                return self.r#if();
+            }
+
+            // begin a lambda expression
+            Token::Keyword(Keyword::Fn) => {
+                let parameters = self.parameters()?.value;
+                let body = Box::new(self.expr()?);
+
+                let span = Span::merge(token.span, body.span);
+
+                Spanned::wrap(Expression::Lambda { parameters, body }, span)
             }
 
             found => {

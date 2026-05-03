@@ -220,6 +220,20 @@ impl Interpreter {
                 }
             }
 
+            Expression::Lambda { parameters, body } => {
+                let environment = Environment::enclose(&self.environment);
+
+                Ok(Spanned::wrap(
+                    Value::Function {
+                        name: None,
+                        parameters: parameters.clone(),
+                        body: (**body).clone(),
+                        enclosing: environment,
+                    },
+                    span,
+                ))
+            }
+
             Expression::Call {
                 callee: operand,
                 arguments,
@@ -243,8 +257,6 @@ impl Interpreter {
                     ));
                 };
 
-                self.environment = Environment::enclose(&enclosing);
-
                 // define all parameters
                 if parameters.len() != arguments.len() {
                     return Err(Spanned::wrap(
@@ -257,9 +269,17 @@ impl Interpreter {
                     ));
                 }
 
-                for (parameter, argument) in parameters.iter().zip(arguments) {
-                    let argument = self.expression(&argument.value, argument.span)?.value;
+                // evaluate arguments in the caller's environment
+                let mut evaluated = Vec::with_capacity(arguments.len());
 
+                for argument in arguments {
+                    evaluated.push(self.expression(&argument.value, argument.span)?.value);
+                }
+
+                // switch to the callee's environment
+                self.environment = Environment::enclose(&enclosing);
+
+                for (parameter, argument) in parameters.iter().zip(evaluated) {
                     self.environment
                         .borrow_mut()
                         .bindings
