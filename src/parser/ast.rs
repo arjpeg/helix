@@ -124,7 +124,7 @@ pub enum Expression {
     /// A call to a function like value.
     Call {
         /// The operand being called.
-        operand: Box<Spanned<Expression>>,
+        callee: Box<Spanned<Expression>>,
         /// The arguments being passed in.
         arguments: Vec<Spanned<Expression>>,
     },

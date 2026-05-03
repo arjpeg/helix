@@ -5,7 +5,7 @@ use crate::{
     parser::ast::{BinaryOp, UnaryOp},
 };
 
-/// An error that occured while running the program.
+/// An error that occured while running a program.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum RuntimeError {
     #[error(
@@ -31,6 +31,22 @@ pub enum RuntimeError {
         operator: UnaryOp,
         /// The value being operated on.
         operand: Value,
+    },
+
+    #[error("cannot call value of type: `{}`", callee.type_name())]
+    NotCallable {
+        /// The value attempted to being called.
+        callee: Value,
+    },
+
+    #[error("function `{name}` expects {expected} parameters, but received {actual} arguments")]
+    MismatchedArity {
+        /// The name of the function being called.
+        name: &'static str,
+        /// The expected number of parameters.
+        expected: usize,
+        /// The number of arguments actually passed in.
+        actual: usize,
     },
 
     #[error("attempted to divide by zero")]

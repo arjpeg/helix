@@ -17,6 +17,8 @@ pub enum Value {
     String(String),
     /// A function defined from helix.
     Function {
+        /// The name assigned to this function, or None if it is anonymous.
+        name: Option<&'static str>,
         /// The parameters this function accepts.
         parameters: Vec<Spanned<&'static str>>,
         /// The code to call when calling this function.
@@ -283,7 +285,10 @@ impl fmt::Display for Value {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Boolean(b) => write!(f, "{b}"),
             Self::String(s) => write!(f, "{s}"),
-            Self::Function { .. } => write!(f, "fn"),
+            Self::Function {
+                name: Some(symbol), ..
+            } => write!(f, "fn {symbol} {{ .. }}"),
+            Self::Function { .. } => write!(f, "fn {{ .. }}"),
             Self::Unit => write!(f, "()"),
         }
     }

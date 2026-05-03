@@ -127,6 +127,7 @@ impl Interpreter {
                         parameters: parameters.clone(),
                         body: body.clone(),
                         enclosing: Rc::clone(&environment),
+                        name: Some(*symbol),
                     },
                 );
 
@@ -219,24 +220,41 @@ impl Interpreter {
                 }
             }
 
-            Expression::Call { operand, arguments } => {
+            Expression::Call {
+                callee: operand,
+                arguments,
+            } => {
                 let parent = Rc::clone(&self.environment);
+
+                let callee = self.expression(&operand.value, operand.span)?;
 
                 let Value::Function {
                     parameters,
                     body,
                     enclosing,
-                } = self.expression(&operand.value, operand.span)?.value
+                    name,
+                } = callee.value
                 else {
-                    todo!()
+                    return Err(Spanned::wrap(
+                        RuntimeError::NotCallable {
+                            callee: callee.value,
+                        },
+                        callee.span,
+                    ));
                 };
 
                 self.environment = Environment::enclose(&enclosing);
 
                 // define all parameters
-
                 if parameters.len() != arguments.len() {
-                    todo!()
+                    return Err(Spanned::wrap(
+                        RuntimeError::MismatchedArity {
+                            name: name.unwrap_or("(anonymous)"),
+                            expected: parameters.len(),
+                            actual: arguments.len(),
+                        },
+                        callee.span,
+                    ));
                 }
 
                 for (parameter, argument) in parameters.iter().zip(arguments) {

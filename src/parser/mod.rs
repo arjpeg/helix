@@ -347,7 +347,7 @@ impl Parser {
 
             expr = Spanned::wrap(
                 Expression::Call {
-                    operand: Box::new(expr),
+                    callee: Box::new(expr),
                     arguments: arguments.value,
                 },
                 span,
