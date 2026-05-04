@@ -19,50 +19,66 @@ pub struct Parser {
     tokens: Vec<Spanned<Token>>,
     /// The current index of token to be parsed.
     cursor: usize,
+
+    /// A list of errors produced so far.
+    errors: Vec<Spanned<ParsingError>>,
 }
 
 impl Parser {
     /// Creates a new [`Parser`].
     pub fn new(tokens: Vec<Spanned<Token>>) -> Self {
-        Self { tokens, cursor: 0 }
+        Self {
+            tokens,
+            cursor: 0,
+            errors: Vec::new(),
+        }
     }
 
     /// Parses a full source file.
-    pub fn parse_source(&mut self) -> StatementResult {
+    pub fn parse_source(&mut self) -> Result<Spanned<Statement>, Vec<Spanned<ParsingError>>> {
         if self.peek() == Some(Token::Eof) {
             return Ok(Spanned::wrap(
                 Statement::Program { stmts: vec![] },
-                self.consume()?.span,
+                self.consume().unwrap().span,
             ));
         }
 
         let mut stmts = Vec::new();
 
         while self.peek() != Some(Token::Eof) {
-            let statement = self.statement()?;
+            let result = self.statement();
 
-            // require semicolons to end all (non block) expression statements in a program
-            if let Statement::Expression {
-                expr,
-                has_semicolon,
-            } = &statement.value
-            {
-                let is_block = matches!(expr, Expression::Block { .. });
+            match result {
+                Ok(statement) => {
+                    // require semicolons to end all (non block) expression statements in a program
+                    if let Statement::Expression {
+                        expr,
+                        has_semicolon,
+                    } = &statement.value
+                    {
+                        let is_block = matches!(expr, Expression::Block { .. });
 
-                if !has_semicolon && !is_block {
-                    let token = self.consume()?;
+                        if !has_semicolon && !is_block {
+                            if let Err(e) = self.expect(Token::Semicolon, "';'") {
+                                self.errors.push(e);
+                                self.synchronize();
+                            }
+                        }
+                    }
 
-                    return Err(Spanned::wrap(
-                        ParsingError::UnexpectedToken {
-                            expected: "a ';'",
-                            found: token.value,
-                        },
-                        token.span,
-                    ));
+                    stmts.push(statement);
+                }
+
+                // try and synchronize back to a valid start
+                Err(error) => {
+                    self.errors.push(error);
+                    self.synchronize();
                 }
             }
+        }
 
-            stmts.push(statement);
+        if !self.errors.is_empty() {
+            return Err(std::mem::take(&mut self.errors));
         }
 
         let span = Span::merge(stmts.first().unwrap().span, stmts.last().unwrap().span);
@@ -114,6 +130,40 @@ impl Parser {
         let span = Span::merge(first, last);
 
         Ok(Spanned::wrap(Statement::Repl { stmts, tail }, span))
+    }
+
+    /// Synchronizes the parser back to a valid starting point after an error.
+    fn synchronize(&mut self) {
+        while let Some(token) = self.peek() {
+            match token {
+                // semicolons always delineate the end of a statement, so we should continue from
+                // there
+                Token::Semicolon
+                | Token::Grouping(Grouping::ClosingParen | Grouping::ClosingCurly) => {
+                    let _ = self.consume();
+                    return;
+                }
+
+                // restart at the next statement
+                Token::Keyword(
+                    Keyword::Let
+                    | Keyword::Fn
+                    | Keyword::Return
+                    | Keyword::While
+                    | Keyword::Break
+                    | Keyword::Assert,
+                ) => {
+                    return;
+                }
+
+                // stop at EOF
+                Token::Eof => return,
+
+                _ => {
+                    let _ = self.consume();
+                }
+            }
+        }
     }
 
     fn statement(&mut self) -> StatementResult {
@@ -388,18 +438,27 @@ impl Parser {
         while let Some(token) = self.peek()
             && !matches!(token, Token::Grouping(Grouping::ClosingCurly) | Token::Eof)
         {
-            let statement = self.statement()?;
+            let result = self.statement();
 
-            if let Statement::Expression {
-                expr,
-                has_semicolon: false,
-            } = statement.value
-            {
-                tail = Some(Box::new(Spanned::wrap(expr, statement.span)));
-                break;
+            match result {
+                Ok(statement) => {
+                    if let Statement::Expression {
+                        expr,
+                        has_semicolon: false,
+                    } = statement.value
+                    {
+                        tail = Some(Box::new(Spanned::wrap(expr, statement.span)));
+                        break;
+                    }
+
+                    stmts.push(statement);
+                }
+
+                Err(error) => {
+                    self.errors.push(error);
+                    self.synchronize();
+                }
             }
-
-            stmts.push(statement);
         }
 
         let closing = self.expect(Token::Grouping(Grouping::ClosingCurly), "'}'")?;

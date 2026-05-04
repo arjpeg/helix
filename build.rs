@@ -9,7 +9,7 @@ fn run(path: &str, src: &str, expect_error: bool) {
         path: Box::leak(Path::new(path).to_path_buf().into_boxed_path()),
     };
 
-    let result = engine.register_program(source).and_then(|_| engine.execute(source));
+    let result = engine.register_program(source).and_then(|_| engine.execute(source).map_err(|e| vec![e]));
     if expect_error {
         assert!(result.is_err(), \"expected program to error but it succeeded\");
     } else {

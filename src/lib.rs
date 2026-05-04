@@ -1,5 +1,7 @@
 use std::collections::HashMap;
 
+use itertools::{Either, Itertools};
+
 use crate::{
     error::Error,
     interpreter::{Interpreter, value::Value},
@@ -31,9 +33,14 @@ impl Engine {
     }
 
     /// Parses a [Source] file as a complete helix program, making it ready for evaluation.
-    pub fn register_program(&mut self, source: Source) -> Result<Source, Spanned<Error>> {
-        let tokens = Tokenizer::new(source).collect::<Result<Vec<_>, _>>()?;
-        let ast = Parser::new(tokens).parse_source()?;
+    pub fn register_program(&mut self, source: Source) -> Result<Source, Vec<Spanned<Error>>> {
+        let tokens = collect_errors(Tokenizer::new(source))?;
+        let ast = Parser::new(tokens).parse_source().map_err(|errors| {
+            errors
+                .into_iter()
+                .map(|e| e.into())
+                .collect::<Vec<Spanned<Error>>>()
+        })?;
 
         self.asts.insert(source, ast);
 
@@ -41,9 +48,11 @@ impl Engine {
     }
 
     /// Parses a [Source] file as a REPL input, making it ready for evaluation.
-    pub fn register_repl(&mut self, source: Source) -> Result<Source, Spanned<Error>> {
-        let tokens = Tokenizer::new(source).collect::<Result<Vec<_>, _>>()?;
-        let ast = Parser::new(tokens).parse_repl()?;
+    pub fn register_repl(&mut self, source: Source) -> Result<Source, Vec<Spanned<Error>>> {
+        let tokens = collect_errors(Tokenizer::new(source))?;
+        let ast = Parser::new(tokens)
+            .parse_repl()
+            .map_err(|e| vec![e.into()])?;
 
         self.asts.insert(source, ast);
 
@@ -57,14 +66,14 @@ impl Engine {
     }
 }
 
-/// Parses a [`Source`] as a complete program, returning the corresponding AST.
-pub fn parse_program(source: Source) -> Result<Spanned<Statement>, Spanned<Error>> {
-    let tokens = Tokenizer::new(source).collect::<Result<Vec<_>, _>>()?;
-    Ok(Parser::new(tokens).parse_source()?)
-}
+/// Seperates an `Iterator<Item = Result<T, E>> into Result<Vec<T>, Vec<Error>>`
+fn collect_errors<T, E: Into<Spanned<Error>>>(
+    iter: impl Iterator<Item = Result<T, E>>,
+) -> Result<Vec<T>, Vec<Spanned<Error>>> {
+    let (oks, errs): (Vec<_>, Vec<_>) = iter.into_iter().partition_map(|r| match r {
+        Ok(t) => Either::Left(t),
+        Err(e) => Either::Right(e.into()),
+    });
 
-/// Parses a [`Source`] as a repl input, returning the corresponding AST.
-pub fn parse_repl(source: Source) -> Result<Spanned<Statement>, Spanned<Error>> {
-    let tokens = Tokenizer::new(source).collect::<Result<Vec<_>, _>>()?;
-    Ok(Parser::new(tokens).parse_repl()?)
+    if errs.is_empty() { Ok(oks) } else { Err(errs) }
 }

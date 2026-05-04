@@ -29,8 +29,10 @@ fn main() {
                 path: Box::leak(path.into_boxed_path()),
             };
 
-            if let Err(e) = engine.register_program(source) {
-                error::print_error(e);
+            if let Err(errors) = engine.register_program(source) {
+                for error in errors {
+                    error::print_error(error);
+                }
                 return;
             }
 
@@ -65,9 +67,11 @@ fn repl() {
             path: Path::new("<repl>"),
         };
 
-        if let Err(e) = engine.register_repl(source) {
-            error::print_error(e);
-            continue;
+        if let Err(errors) = engine.register_program(source) {
+            for error in errors {
+                error::print_error(error);
+            }
+            return;
         }
 
         match engine.execute(source) {
