@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::lexer::token::Token;
 
-/// An error that occured during the parsing process.
+/// An error that occurred during the parsing process.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum ParsingError {
     #[error("unexpectedly reached the end of file")]

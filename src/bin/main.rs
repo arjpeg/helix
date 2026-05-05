@@ -67,7 +67,7 @@ fn repl() {
             path: Path::new("<repl>"),
         };
 
-        if let Err(errors) = engine.register_program(source) {
+        if let Err(errors) = engine.register_repl(source) {
             for error in errors {
                 error::print_error(error);
             }

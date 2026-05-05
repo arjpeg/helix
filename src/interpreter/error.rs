@@ -20,7 +20,7 @@ pub enum Interrupt {
     Signal(Signal),
 }
 
-/// An error that occured while running a program.
+/// An error that occurred while running a program.
 #[derive(Debug, Clone, PartialEq, Error)]
 pub enum RuntimeError {
     #[error(

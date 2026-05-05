@@ -65,7 +65,7 @@ impl<T> Spanned<T> {
         Self { value, span }
     }
 
-    /// Maps the the current value while maintaining the same [`Span`].
+    /// Maps the current value while maintaining the same [`Span`].
     pub fn map<V>(self, f: impl FnOnce(T) -> V) -> Spanned<V> {
         Spanned {
             value: f(self.value),

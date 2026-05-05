@@ -13,7 +13,7 @@ use crate::{
 
 /// Converts source code into a stream of [`Token`]s.
 pub struct Tokenizer {
-    /// The source code being tokeinzed.
+    /// The source code being tokenized.
     source: Source,
     /// The current byte position within the `source`.
     cursor: usize,

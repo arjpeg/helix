@@ -602,12 +602,12 @@ impl Parser {
     }
 
     /// Peeks at the next token without advancing the cursor.
-    fn peek(&mut self) -> Option<Token> {
+    fn peek(&self) -> Option<Token> {
         self.tokens.get(self.cursor).cloned().map(|s| s.value)
     }
 
     /// Peeks `n` tokens ahead of the cursor.
-    fn peek_at(&mut self, n: usize) -> Option<Token> {
+    fn peek_at(&self, n: usize) -> Option<Token> {
         self.tokens.get(self.cursor + n).cloned().map(|s| s.value)
     }
 

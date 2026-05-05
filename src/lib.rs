@@ -59,14 +59,14 @@ impl Engine {
         Ok(source)
     }
 
-    /// Executes an input [Source], blocking until completetion.
+    /// Executes an input [Source], blocking until completion.
     /// Panics if the [Source] was not already registered.
     pub fn execute(&mut self, source: Source) -> Result<Option<Value>, Spanned<Error>> {
         Ok(self.interpreter.execute(self.asts.get(&source).unwrap())?)
     }
 }
 
-/// Seperates an `Iterator<Item = Result<T, E>> into Result<Vec<T>, Vec<Error>>`
+/// Separates an `Iterator<Item = Result<T, E>> into Result<Vec<T>, Vec<Error>>`
 fn collect_errors<T, E: Into<Spanned<Error>>>(
     iter: impl Iterator<Item = Result<T, E>>,
 ) -> Result<Vec<T>, Vec<Spanned<Error>>> {

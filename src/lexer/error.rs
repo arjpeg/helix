@@ -2,7 +2,7 @@ use thiserror::Error;
 
 use crate::source::Spanned;
 
-/// A type alias for the result of an operation that occured during tokenization.
+/// A type alias for the result of an operation that occurred during tokenization.
 pub type Result<T, E = Spanned<TokenizationError>> = std::result::Result<T, E>;
 
 /// An error that occured during the tokenization process.

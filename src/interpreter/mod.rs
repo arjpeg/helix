@@ -19,7 +19,7 @@ type Result<T, E = Spanned<Interrupt>> = std::result::Result<T, E>;
 pub struct Environment {
     /// The enclosing parent [Environment].
     parent: Option<Rc<RefCell<Environment>>>,
-    /// The variables bound in this enviroment.
+    /// The variables bound in this environment.
     bindings: HashMap<&'static str, Value>,
 }
 
@@ -37,7 +37,7 @@ impl Interpreter {
         }
     }
 
-    /// Excecutes a source file, running it until completion.
+    /// Executes a source file, running it until completion.
     pub fn execute(
         &mut self,
         tree: &Spanned<Statement>,
