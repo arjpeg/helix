@@ -555,6 +555,19 @@ impl Parser {
                 Spanned::wrap(expr.value, Span::merge(token.span, next.span))
             }
 
+            Token::Grouping(Grouping::OpeningBracket) => {
+                self.rewind();
+
+                self.comma_delimeted_list(
+                    Self::expr,
+                    Token::Grouping(Grouping::OpeningBracket),
+                    "'[' to begin a list",
+                    Token::Grouping(Grouping::ClosingBracket),
+                    "']' to end a list",
+                )?
+                .map(|elements| Expression::List { elements })
+            }
+
             Token::Grouping(Grouping::OpeningCurly) => {
                 self.rewind();
                 return self.block();
@@ -618,41 +631,57 @@ impl Parser {
 
     /// Parses a sequence of function parameters.
     fn parameters(&mut self) -> Result<Spanned<Vec<Spanned<&'static str>>>, Spanned<ParsingError>> {
-        self.parenthesized_list(|self_| {
-            let token = self_.consume()?;
+        self.comma_delimeted_list(
+            |self_| {
+                let token = self_.consume()?;
 
-            let Token::Symbol(parameter) = token.value else {
-                return Err(Spanned::wrap(
-                    ParsingError::UnexpectedToken {
-                        expected: "a parameter symbol",
-                        found: token.value,
-                    },
-                    token.span,
-                ));
-            };
+                let Token::Symbol(parameter) = token.value else {
+                    return Err(Spanned::wrap(
+                        ParsingError::UnexpectedToken {
+                            expected: "a parameter symbol",
+                            found: token.value,
+                        },
+                        token.span,
+                    ));
+                };
 
-            Ok(token.map(|_| parameter))
-        })
+                Ok(token.map(|_| parameter))
+            },
+            Token::Grouping(Grouping::OpeningParen),
+            "'(' to begin function parameter list",
+            Token::Grouping(Grouping::ClosingParen),
+            "')' to end function parameter list",
+        )
     }
 
     /// Parses a sequence of function arguments.
     fn arguments(&mut self) -> Result<Spanned<Vec<Spanned<Expression>>>, Spanned<ParsingError>> {
-        self.parenthesized_list(Self::expr)
+        self.comma_delimeted_list(
+            Self::expr,
+            Token::Grouping(Grouping::OpeningParen),
+            "'(' to begin argument list",
+            Token::Grouping(Grouping::ClosingParen),
+            "')' to end argument list",
+        )
     }
 
-    /// Parses a sequence of parseable-items enclosed by '(' and ')' and delimeted by ','.
-    fn parenthesized_list<F, T>(
+    /// Parses a sequence of parseable-items enclosed by `opening` and `closing` and delimeted by ','.
+    fn comma_delimeted_list<F, T>(
         &mut self,
         mut f: F,
+        opening: Token,
+        opening_label: &'static str,
+        closing: Token,
+        closing_label: &'static str,
     ) -> Result<Spanned<Vec<T>>, Spanned<ParsingError>>
     where
         F: FnMut(&mut Self) -> Result<T, Spanned<ParsingError>>,
     {
-        let opening = self.expect(Token::Grouping(Grouping::OpeningParen), "'('")?;
+        let opening = self.expect(opening, opening_label)?;
 
         let mut result = Vec::new();
 
-        while self.peek() != Some(Token::Grouping(Grouping::ClosingParen)) {
+        while self.peek() != Some(closing) {
             result.push(f(self)?);
 
             match self.peek() {
@@ -661,18 +690,18 @@ impl Parser {
                     let _ = self.consume()?;
                 }
 
-                Some(Token::Grouping(Grouping::ClosingParen)) => break,
+                Some(t) if t == closing => break,
 
                 _ => {
                     return Err(self.consume()?.map(|found| ParsingError::UnexpectedToken {
-                        expected: "')' or ','",
+                        expected: format!("{closing} or ','").leak(),
                         found,
                     }));
                 }
             };
         }
 
-        let closing = self.expect(Token::Grouping(Grouping::ClosingParen), "')'")?;
+        let closing = self.expect(closing, closing_label)?;
 
         Ok(Spanned::wrap(
             result,

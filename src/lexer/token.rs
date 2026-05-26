@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 /// The smallest lexical unit in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Token {
@@ -66,6 +68,10 @@ pub enum Grouping {
     OpeningCurly,
     /// A '}' curly bracket.
     ClosingCurly,
+    /// A '[' square bracket.
+    OpeningBracket,
+    /// A ']' square bracket.
+    ClosingBracket,
 }
 
 /// Any reserved keyword in the source code.
@@ -120,7 +126,7 @@ impl CharTokenExt for char {
     }
 
     fn is_grouping(&self) -> bool {
-        matches!(self, '(' | ')' | '{' | '}')
+        matches!(self, '(' | ')' | '{' | '}' | '[' | ']')
     }
 }
 
@@ -165,6 +171,8 @@ impl TryFrom<char> for Grouping {
             ')' => Self::ClosingParen,
             '{' => Self::OpeningCurly,
             '}' => Self::ClosingCurly,
+            '[' => Self::OpeningBracket,
+            ']' => Self::ClosingBracket,
             _ => return Err(()),
         })
     }
@@ -208,5 +216,85 @@ impl From<OpKind> for Token {
 impl From<Grouping> for Token {
     fn from(value: Grouping) -> Self {
         Self::Grouping(value)
+    }
+}
+
+impl Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Int(i) => write!(f, "{i}"),
+            Token::String(s) => write!(f, "{s}"),
+            Token::Keyword(keyword) => write!(f, "{keyword}"),
+            Token::Symbol(s) => write!(f, "{s}"),
+            Token::Operator(operator) => write!(f, "{operator}"),
+            Token::Grouping(grouping) => write!(f, "{grouping}"),
+            Token::Semicolon => write!(f, ";"),
+            Token::Comma => write!(f, ","),
+            Token::Eof => write!(f, "EOF"),
+        }
+    }
+}
+
+impl Display for Keyword {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Keyword::And => "and",
+                Keyword::Or => "or",
+                Keyword::True => "true",
+                Keyword::False => "false",
+                Keyword::Print => "print",
+                Keyword::Let => "let",
+                Keyword::Assert => "assert",
+                Keyword::If => "if",
+                Keyword::Else => "else",
+                Keyword::While => "while",
+                Keyword::Break => "break",
+                Keyword::Fn => "fn",
+                Keyword::Return => "return",
+            }
+        )
+    }
+}
+
+impl Display for OpKind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Plus => "+",
+                Self::Minus => "-",
+                Self::Star => "*",
+                Self::Slash => "/",
+                Self::Bang => "!",
+                Self::Assign => "=",
+                Self::NotEquals => "!=",
+                Self::Equals => "==",
+                Self::GreaterThan => ">",
+                Self::GreaterThanEquals => ">=",
+                Self::LessThan => "<",
+                Self::LessThanEquals => "<=",
+            }
+        )
+    }
+}
+
+impl Display for Grouping {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::OpeningParen => "(",
+                Self::ClosingParen => ")",
+                Self::OpeningCurly => "{",
+                Self::ClosingCurly => "}",
+                Self::OpeningBracket => "[",
+                Self::ClosingBracket => "]",
+            }
+        )
     }
 }

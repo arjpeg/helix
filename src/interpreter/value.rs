@@ -1,9 +1,12 @@
 use std::{cell::RefCell, cmp::Ordering, fmt, rc::Rc};
 
 use crate::{
-    interpreter::{Environment, error::RuntimeError},
+    interpreter::{
+        Environment, Interpreter,
+        error::{Interrupt, RuntimeError, Signal},
+    },
     parser::ast::{BinaryOp, Expression, UnaryOp},
-    source::Spanned,
+    source::{Span, Spanned},
 };
 
 /// A helix value in the living runtime.
@@ -15,19 +18,31 @@ pub enum Value {
     Boolean(bool),
     /// An immutable string.
     String(String),
+    /// A mutable collection of ordered items, also known as an array list or vector.
+    List(Rc<RefCell<Vec<Value>>>),
+
     /// A function defined from helix.
-    Function {
-        /// The name assigned to this function, or None if it is anonymous.
-        name: Option<&'static str>,
-        /// The parameters this function accepts.
-        parameters: Vec<Spanned<&'static str>>,
-        /// The code to call when calling this function.
-        body: Spanned<Expression>,
-        /// The environment this function captures during creation.
-        enclosing: Rc<RefCell<Environment>>,
-    },
+    Closure(Rc<Closure>),
+    /// A function defined from rust that can be called in helix.
+    NativeFunction(NativeFn),
+
     /// The unit type, ().
     Unit,
+}
+
+pub type NativeFn = fn(Vec<Value>) -> Result<Value, RuntimeError>;
+
+/// A user-defined function that captures its enclosing environment at the point of creation.
+#[derive(Debug, PartialEq, Clone)]
+pub struct Closure {
+    /// The name assigned to this closure, or `None` if it is anonymous.
+    pub name: Option<&'static str>,
+    /// The parameters this closure accepts.
+    pub parameters: Vec<Spanned<&'static str>>,
+    /// The code to call when calling this closure.
+    pub body: Spanned<Expression>,
+    /// The environment this closure captured during creation.
+    pub enclosing: Rc<RefCell<Environment>>,
 }
 
 impl Value {
@@ -63,19 +78,28 @@ impl Value {
         }
     }
 
-    /// Attempts to extract the [`Value`] as an integer, returning the underlying u64.
-    pub fn as_integer(&self) -> Option<i64> {
-        match self {
-            Self::Integer(n) => Some(*n),
-            _ => None,
-        }
-    }
+    /// Attempts to call a [`Value`] as a callable object.
+    pub fn call(
+        callee: Spanned<Self>,
+        interpreter: &mut Interpreter,
+        arguments: Vec<Spanned<Expression>>,
+        call_expr_span: Span,
+    ) -> Result<Spanned<Self>, Spanned<Interrupt>> {
+        match callee.value {
+            Self::Closure(closure) => Ok(Closure::call(
+                Spanned::wrap((*closure).clone(), callee.span),
+                interpreter,
+                arguments,
+                call_expr_span,
+            )?),
 
-    /// Attempts to extract the [`Value`] as a boolean.
-    pub fn as_boolean(&self) -> Option<bool> {
-        match self {
-            Self::Boolean(b) => Some(*b),
-            _ => None,
+            _ => Err(Spanned::wrap(
+                RuntimeError::NotCallable {
+                    callee: callee.value,
+                }
+                .into(),
+                callee.span,
+            )),
         }
     }
 
@@ -85,7 +109,8 @@ impl Value {
             Value::Integer(_) => "integer",
             Value::Boolean(_) => "boolean",
             Value::String(_) => "string",
-            Value::Function { .. } => "fn",
+            Value::Closure(_) | Value::NativeFunction(_) => "fn",
+            Value::List(_) => "list",
             Value::Unit => "unit",
         }
     }
@@ -96,14 +121,16 @@ impl Value {
     /// * Value::Boolean(b) => returns b
     /// * Value::Integer(n) => returns false if n == 0, true else
     /// * Value::String(s) => returns false if len(s) == 0, true else
-    /// * Value::Function() => returns true
+    /// * Value::Closure | Value::NativeFunction { .. } => returns true
+    /// * Value::List(l) => return size(l) > 0
     /// * Value::Unit => returns false
     pub fn is_truthy(&self) -> bool {
         match self {
             Value::Boolean(b) => *b,
             Value::Integer(n) => *n != 0,
             Value::String(s) => !s.is_empty(),
-            Value::Function { .. } => true,
+            Value::Closure(_) | Value::NativeFunction(_) => true,
+            Value::List(elements) => elements.borrow().len() > 0,
             Value::Unit => false,
         }
     }
@@ -261,6 +288,80 @@ impl Value {
     }
 }
 
+impl Closure {
+    pub fn call(
+        closure: Spanned<Self>,
+        interpreter: &mut Interpreter,
+        arguments: Vec<Spanned<Expression>>,
+        call_expr_span: Span,
+    ) -> Result<Spanned<Value>, Spanned<Interrupt>> {
+        let Closure {
+            name,
+            parameters,
+            body,
+            enclosing,
+        } = closure.value;
+
+        // define all parameters
+        if parameters.len() != arguments.len() {
+            return Err(Spanned::wrap(
+                RuntimeError::MismatchedArity {
+                    name: name.unwrap_or("(anonymous)"),
+                    expected: parameters.len(),
+                    actual: arguments.len(),
+                }
+                .into(),
+                closure.span,
+            ));
+        }
+
+        let parent = Rc::clone(&interpreter.environment);
+
+        // evaluate arguments in the caller's environment
+        let mut evaluated = Vec::with_capacity(arguments.len());
+
+        for argument in arguments {
+            evaluated.push(
+                interpreter
+                    .expression(&argument.value, argument.span)?
+                    .value,
+            );
+        }
+
+        // switch to the callee's environment
+        interpreter.environment = Environment::enclose(&enclosing);
+
+        for (parameter, argument) in parameters.iter().zip(evaluated) {
+            interpreter
+                .environment
+                .borrow_mut()
+                .bindings
+                .insert(parameter.value, argument);
+        }
+
+        let result = interpreter.expression(&body.value, body.span);
+        interpreter.environment = parent;
+
+        if let Err(interrupt) = result {
+            if let Interrupt::Signal(Signal::Return(value)) = interrupt.value {
+                return Ok(Spanned::wrap(value, call_expr_span));
+            }
+
+            // convert other signals into errors to prevent stack escaping
+            return Err(Spanned::wrap(
+                match interrupt.value {
+                    Interrupt::Error(error) => error,
+                    Interrupt::Signal(signal) => RuntimeError::from(signal),
+                }
+                .into(),
+                call_expr_span,
+            ));
+        }
+
+        result
+    }
+}
+
 impl From<i64> for Value {
     fn from(value: i64) -> Self {
         Self::Integer(value)
@@ -285,10 +386,15 @@ impl fmt::Display for Value {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Boolean(b) => write!(f, "{b}"),
             Self::String(s) => write!(f, "{s}"),
-            Self::Function {
-                name: Some(symbol), ..
-            } => write!(f, "fn {symbol} {{ .. }}"),
-            Self::Function { .. } => write!(f, "fn {{ .. }}"),
+            Self::Closure(c) => match c.name {
+                Some(name) => write!(f, "fn {name} {{ .. }}"),
+                None => write!(f, "fn {{ .. }}"),
+            },
+            Self::NativeFunction { .. } => write!(f, "native fn {{ .. }}"),
+            Self::List(elements) => {
+                let len = elements.borrow().len();
+                write!(f, "[{} item{}]", len, if len == 1 { "" } else { "s" })
+            }
             Self::Unit => write!(f, "()"),
         }
     }

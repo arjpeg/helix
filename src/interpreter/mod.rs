@@ -6,7 +6,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     interpreter::{
         error::{Interrupt, RuntimeError, Signal},
-        value::Value,
+        value::{Closure, Value},
     },
     parser::ast::{Expression, Statement},
     source::{Span, Spanned},
@@ -50,7 +50,7 @@ impl Interpreter {
         })
     }
 
-    fn statement(&mut self, statement: &Statement, span: Span) -> Result<Option<Value>> {
+    pub(crate) fn statement(&mut self, statement: &Statement, span: Span) -> Result<Option<Value>> {
         match statement {
             Statement::Program { stmts } => {
                 for Spanned {
@@ -144,12 +144,12 @@ impl Interpreter {
 
                 environment.borrow_mut().bindings.insert(
                     *symbol,
-                    Value::Function {
+                    Value::Closure(Rc::new(Closure {
                         parameters: parameters.clone(),
                         body: body.clone(),
                         enclosing: Rc::clone(&environment),
                         name: Some(*symbol),
-                    },
+                    })),
                 );
 
                 self.environment = environment;
@@ -168,7 +168,11 @@ impl Interpreter {
         Ok(None)
     }
 
-    fn expression(&mut self, expression: &Expression, span: Span) -> Result<Spanned<Value>> {
+    pub(crate) fn expression(
+        &mut self,
+        expression: &Expression,
+        span: Span,
+    ) -> Result<Spanned<Value>> {
         match expression {
             Expression::Integer(n) => Ok(Spanned::wrap(Value::Integer(*n), span)),
 
@@ -257,90 +261,33 @@ impl Interpreter {
                 let environment = Environment::enclose(&self.environment);
 
                 Ok(Spanned::wrap(
-                    Value::Function {
+                    Value::Closure(Rc::new(Closure {
                         name: None,
                         parameters: parameters.clone(),
                         body: (**body).clone(),
                         enclosing: environment,
-                    },
+                    })),
                     span,
                 ))
             }
 
-            Expression::Call {
-                callee: operand,
-                arguments,
-            } => {
-                let parent = Rc::clone(&self.environment);
+            Expression::Call { callee, arguments } => Value::call(
+                self.expression(&callee.value, callee.span)?,
+                self,
+                arguments.clone(),
+                span,
+            ),
 
-                let callee = self.expression(&operand.value, operand.span)?;
+            Expression::List { elements } => {
+                let elements = elements
+                    .iter()
+                    .map(|e| self.expression(&e.value, e.span).map(|expr| expr.value))
+                    .collect::<Result<Vec<_>, _>>()?;
 
-                let Value::Function {
-                    parameters,
-                    body,
-                    enclosing,
-                    name,
-                } = callee.value
-                else {
-                    return Err(Spanned::wrap(
-                        RuntimeError::NotCallable {
-                            callee: callee.value,
-                        }
-                        .into(),
-                        callee.span,
-                    ));
-                };
-
-                // define all parameters
-                if parameters.len() != arguments.len() {
-                    return Err(Spanned::wrap(
-                        RuntimeError::MismatchedArity {
-                            name: name.unwrap_or("(anonymous)"),
-                            expected: parameters.len(),
-                            actual: arguments.len(),
-                        }
-                        .into(),
-                        callee.span,
-                    ));
-                }
-
-                // evaluate arguments in the caller's environment
-                let mut evaluated = Vec::with_capacity(arguments.len());
-
-                for argument in arguments {
-                    evaluated.push(self.expression(&argument.value, argument.span)?.value);
-                }
-
-                // switch to the callee's environment
-                self.environment = Environment::enclose(&enclosing);
-
-                for (parameter, argument) in parameters.iter().zip(evaluated) {
-                    self.environment
-                        .borrow_mut()
-                        .bindings
-                        .insert(parameter.value, argument);
-                }
-
-                let result = self.expression(&body.value, body.span);
-                self.environment = parent;
-
-                if let Err(interrupt) = result {
-                    if let Interrupt::Signal(Signal::Return(value)) = interrupt.value {
-                        return Ok(Spanned::wrap(value, span));
-                    }
-
-                    // convert other signals into errors to prevent stack escaping
-                    return Err(Spanned::wrap(
-                        match interrupt.value {
-                            Interrupt::Error(error) => error,
-                            Interrupt::Signal(signal) => RuntimeError::from(signal),
-                        }
-                        .into(),
-                        span,
-                    ));
-                }
-
-                result
+                Ok(Spanned::wrap(
+                    Value::List(Rc::new(RefCell::new(elements))),
+                    span,
+                ))
             }
         }
     }

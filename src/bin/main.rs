@@ -71,7 +71,8 @@ fn repl() {
             for error in errors {
                 error::print_error(error);
             }
-            return;
+
+            continue;
         }
 
         match engine.execute(source) {

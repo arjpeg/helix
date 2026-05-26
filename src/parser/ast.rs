@@ -116,6 +116,12 @@ pub enum Expression {
         operand: Box<Spanned<Expression>>,
     },
 
+    /// A group of expressions representing a list, delimted by a pair of '[' and ']'.
+    List {
+        /// The ordered collection of expressions held within.
+        elements: Vec<Spanned<Expression>>,
+    },
+
     /// A grouping of statements, delimited by a pair of '{' and '}'.
     Block {
         /// The list of statements to execute, in order.
