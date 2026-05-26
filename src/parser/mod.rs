@@ -340,7 +340,7 @@ impl Parser {
         };
 
         // advance past the '='
-        let _ = self.consume()?;
+        self.consume()?;
 
         let value = self.expr()?;
 
@@ -349,7 +349,7 @@ impl Parser {
         Ok(Spanned::wrap(
             Expression::Assignment {
                 target: Spanned::wrap(target, lhs_span),
-                expr: Box::new(value),
+                value: Box::new(value),
             },
             span,
         ))
@@ -430,7 +430,8 @@ impl Parser {
 
                 Some(Token::Grouping(Grouping::OpeningBracket)) => {
                     // skip past first '['
-                    let _ = self.consume()?;
+                    self.consume()?;
+
                     let index = self.expr()?;
                     let ending_span = self
                         .expect(Token::Grouping(Grouping::ClosingBracket), "']'")?

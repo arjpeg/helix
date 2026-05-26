@@ -1,4 +1,5 @@
 pub mod error;
+mod stdlib;
 pub mod value;
 
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
@@ -6,7 +7,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     interpreter::{
         error::{Interrupt, RuntimeError, Signal},
-        value::{Closure, NativeFn, Value},
+        value::{Closure, Value},
     },
     parser::ast::{Expression, LValue, Statement},
     source::{Span, Spanned},
@@ -33,7 +34,7 @@ pub struct Interpreter {
 impl Interpreter {
     pub fn new() -> Self {
         Self {
-            environment: Rc::new(RefCell::new(Environment::default())),
+            environment: Rc::new(RefCell::new(Environment::with_stdlib())),
         }
     }
 
@@ -191,11 +192,14 @@ impl Interpreter {
                 }
             }
 
-            Expression::Assignment { target, expr } => {
+            Expression::Assignment {
+                target,
+                value: expr,
+            } => {
                 let value = self.expression(&expr.value, expr.span)?;
 
                 match &target.value {
-                    LValue::Symbol(symbol) => self
+                    LValue::Variable(symbol) => self
                         .environment
                         .borrow_mut()
                         .assign(symbol, value.value.clone())
@@ -345,73 +349,12 @@ impl Environment {
     }
 }
 
-impl Default for Environment {
-    fn default() -> Self {
-        // all the default registered native functions
-        let time = NativeFn {
-            name: "time",
-            arity: Some(0),
-            function: Rc::new(|_| {
-                use std::time::{SystemTime, UNIX_EPOCH};
-
-                Ok(Value::Integer(
-                    SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_secs() as _,
-                ))
-            }),
-        };
-
-        let len = NativeFn {
-            name: "len",
-            arity: Some(1),
-            function: Rc::new(|params| match &params[0].value {
-                Value::List(l) => Ok(Value::Integer(l.borrow().len() as _)),
-                Value::String(s) => Ok(Value::Integer(s.len() as _)),
-                _ => Err(Spanned::wrap(
-                    RuntimeError::TypeError {
-                        name: "len",
-                        expected: "string or list",
-                        actual: params[0].value.type_name(),
-                    },
-                    params[0].span,
-                )),
-            }),
-        };
-
-        let push = NativeFn {
-            name: "push",
-            arity: Some(2),
-            function: Rc::new(|mut params| {
-                let value = params.pop().unwrap().value;
-
-                let Value::List(list) = &params[0].value else {
-                    return Err(Spanned::wrap(
-                        RuntimeError::TypeError {
-                            name: "push",
-                            expected: "list",
-                            actual: params[0].value.type_name(),
-                        },
-                        params[0].span,
-                    ));
-                };
-
-                list.borrow_mut().push(value);
-
-                Ok(Value::Unit)
-            }),
-        };
-
-        let bindings = HashMap::from_iter([
-            ("time", Value::NativeFunction(time)),
-            ("len", Value::NativeFunction(len)),
-            ("push", Value::NativeFunction(push)),
-        ]);
-
+impl Environment {
+    /// Returns a new [`Environment`] with the stdlib included.
+    pub fn with_stdlib() -> Self {
         Self {
             parent: None,
-            bindings,
+            bindings: stdlib::register(),
         }
     }
 }

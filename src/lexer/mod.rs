@@ -186,7 +186,15 @@ impl Iterator for Tokenizer {
     type Item = Result<Spanned<Token>>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.skip_whitespace();
+        loop {
+            self.skip_whitespace();
+
+            if self.peek() == Some('#') {
+                self.advance_while(|c| *c != '\n');
+            } else {
+                break;
+            }
+        }
 
         if self.eof_emitted {
             return None;

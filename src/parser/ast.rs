@@ -94,8 +94,8 @@ pub enum Expression {
     Assignment {
         /// The target of the assignment.
         target: Spanned<LValue>,
-        /// The value to assign, also known as the "r-value".
-        expr: Box<Spanned<Expression>>,
+        /// The value to assign to the `target`, also known as the `r-value`.
+        value: Box<Spanned<Expression>>,
     },
 
     /// A (infix) binary operation between two other [`Expression`]s.
@@ -169,7 +169,7 @@ pub enum Expression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LValue {
     /// A direct binding to a variable.
-    Symbol(&'static str),
+    Variable(&'static str),
     /// An assignment to an indexed value.
     Index {
         /// The target value being indexed.
@@ -283,7 +283,7 @@ impl TryFrom<Expression> for LValue {
 
     fn try_from(value: Expression) -> Result<Self, Self::Error> {
         Ok(match value {
-            Expression::Variable { symbol } => Self::Symbol(symbol),
+            Expression::Variable { symbol } => Self::Variable(symbol),
             Expression::Index { base, index } => Self::Index { base, index },
 
             _ => return Err(()),

@@ -68,6 +68,14 @@ pub enum RuntimeError {
         index: Value,
     },
 
+    #[error("index `{index}` is out of bounds for collection of size `{size}`")]
+    IndexOutOfBounds {
+        /// The index attempted to be accessed.
+        index: Value,
+        /// The size of the collection.
+        size: Value,
+    },
+
     #[error("cannot call value of type: `{}`", callee.type_name())]
     NotCallable {
         /// The value attempted to being called.

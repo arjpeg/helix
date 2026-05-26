@@ -133,17 +133,30 @@ impl Value {
         match base.value {
             // TODO: consider adding string indexing?
             Self::List(list) => {
+                let index_span = index.span;
+
                 let Value::Integer(index) = index.value else {
                     return Err(Spanned::wrap(
                         RuntimeError::InvalidIndex {
                             base: Value::List(list),
                             index: index.value,
                         },
-                        index.span,
+                        index_span,
                     ));
                 };
 
                 let list = list.borrow();
+
+                if index > list.len() as _ {
+                    return Err(Spanned::wrap(
+                        RuntimeError::IndexOutOfBounds {
+                            index: Value::Integer(index),
+                            size: Value::Integer(list.len() as _),
+                        },
+                        index_span,
+                    ));
+                }
+
                 let index = index.rem_euclid(list.len() as _) as usize;
 
                 Ok(list[index].clone())
@@ -167,17 +180,30 @@ impl Value {
     ) -> Result<(), Spanned<RuntimeError>> {
         match base.value {
             Self::List(list) => {
+                let index_span = index.span;
+
                 let Value::Integer(index) = index.value else {
                     return Err(Spanned::wrap(
                         RuntimeError::InvalidIndex {
                             base: Value::List(list),
                             index: index.value,
                         },
-                        index.span,
+                        index_span,
                     ));
                 };
 
                 let mut list = list.borrow_mut();
+
+                if index > list.len() as _ {
+                    return Err(Spanned::wrap(
+                        RuntimeError::IndexOutOfBounds {
+                            index: Value::Integer(index),
+                            size: Value::Integer(list.len() as _),
+                        },
+                        index_span,
+                    ));
+                }
+
                 let index = index.rem_euclid(list.len() as _) as usize;
 
                 list[index] = value;
@@ -486,9 +512,7 @@ impl Debug for NativeFn {
 
 impl PartialEq for NativeFn {
     fn eq(&self, other: &Self) -> bool {
-        self.name == other.name
-            && self.arity == other.arity
-            && Rc::ptr_eq(&self.function, &other.function)
+        Rc::ptr_eq(&self.function, &other.function)
     }
 }
 
