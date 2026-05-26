@@ -4,7 +4,7 @@ pub mod error;
 use crate::{
     lexer::token::{Grouping, Keyword, OpKind, Token},
     parser::{
-        ast::{BinaryOp, Expression, Statement, UnaryOp},
+        ast::{BinaryOp, Expression, LValue, Statement, UnaryOp},
         error::ParsingError,
     },
     source::{Span, Spanned},
@@ -328,31 +328,31 @@ impl Parser {
     fn assignment(&mut self) -> ExprResult {
         let expr = self.or()?;
 
-        // check if this is an assignment expression
-        if self.peek() == Some(Token::Operator(OpKind::Assign)) {
-            // try to convert the expr into a valid l-value
-            let Expression::Variable { symbol } = expr.value else {
-                return Err(expr.map(|_| ParsingError::InvalidAssignmentLhs))?;
-            };
-
-            let lhs_span = expr.span;
-
-            self.consume()?;
-
-            let value = self.expr()?;
-
-            let span = Span::merge(lhs_span, value.span);
-
-            return Ok(Spanned::wrap(
-                Expression::Assignment {
-                    symbol: Spanned::wrap(symbol, lhs_span),
-                    expr: Box::new(value),
-                },
-                span,
-            ));
+        // early return if we aren't actually parsing an assignment expression
+        if self.peek() != Some(Token::Operator(OpKind::Assign)) {
+            return Ok(expr);
         }
 
-        Ok(expr)
+        let lhs_span = expr.span;
+
+        let Ok(target) = LValue::try_from(expr.value) else {
+            return Err(Spanned::wrap(ParsingError::InvalidAssignmentLhs, lhs_span));
+        };
+
+        // advance past the '='
+        let _ = self.consume()?;
+
+        let value = self.expr()?;
+
+        let span = Span::merge(lhs_span, value.span);
+
+        Ok(Spanned::wrap(
+            Expression::Assignment {
+                target: Spanned::wrap(target, lhs_span),
+                expr: Box::new(value),
+            },
+            span,
+        ))
     }
 
     fn or(&mut self) -> ExprResult {
@@ -404,25 +404,51 @@ impl Parser {
                 span,
             ))
         } else {
-            self.call()
+            self.postfix()
         }
     }
 
-    fn call(&mut self) -> ExprResult {
+    /// Handles all postfix operations (function calls, and indexing).
+    fn postfix(&mut self) -> ExprResult {
         let mut expr = self.atom()?;
 
-        while self.peek() == Some(Token::Grouping(Grouping::OpeningParen)) {
-            let arguments = self.arguments()?;
+        loop {
+            match self.peek() {
+                Some(Token::Grouping(Grouping::OpeningParen)) => {
+                    let arguments = self.arguments()?;
 
-            let span = Span::merge(expr.span, arguments.span);
+                    let span = Span::merge(expr.span, arguments.span);
 
-            expr = Spanned::wrap(
-                Expression::Call {
-                    callee: Box::new(expr),
-                    arguments: arguments.value,
-                },
-                span,
-            );
+                    expr = Spanned::wrap(
+                        Expression::Call {
+                            callee: Box::new(expr),
+                            arguments: arguments.value,
+                        },
+                        span,
+                    );
+                }
+
+                Some(Token::Grouping(Grouping::OpeningBracket)) => {
+                    // skip past first '['
+                    let _ = self.consume()?;
+                    let index = self.expr()?;
+                    let ending_span = self
+                        .expect(Token::Grouping(Grouping::ClosingBracket), "']'")?
+                        .span;
+
+                    let span = Span::merge(expr.span, ending_span);
+
+                    expr = Spanned::wrap(
+                        Expression::Index {
+                            base: Box::new(expr),
+                            index: Box::new(index),
+                        },
+                        span,
+                    );
+                }
+
+                _ => break,
+            }
         }
 
         Ok(expr)

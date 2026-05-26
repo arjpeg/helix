@@ -128,6 +128,72 @@ impl Value {
         }
     }
 
+    /// Attempts to retrieve a value by indexing into a [`Value`].
+    pub fn index(base: Spanned<Self>, index: Spanned<Self>) -> Result<Self, Spanned<RuntimeError>> {
+        match base.value {
+            // TODO: consider adding string indexing?
+            Self::List(list) => {
+                let Value::Integer(index) = index.value else {
+                    return Err(Spanned::wrap(
+                        RuntimeError::InvalidIndex {
+                            base: Value::List(list),
+                            index: index.value,
+                        },
+                        index.span,
+                    ));
+                };
+
+                let list = list.borrow();
+                let index = index.rem_euclid(list.len() as _) as usize;
+
+                Ok(list[index].clone())
+            }
+
+            _ => {
+                return Err(Spanned::wrap(
+                    RuntimeError::InvalidIndexBase { base: base.value },
+                    base.span,
+                ));
+            }
+        }
+    }
+
+    /// Attempts to modify a [`Value`] by assigning the value at the given index to the given
+    /// value.
+    pub fn index_mut(
+        base: Spanned<Self>,
+        index: Spanned<Self>,
+        value: Self,
+    ) -> Result<(), Spanned<RuntimeError>> {
+        match base.value {
+            Self::List(list) => {
+                let Value::Integer(index) = index.value else {
+                    return Err(Spanned::wrap(
+                        RuntimeError::InvalidIndex {
+                            base: Value::List(list),
+                            index: index.value,
+                        },
+                        index.span,
+                    ));
+                };
+
+                let mut list = list.borrow_mut();
+                let index = index.rem_euclid(list.len() as _) as usize;
+
+                list[index] = value;
+            }
+
+            _ => {
+                return Err(Spanned::wrap(
+                    RuntimeError::InvalidIndexBase { base: base.value },
+                    base.span,
+                ));
+            }
+        };
+
+        Ok(())
+    }
+
     /// Returns the canonical type name of this [`Value`].
     pub fn type_name(&self) -> &'static str {
         match self {

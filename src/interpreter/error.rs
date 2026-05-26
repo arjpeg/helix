@@ -48,6 +48,26 @@ pub enum RuntimeError {
         operand: Value,
     },
 
+    #[error(
+        "cannot index into value of type: `{}`",
+        base.type_name()
+    )]
+    InvalidIndexBase {
+        /// The value being indexed into.
+        base: Value,
+    },
+
+    #[error(
+        "cannot index into value of type: `{}` with the value `{index}`",
+        base.type_name()
+    )]
+    InvalidIndex {
+        /// The value being indexed into.
+        base: Value,
+        /// The index attempted to be used.
+        index: Value,
+    },
+
     #[error("cannot call value of type: `{}`", callee.type_name())]
     NotCallable {
         /// The value attempted to being called.

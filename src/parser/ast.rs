@@ -92,9 +92,9 @@ pub enum Expression {
 
     /// An assignment to an existing variable.
     Assignment {
-        /// The symbol of the binding.
-        symbol: Spanned<&'static str>,
-        /// The value to assign.
+        /// The target of the assignment.
+        target: Spanned<LValue>,
+        /// The value to assign, also known as the "r-value".
         expr: Box<Spanned<Expression>>,
     },
 
@@ -154,6 +154,28 @@ pub enum Expression {
         callee: Box<Spanned<Expression>>,
         /// The arguments being passed in.
         arguments: Vec<Spanned<Expression>>,
+    },
+
+    /// An index get operation into a value.
+    Index {
+        /// The target value being indexed.
+        base: Box<Spanned<Expression>>,
+        /// The index offset into the `base`.
+        index: Box<Spanned<Expression>>,
+    },
+}
+
+/// A valid left-hand-side storage target in an [`Expression::Assignment`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum LValue {
+    /// A direct binding to a variable.
+    Symbol(&'static str),
+    /// An assignment to an indexed value.
+    Index {
+        /// The target value being indexed.
+        base: Box<Spanned<Expression>>,
+        /// The index offset into the `base`.
+        index: Box<Spanned<Expression>>,
     },
 }
 
@@ -251,6 +273,19 @@ impl TryFrom<Keyword> for BinaryOp {
         Ok(match value {
             Keyword::And => Self::And,
             Keyword::Or => Self::Or,
+            _ => return Err(()),
+        })
+    }
+}
+
+impl TryFrom<Expression> for LValue {
+    type Error = ();
+
+    fn try_from(value: Expression) -> Result<Self, Self::Error> {
+        Ok(match value {
+            Expression::Variable { symbol } => Self::Symbol(symbol),
+            Expression::Index { base, index } => Self::Index { base, index },
+
             _ => return Err(()),
         })
     }

@@ -8,7 +8,7 @@ use crate::{
         error::{Interrupt, RuntimeError, Signal},
         value::{Closure, NativeFn, Value},
     },
-    parser::ast::{Expression, Statement},
+    parser::ast::{Expression, LValue, Statement},
     source::{Span, Spanned},
 };
 
@@ -191,14 +191,27 @@ impl Interpreter {
                 }
             }
 
-            Expression::Assignment { symbol, expr } => {
+            Expression::Assignment { target, expr } => {
                 let value = self.expression(&expr.value, expr.span)?;
 
-                self.environment
-                    .borrow_mut()
-                    .assign(symbol.value, value.value.clone())
-                    .map(|_| value)
-                    .map_err(|e| Spanned::wrap(e.into(), symbol.span))
+                match &target.value {
+                    LValue::Symbol(symbol) => self
+                        .environment
+                        .borrow_mut()
+                        .assign(symbol, value.value.clone())
+                        .map_err(|e| Spanned::wrap(e.into(), target.span))?,
+
+                    LValue::Index { base, index } => {
+                        let base = self.expression(&base.value, base.span)?;
+                        let index = self.expression(&index.value, index.span)?;
+
+                        if let Err(e) = Value::index_mut(base, index, value.value.clone()) {
+                            return Err(Spanned::wrap(e.value.into(), e.span));
+                        };
+                    }
+                };
+
+                Ok(value)
             }
 
             Expression::BinaryOperation { lhs, operator, rhs } => {
@@ -273,6 +286,15 @@ impl Interpreter {
                 arguments.clone(),
                 span,
             ),
+
+            Expression::Index { base, index } => {
+                let base = self.expression(&base.value, base.span)?;
+                let index = self.expression(&index.value, index.span)?;
+
+                Value::index(base, index)
+                    .map(|value| Spanned::wrap(value, span))
+                    .map_err(|err| Spanned::wrap(err.value.into(), err.span))
+            }
 
             Expression::List { elements } => {
                 let elements = elements
