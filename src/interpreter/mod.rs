@@ -6,7 +6,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 use crate::{
     interpreter::{
         error::{Interrupt, RuntimeError, Signal},
-        value::{Closure, Value},
+        value::{Closure, NativeFn, Value},
     },
     parser::ast::{Expression, Statement},
     source::{Span, Spanned},
@@ -15,7 +15,7 @@ use crate::{
 type Result<T, E = Spanned<Interrupt>> = std::result::Result<T, E>;
 
 /// A lexical environment in which bindings exist.
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Environment {
     /// The enclosing parent [Environment].
     parent: Option<Rc<RefCell<Environment>>>,
@@ -257,19 +257,15 @@ impl Interpreter {
                 }
             }
 
-            Expression::Lambda { parameters, body } => {
-                let environment = Environment::enclose(&self.environment);
-
-                Ok(Spanned::wrap(
-                    Value::Closure(Rc::new(Closure {
-                        name: None,
-                        parameters: parameters.clone(),
-                        body: (**body).clone(),
-                        enclosing: environment,
-                    })),
-                    span,
-                ))
-            }
+            Expression::Lambda { parameters, body } => Ok(Spanned::wrap(
+                Value::Closure(Rc::new(Closure {
+                    name: None,
+                    parameters: parameters.clone(),
+                    body: (**body).clone(),
+                    enclosing: Rc::clone(&self.environment),
+                })),
+                span,
+            )),
 
             Expression::Call { callee, arguments } => Value::call(
                 self.expression(&callee.value, callee.span)?,
@@ -323,6 +319,53 @@ impl Environment {
             parent.borrow_mut().assign(symbol, value)
         } else {
             Err(RuntimeError::UnboundBinding { symbol })
+        }
+    }
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        // all the default registered native functions
+        let time = NativeFn {
+            name: "time",
+            arity: Some(0),
+            function: Rc::new(|_| {
+                use std::time::{SystemTime, UNIX_EPOCH};
+
+                Ok(Value::Integer(
+                    SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs() as _,
+                ))
+            }),
+        };
+
+        let len = NativeFn {
+            name: "len",
+            arity: Some(1),
+            function: Rc::new(|params| match &params[0].value {
+                Value::List(l) => Ok(Value::Integer(l.borrow().len() as _)),
+                Value::String(s) => Ok(Value::Integer(s.len() as _)),
+                _ => Err(Spanned::wrap(
+                    RuntimeError::TypeError {
+                        name: "len",
+                        expected: "string or list",
+                        actual: params[0].value.type_name(),
+                    },
+                    params[0].span,
+                )),
+            }),
+        };
+
+        let bindings = HashMap::from_iter([
+            ("time", Value::NativeFunction(time)),
+            ("len", Value::NativeFunction(len)),
+        ]);
+
+        Self {
+            parent: None,
+            bindings,
         }
     }
 }

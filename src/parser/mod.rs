@@ -558,7 +558,7 @@ impl Parser {
             Token::Grouping(Grouping::OpeningBracket) => {
                 self.rewind();
 
-                self.comma_delimeted_list(
+                self.comma_delimited_list(
                     Self::expr,
                     Token::Grouping(Grouping::OpeningBracket),
                     "'[' to begin a list",
@@ -631,7 +631,7 @@ impl Parser {
 
     /// Parses a sequence of function parameters.
     fn parameters(&mut self) -> Result<Spanned<Vec<Spanned<&'static str>>>, Spanned<ParsingError>> {
-        self.comma_delimeted_list(
+        self.comma_delimited_list(
             |self_| {
                 let token = self_.consume()?;
 
@@ -656,7 +656,7 @@ impl Parser {
 
     /// Parses a sequence of function arguments.
     fn arguments(&mut self) -> Result<Spanned<Vec<Spanned<Expression>>>, Spanned<ParsingError>> {
-        self.comma_delimeted_list(
+        self.comma_delimited_list(
             Self::expr,
             Token::Grouping(Grouping::OpeningParen),
             "'(' to begin argument list",
@@ -665,8 +665,8 @@ impl Parser {
         )
     }
 
-    /// Parses a sequence of parseable-items enclosed by `opening` and `closing` and delimeted by ','.
-    fn comma_delimeted_list<F, T>(
+    /// Parses a sequence of parseable-items enclosed by `opening` and `closing` and delimited by ','.
+    fn comma_delimited_list<F, T>(
         &mut self,
         mut f: F,
         opening: Token,

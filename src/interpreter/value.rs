@@ -1,4 +1,9 @@
-use std::{cell::RefCell, cmp::Ordering, fmt, rc::Rc};
+use std::{
+    cell::RefCell,
+    cmp::Ordering,
+    fmt::{self, Debug},
+    rc::Rc,
+};
 
 use crate::{
     interpreter::{
@@ -30,7 +35,16 @@ pub enum Value {
     Unit,
 }
 
-pub type NativeFn = fn(Vec<Value>) -> Result<Value, RuntimeError>;
+/// A native function written in Rust.
+#[derive(Clone)]
+pub struct NativeFn {
+    /// The name assigned to this function.
+    pub name: &'static str,
+    /// The arity (number of parameters) this function takes, or None if it is variadic.
+    pub arity: Option<usize>,
+    /// The code to execute when calling this function.
+    pub function: Rc<dyn Fn(Vec<Spanned<Value>>) -> Result<Value, Spanned<RuntimeError>>>,
+}
 
 /// A user-defined function that captures its enclosing environment at the point of creation.
 #[derive(Debug, PartialEq, Clone)]
@@ -39,7 +53,7 @@ pub struct Closure {
     pub name: Option<&'static str>,
     /// The parameters this closure accepts.
     pub parameters: Vec<Spanned<&'static str>>,
-    /// The code to call when calling this closure.
+    /// The code to execute when calling this closure.
     pub body: Spanned<Expression>,
     /// The environment this closure captured during creation.
     pub enclosing: Rc<RefCell<Environment>>,
@@ -86,8 +100,19 @@ impl Value {
         call_expr_span: Span,
     ) -> Result<Spanned<Self>, Spanned<Interrupt>> {
         match callee.value {
+            Self::NativeFunction(f) => {
+                let arguments = arguments
+                    .into_iter()
+                    .map(|expr| interpreter.expression(&expr.value, expr.span))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                f.call(arguments, call_expr_span)
+                    .map(|value| Spanned::wrap(value, call_expr_span))
+                    .map_err(|err| err.map(Interrupt::Error))
+            }
+
             Self::Closure(closure) => Ok(Closure::call(
-                Spanned::wrap((*closure).clone(), callee.span),
+                Spanned::wrap(closure.as_ref(), callee.span),
                 interpreter,
                 arguments,
                 call_expr_span,
@@ -288,9 +313,32 @@ impl Value {
     }
 }
 
+impl NativeFn {
+    pub fn call(
+        &self,
+        arguments: Vec<Spanned<Value>>,
+        call_expr_span: Span,
+    ) -> Result<Value, Spanned<RuntimeError>> {
+        if let Some(arity) = self.arity
+            && arity != arguments.len()
+        {
+            return Err(Spanned::wrap(
+                RuntimeError::MismatchedArity {
+                    name: self.name,
+                    expected: arity,
+                    actual: arguments.len(),
+                },
+                call_expr_span,
+            ));
+        }
+
+        (self.function)(arguments)
+    }
+}
+
 impl Closure {
     pub fn call(
-        closure: Spanned<Self>,
+        closure: Spanned<&Self>,
         interpreter: &mut Interpreter,
         arguments: Vec<Spanned<Expression>>,
         call_expr_span: Span,
@@ -300,7 +348,7 @@ impl Closure {
             parameters,
             body,
             enclosing,
-        } = closure.value;
+        } = &closure.value;
 
         // define all parameters
         if parameters.len() != arguments.len() {
@@ -339,26 +387,42 @@ impl Closure {
                 .insert(parameter.value, argument);
         }
 
-        let result = interpreter.expression(&body.value, body.span);
+        let result = match interpreter.expression(&body.value, body.span) {
+            Ok(v) => Ok(v),
+
+            Err(interrupt) => match interrupt.value {
+                Interrupt::Signal(Signal::Return(value)) => {
+                    Ok(Spanned::wrap(value, call_expr_span))
+                }
+
+                Interrupt::Error(e) => Err(Spanned::wrap(e.into(), call_expr_span)),
+                Interrupt::Signal(sig) => Err(Spanned::wrap(
+                    RuntimeError::from(sig).into(),
+                    call_expr_span,
+                )),
+            },
+        };
+
         interpreter.environment = parent;
 
-        if let Err(interrupt) = result {
-            if let Interrupt::Signal(Signal::Return(value)) = interrupt.value {
-                return Ok(Spanned::wrap(value, call_expr_span));
-            }
-
-            // convert other signals into errors to prevent stack escaping
-            return Err(Spanned::wrap(
-                match interrupt.value {
-                    Interrupt::Error(error) => error,
-                    Interrupt::Signal(signal) => RuntimeError::from(signal),
-                }
-                .into(),
-                call_expr_span,
-            ));
-        }
-
         result
+    }
+}
+
+impl Debug for NativeFn {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("NativeFn")
+            .field("name", &self.name)
+            .field("arity", &self.arity)
+            .finish()
+    }
+}
+
+impl PartialEq for NativeFn {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.arity == other.arity
+            && Rc::ptr_eq(&self.function, &other.function)
     }
 }
 
@@ -390,7 +454,7 @@ impl fmt::Display for Value {
                 Some(name) => write!(f, "fn {name} {{ .. }}"),
                 None => write!(f, "fn {{ .. }}"),
             },
-            Self::NativeFunction { .. } => write!(f, "native fn {{ .. }}"),
+            Self::NativeFunction(NativeFn { name, .. }) => write!(f, "native fn {name} {{ .. }}"),
             Self::List(elements) => {
                 let len = elements.borrow().len();
                 write!(f, "[{} item{}]", len, if len == 1 { "" } else { "s" })

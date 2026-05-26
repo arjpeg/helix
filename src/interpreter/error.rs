@@ -64,6 +64,16 @@ pub enum RuntimeError {
         actual: usize,
     },
 
+    #[error("function `{name}` expects argument to be type {expected}, but received {actual}")]
+    TypeError {
+        /// The name of the function being called.
+        name: &'static str,
+        /// The expected type(s) the function accepts.
+        expected: &'static str,
+        /// The actual type of the provided argument.
+        actual: &'static str,
+    },
+
     #[error("attempted to divide by zero")]
     DivideByZero,
 
