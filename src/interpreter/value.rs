@@ -456,8 +456,16 @@ impl fmt::Display for Value {
             },
             Self::NativeFunction(NativeFn { name, .. }) => write!(f, "native fn {name} {{ .. }}"),
             Self::List(elements) => {
-                let len = elements.borrow().len();
-                write!(f, "[{} item{}]", len, if len == 1 { "" } else { "s" })
+                write!(f, "[")?;
+
+                for (i, val) in elements.borrow().iter().enumerate() {
+                    if i > 0 {
+                        write!(f, ", ")?;
+                    }
+                    write!(f, "{}", val)?;
+                }
+
+                write!(f, "]")
             }
             Self::Unit => write!(f, "()"),
         }

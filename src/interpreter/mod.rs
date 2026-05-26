@@ -358,9 +358,33 @@ impl Default for Environment {
             }),
         };
 
+        let push = NativeFn {
+            name: "push",
+            arity: Some(2),
+            function: Rc::new(|mut params| {
+                let value = params.pop().unwrap().value;
+
+                let Value::List(list) = &params[0].value else {
+                    return Err(Spanned::wrap(
+                        RuntimeError::TypeError {
+                            name: "push",
+                            expected: "list",
+                            actual: params[0].value.type_name(),
+                        },
+                        params[0].span,
+                    ));
+                };
+
+                list.borrow_mut().push(value);
+
+                Ok(Value::Unit)
+            }),
+        };
+
         let bindings = HashMap::from_iter([
             ("time", Value::NativeFunction(time)),
             ("len", Value::NativeFunction(len)),
+            ("push", Value::NativeFunction(push)),
         ]);
 
         Self {
