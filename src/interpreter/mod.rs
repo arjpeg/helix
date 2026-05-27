@@ -123,17 +123,21 @@ impl Interpreter {
                     .is_truthy()
                 {
                     if let Err(interrupt) = self.expression(&body.value, body.span) {
-                        if interrupt.value == Interrupt::Signal(Signal::Break) {
-                            break;
+                        match interrupt.value {
+                            Interrupt::Signal(Signal::Break) => break,
+                            Interrupt::Signal(Signal::Continue) => continue,
+                            _ => return Err(interrupt),
                         }
-
-                        return Err(interrupt);
                     }
                 }
             }
 
             Statement::Break => {
                 return Err(Spanned::wrap(Signal::Break.into(), span));
+            }
+
+            Statement::Continue => {
+                return Err(Spanned::wrap(Signal::Continue.into(), span));
             }
 
             Statement::FunctionDeclaration {

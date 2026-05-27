@@ -183,6 +183,13 @@ impl Parser {
                 Ok(statement)
             }
 
+            Some(Token::Keyword(Keyword::Continue)) => {
+                let statement = self.consume()?.map(|_| Statement::Continue);
+                self.expect(Token::Semicolon, "';'")?;
+
+                Ok(statement)
+            }
+
             Some(Token::Keyword(Keyword::Return)) => {
                 let keyword_span = self.consume()?.span;
                 let result = if self.peek() != Some(Token::Semicolon) {

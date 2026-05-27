@@ -10,6 +10,7 @@ use crate::{
 #[derive(Debug, Clone, PartialEq)]
 pub enum Signal {
     Break,
+    Continue,
     Return(Value),
 }
 
@@ -120,6 +121,9 @@ pub enum RuntimeError {
     #[error("attempted to `break` outside a loop")]
     Break,
 
+    #[error("attempted to `continue` outside a loop")]
+    Continue,
+
     #[error("attempted to `return` outside a function context")]
     Return,
 }
@@ -140,6 +144,7 @@ impl From<Signal> for RuntimeError {
     fn from(value: Signal) -> Self {
         match value {
             Signal::Break => Self::Break,
+            Signal::Continue => Self::Continue,
             Signal::Return(_) => Self::Return,
         }
     }

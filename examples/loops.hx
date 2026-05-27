@@ -32,6 +32,28 @@ fn first_above(threshold) {
 print first_above(50);
 print first_above(200);
 
+print "continue skips to the next iteration:";
+
+let i = 0;
+while i < 10 {
+    i = i + 1;
+    if i / 2 * 2 != i { continue; };
+    print i;
+}
+
+print "continue only exits the innermost loop:";
+
+let outer = 1;
+while outer <= 3 {
+    let inner = 0;
+    while inner < 4 {
+        inner = inner + 1;
+        if inner == 3 { continue; };
+        print outer * 10 + inner;
+    }
+    outer = outer + 1;
+}
+
 print "nested loops — break only exits the inner loop:";
 
 let outer = 1;

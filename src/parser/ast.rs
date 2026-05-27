@@ -38,6 +38,9 @@ pub enum Statement {
     /// Ends the iteration of the closest running loop.
     Break,
 
+    /// Jumps to the end of the closest running loop and restarts from the next cycle.
+    Continue,
+
     /// A declaration of a variable binding.
     Declaration {
         /// The name of the binding to declare.

@@ -106,6 +106,9 @@ pub enum Keyword {
     While,
     /// The 'break' keyword exits the innermost running loop.
     Break,
+    /// The 'continue' keyword jumpts to the end of the innermost running loop's body, continuing
+    /// execution from the next loop cycle.
+    Continue,
 
     /// The 'fn' keyword begins a new function declaration if followed by a name, else begins a lambda expression.
     Fn,
@@ -193,6 +196,7 @@ impl TryFrom<&str> for Keyword {
             "if" => Self::If,
             "else" => Self::Else,
             "while" => Self::While,
+            "continue" => Self::Continue,
             "break" => Self::Break,
             "fn" => Self::Fn,
             "return" => Self::Return,
@@ -252,6 +256,7 @@ impl Display for Keyword {
                 Keyword::Else => "else",
                 Keyword::While => "while",
                 Keyword::Break => "break",
+                Keyword::Continue => "continue",
                 Keyword::Fn => "fn",
                 Keyword::Return => "return",
             }
