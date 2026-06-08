@@ -15,6 +15,7 @@ use crate::{
 pub struct Tokenizer {
     /// The source code being tokenized.
     source: Source,
+
     /// The current byte position within the `source`.
     cursor: usize,
 
@@ -50,7 +51,7 @@ impl Tokenizer {
         self.cursor += c.len_utf8();
         let end = self.cursor;
 
-        Some(Spanned::wrap(c, Span::new(self.source, start..end)))
+        Some(Spanned::wrap(c, Span::new(self.source.handle, start..end)))
     }
 
     /// Advances the cursor past all whitespace characters.
@@ -68,7 +69,7 @@ impl Tokenizer {
             self.advance();
         }
 
-        Span::new(self.source, start..self.cursor)
+        Span::new(self.source.handle, start..self.cursor)
     }
 
     /// Tokenizes a single symbol (keyword or identifier).
@@ -99,7 +100,7 @@ impl Tokenizer {
             self.advance();
         }
 
-        let span = Span::new(self.source, start..self.cursor);
+        let span = Span::new(self.source.handle, start..self.cursor);
 
         Spanned::wrap(Token::Operator(operator), span)
     }
@@ -110,7 +111,7 @@ impl Tokenizer {
 
         if matches!(self.peek(), Some(c) if c.is_xid_continue()) {
             let error_span = self.advance_while(|c| c.is_xid_continue());
-            let full_span = Span::new(self.source, span.start..error_span.end);
+            let full_span = Span::new(self.source.handle, span.start..error_span.end);
 
             return Err(Spanned::wrap(
                 TokenizationError::InvalidIntegerLiteral(full_span.text()),
@@ -205,7 +206,10 @@ impl Iterator for Tokenizer {
 
             return Some(Ok(Spanned::wrap(
                 Token::Eof,
-                Span::new(self.source, self.cursor.saturating_sub(1)..self.cursor),
+                Span::new(
+                    self.source.handle,
+                    self.cursor.saturating_sub(1)..self.cursor,
+                ),
             )));
         };
 
@@ -241,13 +245,11 @@ mod tests {
     use super::*;
     use crate::lexer::error::TokenizationError;
     use crate::lexer::token::{Grouping, OpKind, Token};
+    use crate::source::SourceMap;
     use std::path::Path;
 
     fn make_source(content: &'static str) -> Source {
-        Source {
-            content,
-            path: Path::new("test.hx"),
-        }
+        SourceMap::get(SourceMap::add(content, Path::new("test.hx")))
     }
 
     fn tokenize(content: &'static str) -> Vec<Result<Spanned<Token>>> {

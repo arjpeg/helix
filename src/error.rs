@@ -2,8 +2,10 @@ use owo_colors::OwoColorize;
 use thiserror::Error;
 
 use crate::{
-    interpreter::error::RuntimeError, lexer::error::TokenizationError, parser::error::ParsingError,
-    source::Spanned,
+    interpreter::error::RuntimeError,
+    lexer::error::TokenizationError,
+    parser::error::ParsingError,
+    source::{SourceMap, Spanned},
 };
 
 /// All errors that can occur during program execution.
@@ -19,7 +21,7 @@ pub enum Error {
 pub fn print_error(error: Spanned<Error>) {
     // get the line that the error occured on
     let span = error.span;
-    let source = span.source;
+    let source = SourceMap::get(span.source);
 
     let line_start = source.content[..span.start]
         .rfind('\n')

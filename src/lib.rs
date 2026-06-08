@@ -7,7 +7,7 @@ use crate::{
     interpreter::{Interpreter, value::Value},
     lexer::Tokenizer,
     parser::{Parser, ast::Statement},
-    source::{Source, Spanned},
+    source::{SourceHandle, SourceMap, Spanned},
 };
 
 pub mod error;
@@ -18,8 +18,8 @@ pub mod source;
 
 /// Manages the lifetime of program and REPL evaluation.
 pub struct Engine {
-    /// The registered [Source] files, along with their parsed AST.
-    asts: HashMap<Source, Spanned<Statement>>,
+    /// The registered [`SourceHandle`]s, along with their parsed AST.
+    asts: HashMap<SourceHandle, Spanned<Statement>>,
     /// The running interpreter, shared across evaluations.
     interpreter: Interpreter,
 }
@@ -32,9 +32,9 @@ impl Engine {
         }
     }
 
-    /// Parses a [Source] file as a complete helix program, making it ready for evaluation.
-    pub fn register_program(&mut self, source: Source) -> Result<Source, Vec<Spanned<Error>>> {
-        let tokens = collect_errors(Tokenizer::new(source))?;
+    /// Parses a [`Source`] file as a complete helix program, making it ready for evaluation.
+    pub fn register_program(&mut self, source: SourceHandle) -> Result<(), Vec<Spanned<Error>>> {
+        let tokens = collect_errors(Tokenizer::new(SourceMap::get(source)))?;
         let ast = Parser::new(tokens).parse_source().map_err(|errors| {
             errors
                 .into_iter()
@@ -44,24 +44,24 @@ impl Engine {
 
         self.asts.insert(source, ast);
 
-        Ok(source)
+        Ok(())
     }
 
-    /// Parses a [Source] file as a REPL input, making it ready for evaluation.
-    pub fn register_repl(&mut self, source: Source) -> Result<Source, Vec<Spanned<Error>>> {
-        let tokens = collect_errors(Tokenizer::new(source))?;
+    /// Parses a [`Source`] file as a REPL input, making it ready for evaluation.
+    pub fn register_repl(&mut self, source: SourceHandle) -> Result<(), Vec<Spanned<Error>>> {
+        let tokens = collect_errors(Tokenizer::new(SourceMap::get(source)))?;
         let ast = Parser::new(tokens)
             .parse_repl()
             .map_err(|e| vec![e.into()])?;
 
         self.asts.insert(source, ast);
 
-        Ok(source)
+        Ok(())
     }
 
     /// Executes an input [Source], blocking until completion.
     /// Panics if the [Source] was not already registered.
-    pub fn execute(&mut self, source: Source) -> Result<Option<Value>, Spanned<Error>> {
+    pub fn execute(&mut self, source: SourceHandle) -> Result<Option<Value>, Spanned<Error>> {
         Ok(self.interpreter.execute(self.asts.get(&source).unwrap())?)
     }
 }

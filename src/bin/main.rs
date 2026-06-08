@@ -1,5 +1,5 @@
 use clap::Parser;
-use helix::{Engine, error, interpreter::value::Value, source::Source};
+use helix::{Engine, error, interpreter::value::Value, source::SourceMap};
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 use std::path::{Path, PathBuf};
 
@@ -24,10 +24,7 @@ fn main() {
                 }
             };
 
-            let source = Source {
-                content: Box::leak(content.into_boxed_str()),
-                path: Box::leak(path.into_boxed_path()),
-            };
+            let source = SourceMap::add(content.leak(), path.leak());
 
             if let Err(errors) = engine.register_program(source) {
                 for error in errors {
@@ -61,11 +58,7 @@ fn repl() {
             break;
         };
 
-        let content: &'static str = Box::leak(line.trim().to_string().into_boxed_str());
-        let source = Source {
-            content,
-            path: Path::new("<repl>"),
-        };
+        let source = SourceMap::add(line.leak(), Path::new("<repl>"));
 
         if let Err(errors) = engine.register_repl(source) {
             for error in errors {
