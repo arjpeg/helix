@@ -19,6 +19,8 @@ use crate::{
 pub enum Value {
     /// A signed, 64-bit integer.
     Integer(i64),
+    /// A 64-bit floating point number.
+    Float(f64),
     /// A boolean.
     Boolean(bool),
     /// An immutable string.
@@ -224,6 +226,7 @@ impl Value {
     pub fn type_name(&self) -> &'static str {
         match self {
             Value::Integer(_) => "integer",
+            Value::Float(_) => "float",
             Value::Boolean(_) => "boolean",
             Value::String(_) => "string",
             Value::Closure(_) | Value::NativeFunction(_) => "fn",
@@ -236,7 +239,7 @@ impl Value {
     ///
     /// The behavior across types is as follows:
     /// * Value::Boolean(b) => returns b
-    /// * Value::Integer(n) => returns false if n == 0, true else
+    /// * Value::Integer(n) | Value::Float(n) => returns false if n == 0, true else
     /// * Value::String(s) => returns false if len(s) == 0, true else
     /// * Value::Closure | Value::NativeFunction { .. } => returns true
     /// * Value::List(l) => return size(l) > 0
@@ -245,6 +248,7 @@ impl Value {
         match self {
             Value::Boolean(b) => *b,
             Value::Integer(n) => *n != 0,
+            Value::Float(n) => *n != 0.0,
             Value::String(s) => !s.is_empty(),
             Value::Closure(_) | Value::NativeFunction(_) => true,
             Value::List(elements) => elements.borrow().len() > 0,
@@ -312,15 +316,18 @@ macro_rules! unary_op {
 
 binary_op!(add: Plus, {
     (Integer(a), Integer(b)) => Integer(a + b),
+    (Float(a), Float(b)) => Float(a + b),
     (String(a), String(b)) => String(format!("{a}{b}"))
 });
 
 binary_op!(subtract: Minus, {
-    (Integer(a), Integer(b)) => Integer(a - b)
+    (Integer(a), Integer(b)) => Integer(a - b),
+    (Float(a), Float(b)) => Float(a - b)
 });
 
 binary_op!(multiply: Star, {
     (Integer(a), Integer(b)) => Integer(a * b),
+    (Float(a), Float(b)) => Float(a * b),
 
     (String(_), Integer(n)) if n < 0 => return Err(RuntimeError::NegativeStringRepeat),
     (String(a), Integer(n)) => String(a.repeat(n.try_into().unwrap()))
@@ -328,7 +335,9 @@ binary_op!(multiply: Star, {
 
 binary_op!(divide: Slash, {
     (Integer(_), Integer(0)) => return Err(RuntimeError::DivideByZero),
-    (Integer(a), Integer(b)) => Integer(a / b)
+    (Float(_), Float(0.0)) => return Err(RuntimeError::DivideByZero),
+    (Integer(a), Integer(b)) => Integer(a / b),
+    (Float(a), Float(b)) => Float(a / b),
 });
 
 binary_op!(and: And, {
@@ -340,11 +349,13 @@ binary_op!(or: Or, {
 });
 
 unary_op!(pos: Plus, {
-    Integer(a) => Integer(a)
+    Integer(a) => Integer(a),
+    Float(a) => Float(a),
 });
 
 unary_op!(neg: Minus, {
-    Integer(a) => Integer(-a)
+    Integer(a) => Integer(-a),
+    Float(a) => Float(-a),
 });
 
 unary_op!(not: Bang, {
@@ -538,6 +549,7 @@ impl fmt::Display for Value {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Integer(i) => write!(f, "{i}"),
+            Self::Float(fl) => write!(f, "{fl}"),
             Self::Boolean(b) => write!(f, "{b}"),
             Self::String(s) => write!(f, "{s}"),
             Self::Closure(c) => match c.name {

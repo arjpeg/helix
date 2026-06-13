@@ -560,7 +560,9 @@ impl Parser {
         let token = self.consume()?;
 
         let expression = match token.value {
-            Token::Int(int) => Spanned::wrap(Expression::Integer(int), token.span),
+            Token::Integer(int) => Spanned::wrap(Expression::Integer(int), token.span),
+
+            Token::Float(float) => Spanned::wrap(Expression::Float(float), token.span),
 
             Token::Keyword(Keyword::True) => Spanned::wrap(Expression::Boolean(true), token.span),
 
@@ -787,7 +789,6 @@ impl Parser {
         if token.value != expected {
             return Err(Spanned::wrap(
                 match token.value {
-                    Token::Eof => ParsingError::UnexpectedEof,
                     _ => ParsingError::UnexpectedToken {
                         expected: expected_label,
                         found: token.value,

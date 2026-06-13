@@ -105,26 +105,39 @@ impl Tokenizer {
         Spanned::wrap(Token::Operator(operator), span)
     }
 
-    /// Tokenizes a single integer literal.
-    fn next_integer(&mut self) -> Result<Spanned<Token>> {
-        let span = self.advance_while(|c| c.is_ascii_digit());
+    /// Tokenizes a single number literal.
+    fn next_number(&mut self) -> Result<Spanned<Token>> {
+        let mut span = self.advance_while(|c| c.is_ascii_digit());
+
+        let found_decimal = self.peek() == Some('.');
+        if found_decimal {
+            self.advance();
+            let decimal_span = self.advance_while(|c| c.is_ascii_digit());
+            span = Span::merge(span, decimal_span);
+        }
 
         if matches!(self.peek(), Some(c) if c.is_xid_continue()) {
-            let error_span = self.advance_while(|c| c.is_xid_continue());
-            let full_span = Span::new(self.source.handle, span.start..error_span.end);
-
+            let trailing = self.advance_while(|c| c.is_xid_continue());
+            let span = Span::merge(span, trailing);
             return Err(Spanned::wrap(
-                TokenizationError::InvalidIntegerLiteral(full_span.text()),
-                full_span,
+                TokenizationError::InvalidNumericLiteral(span.text()),
+                span,
             ));
         }
 
         let literal = span.text();
 
-        literal
-            .parse()
-            .map(|n| Spanned::wrap(Token::Int(n), span))
-            .map_err(|_| Spanned::wrap(TokenizationError::InvalidIntegerLiteral(literal), span))
+        let token = if found_decimal {
+            Token::Float(literal.parse::<f64>().map_err(|_| {
+                Spanned::wrap(TokenizationError::InvalidNumericLiteral(literal), span)
+            })?)
+        } else {
+            Token::Integer(literal.parse::<i64>().map_err(|_| {
+                Spanned::wrap(TokenizationError::InvalidNumericLiteral(literal), span)
+            })?)
+        };
+
+        Ok(Spanned::wrap(token, span))
     }
 
     /// Tokenizes a single line string literal.
@@ -216,7 +229,7 @@ impl Iterator for Tokenizer {
         Some(match c {
             c if c == '_' || c.is_xid_start() => Ok(self.next_symbol()),
 
-            c if c.is_ascii_digit() => self.next_integer(),
+            c if c.is_ascii_digit() => self.next_number(),
 
             c if c.is_operator_start() => Ok(self.next_operator()),
 
@@ -275,7 +288,7 @@ mod tests {
 
     #[test]
     fn test_integer() {
-        assert_eq!(tokens_ok("42"), vec![Token::Int(42)]);
+        assert_eq!(tokens_ok("42"), vec![Token::Integer(42)]);
     }
 
     #[test]
@@ -283,9 +296,9 @@ mod tests {
         assert_eq!(
             tokens_ok("123+23"),
             vec![
-                Token::Int(123),
+                Token::Integer(123),
                 Token::Operator(OpKind::Plus),
-                Token::Int(23),
+                Token::Integer(23),
             ]
         );
     }
@@ -296,7 +309,7 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert!(matches!(
             results[0].as_ref().unwrap_err().value,
-            TokenizationError::InvalidIntegerLiteral("123abc")
+            TokenizationError::InvalidNumericLiteral("123abc")
         ));
     }
 
@@ -304,7 +317,7 @@ mod tests {
     fn test_integer_mixed_in_expression() {
         let results = tokenize("1+2abc");
         assert_eq!(results.len(), 3);
-        assert_eq!(results[0].as_ref().unwrap().value, Token::Int(1));
+        assert_eq!(results[0].as_ref().unwrap().value, Token::Integer(1));
         assert_eq!(
             results[1].as_ref().unwrap().value,
             Token::Operator(OpKind::Plus)
@@ -379,7 +392,7 @@ mod tests {
 
     #[test]
     fn test_whitespace_skipped() {
-        assert_eq!(tokens_ok("  42  "), vec![Token::Int(42)]);
+        assert_eq!(tokens_ok("  42  "), vec![Token::Integer(42)]);
     }
 
     #[test]
@@ -389,7 +402,7 @@ mod tests {
             vec![
                 Token::Symbol("foo"),
                 Token::Operator(OpKind::Plus),
-                Token::Int(42),
+                Token::Integer(42),
             ]
         );
     }

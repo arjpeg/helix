@@ -181,6 +181,8 @@ impl Interpreter {
         match expression {
             Expression::Integer(n) => Ok(Spanned::wrap(Value::Integer(*n), span)),
 
+            Expression::Float(n) => Ok(Spanned::wrap(Value::Float(*n), span)),
+
             Expression::Boolean(b) => Ok(Spanned::wrap(Value::Boolean(*b), span)),
 
             Expression::String(s) => Ok(Spanned::wrap(Value::String(s.to_owned()), span)),

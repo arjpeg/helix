@@ -82,6 +82,8 @@ pub enum Statement {
 pub enum Expression {
     /// An integer literal.
     Integer(i64),
+    /// A floating point literal.
+    Float(f64),
     /// A boolean literal.
     Boolean(bool),
     /// A string literal.

@@ -20,6 +20,8 @@ pub fn compile_program(program: Spanned<Statement>) -> Chunk {
         emit_statement(&mut chunk, statement.value, statement.span);
     }
 
+    chunk.emit_instruction(Instruction::Return, program.span);
+
     chunk
 }
 
@@ -45,6 +47,10 @@ fn emit_expression(chunk: &mut Chunk, expression: Expression, span: Span) {
         // constants
         Expression::Integer(i) => {
             let constant = chunk.emit_constant(Constant::from(i));
+            chunk.emit_instruction(Instruction::Constant { index: constant }, span);
+        }
+        Expression::Float(f) => {
+            let constant = chunk.emit_constant(Constant::from(f));
             chunk.emit_instruction(Instruction::Constant { index: constant }, span);
         }
         Expression::Boolean(b) => {

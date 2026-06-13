@@ -10,8 +10,8 @@ pub type Result<T, E = Spanned<TokenizationError>> = std::result::Result<T, E>;
 pub enum TokenizationError {
     #[error("encountered an unknown symbol: `{0}`")]
     UnknownSymbol(&'static str),
-    #[error("encountered an invalid integer literal: `{0}`")]
-    InvalidIntegerLiteral(&'static str),
+    #[error("encountered an invalid numeric literal: `{0}`")]
+    InvalidNumericLiteral(&'static str),
     #[error("encountered an unterminated string literal")]
     UnterminatedStringLiteral,
     #[error("encountered an invalid string escape sequence: `{0}`")]

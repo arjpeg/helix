@@ -3,8 +3,10 @@ use std::fmt::Display;
 /// The smallest lexical unit in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Token {
-    /// An integer literal.
-    Int(i64),
+    /// A signed 64 bit integer literal.
+    Integer(i64),
+    /// A 64 bit floating point literal.
+    Float(f64),
     /// A string literal.
     String(&'static str),
     /// A keyword.
@@ -226,7 +228,8 @@ impl From<Grouping> for Token {
 impl Display for Token {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Token::Int(i) => write!(f, "{i}"),
+            Token::Integer(i) => write!(f, "{i}"),
+            Token::Float(fl) => write!(f, "{fl}"),
             Token::String(s) => write!(f, "{s}"),
             Token::Keyword(keyword) => write!(f, "{keyword}"),
             Token::Symbol(s) => write!(f, "{s}"),

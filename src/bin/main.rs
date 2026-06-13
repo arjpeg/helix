@@ -18,7 +18,7 @@ struct Cli {
 }
 
 fn main() {
-    let source = SourceMap::add("1 + 2 * 3;", Path::new("<repl>"));
+    let source = SourceMap::add("1.2 + 2.4 * 3.123;", Path::new("<repl>"));
 
     let tokens = Tokenizer::new(SourceMap::get(source))
         .collect::<Result<Vec<_>, _>>()
