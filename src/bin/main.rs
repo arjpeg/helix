@@ -1,5 +1,12 @@
 use clap::Parser;
-use helix::{Engine, error, interpreter::value::Value, source::SourceMap};
+use helix::{
+    Engine,
+    compiler::{chunk::disassemble, compile_program},
+    error,
+    interpreter::value::Value,
+    lexer::Tokenizer,
+    source::SourceMap,
+};
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 use std::path::{Path, PathBuf};
 
@@ -11,6 +18,19 @@ struct Cli {
 }
 
 fn main() {
+    let source = SourceMap::add("1 + 2 * 3;", Path::new("<repl>"));
+
+    let tokens = Tokenizer::new(SourceMap::get(source))
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap();
+
+    let ast = helix::parser::Parser::new(tokens).parse_source().unwrap();
+
+    let chunk = compile_program(ast);
+
+    disassemble(&chunk);
+
+    /*
     let cli = Cli::parse();
     let mut engine = Engine::new();
 
@@ -39,7 +59,7 @@ fn main() {
         }
 
         None => repl(),
-    }
+    }*/
 }
 
 fn repl() {

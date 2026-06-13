@@ -36,7 +36,7 @@ impl Parser {
 
     /// Parses a full source file.
     pub fn parse_source(&mut self) -> Result<Spanned<Statement>, Vec<Spanned<ParsingError>>> {
-        if self.peek() == Some(Token::Eof) {
+        if self.peek() == Token::Eof {
             return Ok(Spanned::wrap(
                 Statement::Program { stmts: vec![] },
                 self.consume().unwrap().span,
@@ -45,7 +45,7 @@ impl Parser {
 
         let mut stmts = Vec::new();
 
-        while self.peek() != Some(Token::Eof) {
+        while self.peek() != Token::Eof {
             let result = self.statement();
 
             match result {
@@ -88,7 +88,7 @@ impl Parser {
 
     /// Parses a source file as a REPL file.
     pub fn parse_repl(&mut self) -> StatementResult {
-        if self.peek() == Some(Token::Eof) {
+        if self.peek() == Token::Eof {
             return Ok(Spanned::wrap(
                 Statement::Program { stmts: vec![] },
                 self.consume()?.span,
@@ -98,7 +98,7 @@ impl Parser {
         let mut stmts = Vec::new();
         let mut tail = None;
 
-        while let Some(token) = self.peek()
+        while let token = self.peek()
             && token != Token::Eof
         {
             let statement = self.statement()?;
@@ -134,7 +134,9 @@ impl Parser {
 
     /// Synchronizes the parser back to a valid starting point after an error.
     fn synchronize(&mut self) {
-        while let Some(token) = self.peek() {
+        loop {
+            let token = self.peek();
+
             match token {
                 // semicolons always delineate the end of a statement, so we should continue from
                 // there
@@ -168,31 +170,31 @@ impl Parser {
 
     fn statement(&mut self) -> StatementResult {
         match self.peek() {
-            Some(Token::Keyword(Keyword::Print)) => self.print(),
+            Token::Keyword(Keyword::Print) => self.print(),
 
-            Some(Token::Keyword(Keyword::Let)) => self.let_declaration(),
+            Token::Keyword(Keyword::Let) => self.let_declaration(),
 
-            Some(Token::Keyword(Keyword::Assert)) => self.assert(),
+            Token::Keyword(Keyword::Assert) => self.assert(),
 
-            Some(Token::Keyword(Keyword::While)) => self.r#while(),
+            Token::Keyword(Keyword::While) => self.r#while(),
 
-            Some(Token::Keyword(Keyword::Break)) => {
+            Token::Keyword(Keyword::Break) => {
                 let statement = self.consume()?.map(|_| Statement::Break);
                 self.expect(Token::Semicolon, "';'")?;
 
                 Ok(statement)
             }
 
-            Some(Token::Keyword(Keyword::Continue)) => {
+            Token::Keyword(Keyword::Continue) => {
                 let statement = self.consume()?.map(|_| Statement::Continue);
                 self.expect(Token::Semicolon, "';'")?;
 
                 Ok(statement)
             }
 
-            Some(Token::Keyword(Keyword::Return)) => {
+            Token::Keyword(Keyword::Return) => {
                 let keyword_span = self.consume()?.span;
-                let result = if self.peek() != Some(Token::Semicolon) {
+                let result = if self.peek() != Token::Semicolon {
                     Some(self.expr()?)
                 } else {
                     None
@@ -206,19 +208,17 @@ impl Parser {
 
             // function definition statements must have a name associated with them, otherwise we
             // treat them as anonymous function definition
-            Some(Token::Keyword(Keyword::Fn))
-                if matches!(self.peek_at(1), Some(Token::Symbol(_))) =>
-            {
+            Token::Keyword(Keyword::Fn) if matches!(self.peek_at(1), Some(Token::Symbol(_))) => {
                 self.fn_declaration()
             }
 
-            Some(_) => {
+            _ => {
                 let expr = self.expr()?;
 
                 Ok(expr.map(|expr| Statement::Expression {
                     expr,
                     has_semicolon: match self.peek() {
-                        Some(Token::Semicolon) => {
+                        Token::Semicolon => {
                             let _ = self.consume();
                             true
                         }
@@ -227,8 +227,6 @@ impl Parser {
                     },
                 }))
             }
-
-            _ => unreachable!("should always have an EOF token"),
         }
     }
 
@@ -251,7 +249,7 @@ impl Parser {
         let mut closing_span = body.span;
 
         // allow tail semicolons, but don't require them
-        if self.peek() == Some(Token::Semicolon) {
+        if self.peek() == Token::Semicolon {
             closing_span = self.consume()?.span;
         }
 
@@ -336,7 +334,7 @@ impl Parser {
         let expr = self.or()?;
 
         // early return if we aren't actually parsing an assignment expression
-        if self.peek() != Some(Token::Operator(OpKind::Assign)) {
+        if self.peek() != Token::Operator(OpKind::Assign) {
             return Ok(expr);
         }
 
@@ -395,7 +393,7 @@ impl Parser {
     }
 
     fn unary(&mut self) -> ExprResult {
-        if let Some(Token::Operator(op)) = self.peek()
+        if let Token::Operator(op) = self.peek()
             && let Ok(op) = UnaryOp::try_from(op)
         {
             let op_span = self.consume()?.span;
@@ -421,7 +419,7 @@ impl Parser {
 
         loop {
             match self.peek() {
-                Some(Token::Grouping(Grouping::OpeningParen)) => {
+                Token::Grouping(Grouping::OpeningParen) => {
                     let arguments = self.arguments()?;
 
                     let span = Span::merge(expr.span, arguments.span);
@@ -435,7 +433,7 @@ impl Parser {
                     );
                 }
 
-                Some(Token::Grouping(Grouping::OpeningBracket)) => {
+                Token::Grouping(Grouping::OpeningBracket) => {
                     // skip past first '['
                     self.consume()?;
 
@@ -469,7 +467,7 @@ impl Parser {
         let mut tail = None;
 
         // keep parsing statements until we reach a }
-        while let Some(token) = self.peek()
+        while let token = self.peek()
             && !matches!(token, Token::Grouping(Grouping::ClosingCurly) | Token::Eof)
         {
             let result = self.statement();
@@ -510,11 +508,11 @@ impl Parser {
         let body = Box::new(self.block()?);
 
         // check if we have an else clause
-        if self.peek() == Some(Token::Keyword(Keyword::Else)) {
+        if self.peek() == Token::Keyword(Keyword::Else) {
             let else_token = self.consume()?;
 
             // does the else have another if?
-            if self.peek() == Some(Token::Keyword(Keyword::If)) {
+            if self.peek() == Token::Keyword(Keyword::If) {
                 let mut else_clause = self.r#if()?;
                 else_clause.span = Span::merge(else_token.span, else_clause.span);
 
@@ -649,8 +647,12 @@ impl Parser {
     }
 
     /// Peeks at the next token without advancing the cursor.
-    fn peek(&self) -> Option<Token> {
-        self.tokens.get(self.cursor).cloned().map(|s| s.value)
+    fn peek(&self) -> Token {
+        self.tokens
+            .get(self.cursor)
+            .cloned()
+            .map(|s| s.value)
+            .unwrap_or(Token::Eof)
     }
 
     /// Peeks `n` tokens ahead of the cursor.
@@ -715,16 +717,16 @@ impl Parser {
 
         let mut result = Vec::new();
 
-        while self.peek() != Some(closing) {
+        while self.peek() != closing {
             result.push(f(self)?);
 
             match self.peek() {
                 // advance past the comma
-                Some(Token::Comma) => {
+                Token::Comma => {
                     let _ = self.consume()?;
                 }
 
-                Some(t) if t == closing => break,
+                t if t == closing => break,
 
                 _ => {
                     return Err(self.consume()?.map(|found| ParsingError::UnexpectedToken {
@@ -751,7 +753,7 @@ impl Parser {
     {
         let mut lhs = f(self)?;
 
-        while let Some(token) = self.peek()
+        while let token = self.peek()
             && let Ok(operator) = BinaryOp::try_from(token)
             && operators.contains(&operator)
         {

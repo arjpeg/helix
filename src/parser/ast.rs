@@ -12,7 +12,7 @@ pub enum Statement {
         stmts: Vec<Spanned<Statement>>,
     },
 
-    /// A [Statement::Program] that can optionally return a tail value.
+    /// A [`Statement::Program`] that can optionally return a tail value.
     ///
     /// Can only ever be created as the root node in an AST, and is used to support
     /// Read-Evaluate-Print-Loop (repl) sessions where users can execute fragments of complete
