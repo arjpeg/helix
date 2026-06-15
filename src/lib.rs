@@ -15,6 +15,7 @@ use crate::{
 
 pub mod compiler;
 pub mod error;
+pub mod interner;
 pub mod interpreter;
 pub mod lexer;
 pub mod parser;

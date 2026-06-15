@@ -2,6 +2,7 @@ pub mod ast;
 pub mod error;
 
 use crate::{
+    interner::{Interner, Symbol},
     lexer::token::{Grouping, Keyword, OpKind, Token},
     parser::{
         ast::{BinaryOp, Expression, LValue, Statement, UnaryOp},
@@ -568,7 +569,10 @@ impl Parser {
 
             Token::Keyword(Keyword::False) => Spanned::wrap(Expression::Boolean(false), token.span),
 
-            Token::String(string) => Spanned::wrap(Expression::String(string.into()), token.span),
+            Token::String(string) => Spanned::wrap(
+                Expression::String(String::from(Interner::resolve(string))),
+                token.span,
+            ),
 
             Token::Symbol(symbol) => Spanned::wrap(Expression::Variable { symbol }, token.span),
 
@@ -668,7 +672,7 @@ impl Parser {
     }
 
     /// Parses a sequence of function parameters.
-    fn parameters(&mut self) -> Result<Spanned<Vec<Spanned<&'static str>>>, Spanned<ParsingError>> {
+    fn parameters(&mut self) -> Result<Spanned<Vec<Spanned<Symbol>>>, Spanned<ParsingError>> {
         self.comma_delimited_list(
             |self_| {
                 let token = self_.consume()?;

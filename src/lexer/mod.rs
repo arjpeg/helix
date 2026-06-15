@@ -4,6 +4,7 @@ pub mod token;
 use unicode_xid::UnicodeXID;
 
 use crate::{
+    interner::Interner,
     lexer::{
         error::{Result, TokenizationError},
         token::{CharTokenExt, Grouping, Keyword, OpKind, Token},
@@ -79,7 +80,7 @@ impl Tokenizer {
 
         let token = Keyword::try_from(symbol)
             .map(Token::Keyword)
-            .unwrap_or(Token::Symbol(symbol));
+            .unwrap_or(Token::Symbol(Interner::intern(symbol)));
 
         Spanned::wrap(token, span)
     }
@@ -184,10 +185,7 @@ impl Tokenizer {
 
                 ch if ch == opening.value => {
                     let span = Span::merge(opening.span, last_span);
-                    return Ok(Spanned::wrap(
-                        Token::String(Box::leak(buf.into_boxed_str())),
-                        span,
-                    ));
+                    return Ok(Spanned::wrap(Token::String(Interner::intern(&buf)), span));
                 }
 
                 ch => buf.push(ch),

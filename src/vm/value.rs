@@ -1,4 +1,4 @@
-use crate::{compiler::chunk::Constant, vm::error::RuntimeError};
+use crate::{compiler::chunk::Constant, interner::Interner, vm::error::RuntimeError};
 
 /// A value living in the helix runtime environment.
 #[derive(Debug, Clone)]
@@ -25,7 +25,7 @@ impl From<Constant> for Value {
             C::Integer(i) => Self::Integer(i),
             C::Float(f) => Self::Float(f),
             C::Boolean(b) => Self::Boolean(b),
-            C::Symbol(s) => Self::String(Box::from(s)),
+            C::Symbol(s) => Self::String(Box::from(Interner::resolve(s))),
         }
     }
 }

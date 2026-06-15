@@ -1,15 +1,15 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::vm::value::Value;
+use crate::{interner::Symbol, vm::value::Value};
 
 /// Manages synchronization of global variables across compilation and program execution.
 #[derive(Debug, Clone)]
 pub struct Globals {
     /// The globals defined at compile time.
-    pub known: HashSet<&'static str>,
+    pub known: HashSet<Symbol>,
 
     /// The runtime values of the globals actually used.
-    pub runtime: HashMap<&'static str, Value>,
+    pub runtime: HashMap<Symbol, Value>,
 }
 
 impl Globals {

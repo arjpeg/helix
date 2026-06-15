@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::source::Spanned;
+use crate::{interner::Symbol, source::Spanned};
 
 /// A type alias for the result of an operation that occurred during program compilation.
 pub type Result<T, E = Spanned<CompilerError>> = std::result::Result<T, E>;
@@ -11,6 +11,6 @@ pub enum CompilerError {
     #[error("variable binding `{symbol}` does not exist")]
     UnboundBinding {
         /// The symbol of the binding.
-        symbol: &'static str,
+        symbol: Symbol,
     },
 }

@@ -1,5 +1,6 @@
 use crate::{
     compiler::instruction::{Instruction, OpCode, disassemble_instruction},
+    interner::{Interner, Symbol},
     source::Span,
 };
 
@@ -38,8 +39,7 @@ pub enum Constant {
     Boolean(bool),
 
     /// A symbol in the source code.
-    /// TODO: add string interning
-    Symbol(&'static str),
+    Symbol(Symbol),
 }
 
 impl Chunk {
@@ -198,6 +198,6 @@ impl From<bool> for Constant {
 
 impl From<&'static str> for Constant {
     fn from(value: &'static str) -> Self {
-        Self::Symbol(value)
+        Self::Symbol(Interner::intern(value))
     }
 }

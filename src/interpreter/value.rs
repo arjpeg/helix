@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{
+    interner::{Interner, Symbol},
     interpreter::{
         Environment, Interpreter,
         error::{Interrupt, RuntimeError, Signal},
@@ -41,7 +42,7 @@ pub enum Value {
 #[derive(Clone)]
 pub struct NativeFn {
     /// The name assigned to this function.
-    pub name: &'static str,
+    pub name: Symbol,
     /// The arity (number of parameters) this function takes, or None if it is variadic.
     pub arity: Option<usize>,
     /// The code to execute when calling this function.
@@ -52,9 +53,9 @@ pub struct NativeFn {
 #[derive(Debug, PartialEq, Clone)]
 pub struct Closure {
     /// The name assigned to this closure, or `None` if it is anonymous.
-    pub name: Option<&'static str>,
+    pub name: Option<Symbol>,
     /// The parameters this closure accepts.
-    pub parameters: Vec<Spanned<&'static str>>,
+    pub parameters: Vec<Spanned<Symbol>>,
     /// The code to execute when calling this closure.
     pub body: Spanned<Expression>,
     /// The environment this closure captured during creation.
@@ -427,7 +428,7 @@ impl NativeFn {
         {
             return Err(Spanned::wrap(
                 RuntimeError::MismatchedArity {
-                    name: self.name,
+                    name: Interner::resolve(self.name),
                     expected: arity,
                     actual: arguments.len(),
                 },
@@ -457,7 +458,7 @@ impl Closure {
         if parameters.len() != arguments.len() {
             return Err(Spanned::wrap(
                 RuntimeError::MismatchedArity {
-                    name: name.unwrap_or("(anonymous)"),
+                    name: name.map(Interner::resolve).unwrap_or("(anonymous)"),
                     expected: parameters.len(),
                     actual: arguments.len(),
                 }

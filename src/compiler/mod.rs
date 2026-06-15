@@ -4,6 +4,7 @@ use crate::{
         error::{CompilerError, Result},
         instruction::Instruction,
     },
+    interner::Symbol,
     parser::ast::{BinaryOp, Expression, LValue, Statement, UnaryOp},
     source::{SourceMap, Span, Spanned},
     vm::globals::Globals,
@@ -32,7 +33,7 @@ struct CompileCtx {
 #[derive(Debug, Clone)]
 struct Local {
     /// The name of the variable.
-    name: &'static str,
+    name: Symbol,
     /// The scope depth this local was first referenced at.
     scope_depth: usize,
 }
@@ -228,7 +229,7 @@ fn emit_expression(
                     },
                     span,
                 );
-            } else if context.globals.known.contains(symbol) {
+            } else if context.globals.known.contains(&symbol) {
                 let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
 
                 chunk.emit_instruction(
@@ -259,7 +260,7 @@ fn emit_expression(
                             },
                             target.span,
                         );
-                    } else if context.globals.known.contains(symbol) {
+                    } else if context.globals.known.contains(&symbol) {
                         let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
 
                         chunk.emit_instruction(
@@ -291,7 +292,7 @@ fn emit_expression(
 }
 
 /// Returns the lastmost index of the given variable name in the [`CompileCtx::locals`].
-fn find_local(context: &CompileCtx, symbol: &'static str) -> Option<usize> {
+fn find_local(context: &CompileCtx, symbol: Symbol) -> Option<usize> {
     context
         .locals
         .iter()

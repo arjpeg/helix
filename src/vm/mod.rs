@@ -98,7 +98,7 @@ impl VM {
                     let value = self
                         .globals
                         .runtime
-                        .get(name)
+                        .get(&name)
                         .expect("unbound global should have been caught by compiler")
                         .clone();
 

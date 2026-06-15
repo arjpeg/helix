@@ -1,4 +1,5 @@
 use crate::{
+    interner::Symbol,
     lexer::token::{Keyword, OpKind, Token},
     source::Spanned,
 };
@@ -44,7 +45,7 @@ pub enum Statement {
     /// A declaration of a variable binding.
     Declaration {
         /// The name of the binding to declare.
-        symbol: &'static str,
+        symbol: Symbol,
         /// The value to assign.
         value: Spanned<Expression>,
     },
@@ -52,9 +53,9 @@ pub enum Statement {
     /// A declaration of a function binding.
     FunctionDeclaration {
         /// The name of the binding to declare.
-        symbol: &'static str,
+        symbol: Symbol,
         /// The parameters accepted.
-        parameters: Vec<Spanned<&'static str>>,
+        parameters: Vec<Spanned<Symbol>>,
         /// The body, or code to execute upon calling the function.
         body: Spanned<Expression>,
     },
@@ -92,7 +93,7 @@ pub enum Expression {
     /// A reference to a variable.
     Variable {
         /// The symbol of the binding.
-        symbol: &'static str,
+        symbol: Symbol,
     },
 
     /// An assignment to an existing variable.
@@ -148,7 +149,7 @@ pub enum Expression {
     /// Creates a new function without a name, also called an anonymous function or a lambda.
     Lambda {
         /// The parameters accepted.
-        parameters: Vec<Spanned<&'static str>>,
+        parameters: Vec<Spanned<Symbol>>,
         /// The body, or code to execute upon calling the function.
         body: Box<Spanned<Expression>>,
     },
@@ -174,7 +175,7 @@ pub enum Expression {
 #[derive(Debug, Clone, PartialEq)]
 pub enum LValue {
     /// A direct binding to a variable.
-    Variable(&'static str),
+    Variable(Symbol),
     /// An assignment to an indexed value.
     Index {
         /// The target value being indexed.

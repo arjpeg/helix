@@ -1,5 +1,7 @@
 use std::fmt::Display;
 
+use crate::interner::Symbol;
+
 /// The smallest lexical unit in the source code.
 #[derive(Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum Token {
@@ -8,11 +10,11 @@ pub enum Token {
     /// A 64 bit floating point literal.
     Float(f64),
     /// A string literal.
-    String(&'static str),
+    String(Symbol),
     /// A keyword.
     Keyword(Keyword),
     /// An unknown symbol (usually represents a variable name).
-    Symbol(&'static str),
+    Symbol(Symbol),
     /// Any operator.
     Operator(OpKind),
     /// Any grouping symbol.

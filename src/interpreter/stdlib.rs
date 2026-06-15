@@ -5,6 +5,7 @@ use std::{
 };
 
 use crate::{
+    interner::{Interner, Symbol},
     interpreter::{
         error::RuntimeError,
         value::{NativeFn, Value},
@@ -17,20 +18,20 @@ type ValueResult = Result<Value, Spanned<RuntimeError>>;
 
 /// Returns a [`HashMap`] with all the registered default items avaiable in the helix standard
 /// library.
-pub fn register() -> HashMap<&'static str, Value> {
+pub fn register() -> HashMap<Symbol, Value> {
     let functions = [
         NativeFn {
-            name: "time",
+            name: Interner::intern("time"),
             arity: Some(0),
             function: Rc::new(time),
         },
         NativeFn {
-            name: "len",
+            name: Interner::intern("len"),
             arity: Some(1),
             function: Rc::new(len),
         },
         NativeFn {
-            name: "push",
+            name: Interner::intern("push"),
             arity: Some(2),
             function: Rc::new(push),
         },

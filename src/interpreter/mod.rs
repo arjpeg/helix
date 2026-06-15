@@ -5,6 +5,7 @@ pub mod value;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use crate::{
+    interner::{Interner, Symbol},
     interpreter::{
         error::{Interrupt, RuntimeError, Signal},
         value::{Closure, Value},
@@ -21,7 +22,7 @@ pub struct Environment {
     /// The enclosing parent [Environment].
     parent: Option<Rc<RefCell<Environment>>>,
     /// The variables bound in this environment.
-    bindings: HashMap<&'static str, Value>,
+    bindings: HashMap<Symbol, Value>,
 }
 
 /// A basic tree walking interpreter, responsible for evaluating source ASTs.
@@ -188,11 +189,14 @@ impl Interpreter {
             Expression::String(s) => Ok(Spanned::wrap(Value::String(s.to_owned()), span)),
 
             Expression::Variable { symbol } => {
-                if let Some(value) = self.environment.borrow().search(symbol) {
+                if let Some(value) = self.environment.borrow().search(*symbol) {
                     Ok(Spanned::wrap(value, span))
                 } else {
                     Err(Spanned::wrap(
-                        RuntimeError::UnboundBinding { symbol }.into(),
+                        RuntimeError::UnboundBinding {
+                            symbol: Interner::resolve(*symbol),
+                        }
+                        .into(),
                         span,
                     ))
                 }
@@ -208,7 +212,7 @@ impl Interpreter {
                     LValue::Variable(symbol) => self
                         .environment
                         .borrow_mut()
-                        .assign(symbol, value.value.clone())
+                        .assign(*symbol, value.value.clone())
                         .map_err(|e| Spanned::wrap(e.into(), target.span))?,
 
                     LValue::Index { base, index } => {
@@ -332,8 +336,8 @@ impl Environment {
 
     /// Recursively searches this [Environment] and its parent
     /// to find the value of the given `symbol`.
-    pub fn search(&self, symbol: &'static str) -> Option<Value> {
-        self.bindings.get(symbol).cloned().or_else(|| {
+    pub fn search(&self, symbol: Symbol) -> Option<Value> {
+        self.bindings.get(&symbol).cloned().or_else(|| {
             self.parent
                 .as_ref()
                 .and_then(|env| env.borrow().search(symbol))
@@ -341,8 +345,8 @@ impl Environment {
     }
 
     /// Attempts to assign an existing symbol to the closest enclosing scope.
-    pub fn assign(&mut self, symbol: &'static str, value: Value) -> Result<(), RuntimeError> {
-        if let Some(binding) = self.bindings.get_mut(symbol) {
+    pub fn assign(&mut self, symbol: Symbol, value: Value) -> Result<(), RuntimeError> {
+        if let Some(binding) = self.bindings.get_mut(&symbol) {
             *binding = value;
             return Ok(());
         }
@@ -350,7 +354,9 @@ impl Environment {
         if let Some(parent) = &self.parent {
             parent.borrow_mut().assign(symbol, value)
         } else {
-            Err(RuntimeError::UnboundBinding { symbol })
+            Err(RuntimeError::UnboundBinding {
+                symbol: Interner::resolve(symbol),
+            })
         }
     }
 }
