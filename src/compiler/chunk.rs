@@ -35,6 +35,10 @@ pub enum Constant {
 
     /// A logical boolean.
     Boolean(bool),
+
+    /// A symbol in the source code.
+    /// TODO: add string interning
+    Symbol(&'static str),
 }
 
 /// All the different instructions performed by the VM.
@@ -49,6 +53,20 @@ pub enum Instruction {
     /// Loads a constant from the constant pool.
     LoadConstant {
         /// The index of constant to load.
+        index: u8,
+    },
+
+    /// Declares a new global variable with the value as the top value on the stack, which then
+    /// gets popped.
+    DefineGlobal {
+        /// The index of the constant containing the name of the variable.
+        index: u8,
+    },
+
+    /// Reads the value of a previously declared global variable, placing it at the top of the
+    /// stack.
+    GetGlobal {
+        /// The index of the constant containing the name of the variable.
         index: u8,
     },
 
@@ -87,6 +105,10 @@ pub enum OpCode {
     Pop,
     /// See [Instruction::LoadConstant].
     LoadConstant,
+    /// See [Instruction::DefineGlobal].
+    DefineGlobal,
+    /// See [Instruction::GetGlobal].
+    GetGlobal,
     /// See [Instruction::GetLocal].
     GetLocal,
     /// See [Instruction::Add].
@@ -143,6 +165,14 @@ impl Chunk {
                 self.code.push(index);
             }
 
+            Instruction::DefineGlobal { index } => {
+                self.code.push(index);
+            }
+
+            Instruction::GetGlobal { index } => {
+                self.code.push(index);
+            }
+
             Instruction::GetLocal { index } => {
                 self.code.push(index);
             }
@@ -183,6 +213,20 @@ pub fn disassemble(chunk: &Chunk) {
                     "LOAD_CONSTANT ({index} : {:?})",
                     chunk.constants[index as usize]
                 )
+            }
+
+            Instruction::DefineGlobal { index } => {
+                println!(
+                    "DEFINE_GLOBAL ({index} : {:?})",
+                    chunk.constants[index as usize]
+                );
+            }
+
+            Instruction::GetGlobal { index } => {
+                println!(
+                    "GET_GLOBAL ({index} : {:?})",
+                    chunk.constants[index as usize]
+                );
             }
 
             Instruction::GetLocal { index } => {
@@ -228,6 +272,18 @@ pub(crate) fn disassemble_instruction(chunk: &Chunk, offset: usize) -> (Instruct
             },
             offset + 2,
         ),
+        OpCode::DefineGlobal => (
+            Instruction::DefineGlobal {
+                index: chunk.code[offset + 1],
+            },
+            offset + 2,
+        ),
+        OpCode::GetGlobal => (
+            Instruction::GetGlobal {
+                index: chunk.code[offset + 1],
+            },
+            offset + 2,
+        ),
         OpCode::GetLocal => (
             Instruction::GetLocal {
                 index: chunk.code[offset + 1],
@@ -243,6 +299,8 @@ impl From<&Instruction> for OpCode {
             Instruction::Return => Self::Return,
             Instruction::Pop => Self::Pop,
             Instruction::LoadConstant { .. } => Self::LoadConstant,
+            Instruction::DefineGlobal { .. } => Self::DefineGlobal,
+            Instruction::GetGlobal { .. } => Self::GetGlobal,
             Instruction::GetLocal { .. } => Self::GetLocal,
             Instruction::Add => Self::Add,
             Instruction::Subtract => Self::Subtract,
@@ -269,5 +327,11 @@ impl From<f64> for Constant {
 impl From<bool> for Constant {
     fn from(value: bool) -> Self {
         Self::Boolean(value)
+    }
+}
+
+impl From<&'static str> for Constant {
+    fn from(value: &'static str) -> Self {
+        Self::Symbol(value)
     }
 }

@@ -12,6 +12,8 @@ pub enum Type {
     Float,
     /// A logical boolean.
     Boolean,
+    /// A utf-8 encoded immutable string.
+    String,
 }
 
 impl From<Value> for Type {
@@ -21,6 +23,7 @@ impl From<Value> for Type {
             Value::Integer(_) => Self::Integer,
             Value::Float(_) => Self::Float,
             Value::Boolean(_) => Self::Boolean,
+            Value::String(_) => Self::String,
         }
     }
 }
@@ -35,6 +38,7 @@ impl std::fmt::Display for Type {
                 Type::Integer => "integer",
                 Type::Float => "float",
                 Type::Boolean => "boolean",
+                Type::String => "string",
             }
         )
     }

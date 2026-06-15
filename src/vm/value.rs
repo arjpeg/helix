@@ -12,6 +12,8 @@ pub enum Value {
     Float(f64),
     /// A logical boolean.
     Boolean(bool),
+    /// A utf-8 encoded immutable string.
+    String(Box<str>),
 }
 
 impl From<Constant> for Value {
@@ -23,6 +25,7 @@ impl From<Constant> for Value {
             C::Integer(i) => Self::Integer(i),
             C::Float(f) => Self::Float(f),
             C::Boolean(b) => Self::Boolean(b),
+            C::Symbol(s) => Self::String(Box::from(s)),
         }
     }
 }

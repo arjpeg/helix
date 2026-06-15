@@ -10,7 +10,7 @@ use crate::{
     lexer::Tokenizer,
     parser::Parser,
     source::{SourceHandle, SourceMap, Spanned},
-    vm::{VM, value::Value},
+    vm::{VM, globals::Globals, value::Value},
 };
 
 pub mod compiler;
@@ -27,16 +27,18 @@ pub struct Engine {
     chunks: HashMap<SourceHandle, Chunk>,
 
     /// The running virtual machine, shared across evaluations.
-    /// TODO: allow for deferred chunk initialization
-    #[allow(dead_code)]
-    vm: (),
+    vm: VM,
+
+    /// The shared state of global variables for all sources.
+    globals: Globals,
 }
 
 impl Engine {
     pub fn new() -> Self {
         Self {
             chunks: HashMap::new(),
-            vm: (),
+            vm: VM::new(),
+            globals: Globals::new(),
         }
     }
 
@@ -47,9 +49,10 @@ impl Engine {
     ) -> Result<(), Vec<Spanned<Box<dyn Error>>>> {
         let tokens = collect_errors(Tokenizer::new(SourceMap::get(source)))?;
         let ast = Parser::new(tokens).parse_source().map_err(box_vec_error)?;
-        let chunk = compile_program(ast).map_err(box_vec_error)?;
+        let (chunk, globals) = compile_program(ast, &self.globals).map_err(box_vec_error)?;
 
         self.chunks.insert(source, chunk);
+        self.globals = globals;
 
         Ok(())
     }
@@ -63,10 +66,10 @@ impl Engine {
         let ast = Parser::new(tokens)
             .parse_repl()
             .map_err(|e| vec![box_error(e)])?;
-
-        let chunk = compile_program(ast).map_err(box_vec_error)?;
+        let (chunk, globals) = compile_program(ast, &self.globals).map_err(box_vec_error)?;
 
         self.chunks.insert(source, chunk);
+        self.globals = globals;
 
         Ok(())
     }
@@ -77,10 +80,20 @@ impl Engine {
         &mut self,
         source: SourceHandle,
     ) -> Result<Option<Value>, Spanned<Box<dyn Error>>> {
-        let chunk = self.chunks.get(&source).unwrap().clone();
-        disassemble(&chunk);
+        let chunk = self.chunks.get(&source).unwrap();
+        disassemble(chunk);
 
-        VM::new(chunk).execute().map_err(box_error)
+        self.vm.globals = self.globals.snapshot();
+
+        match self.vm.execute(chunk) {
+            Ok(value) => {
+                // synchronize global states
+                self.globals = self.vm.globals.snapshot();
+                Ok(value)
+            }
+
+            Err(e) => Err(box_error(e)),
+        }
     }
 }
 

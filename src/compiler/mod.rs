@@ -5,6 +5,7 @@ use crate::{
     },
     parser::ast::{BinaryOp, Expression, Statement, UnaryOp},
     source::{SourceMap, Span, Spanned},
+    vm::globals::Globals,
 };
 
 pub mod chunk;
@@ -17,6 +18,9 @@ struct CompileCtx {
     locals: Vec<Local>,
     /// The current depth of scopes (how many blocks deep we are).
     scope_depth: usize,
+
+    /// A set of all the known global variables declared.
+    globals: Globals,
 
     /// All errors accumulated so far.
     errors: Vec<Spanned<CompilerError>>,
@@ -33,7 +37,10 @@ struct Local {
 
 /// Compiles a [`Statement::Program`] or [`Statement::Repl`] into an optimized [`Chunk`] ready for
 /// execution by the virtual machine.
-pub fn compile_program(program: Spanned<Statement>) -> Result<Chunk, Vec<Spanned<CompilerError>>> {
+pub fn compile_program(
+    program: Spanned<Statement>,
+    globals: &Globals,
+) -> Result<(Chunk, Globals), Vec<Spanned<CompilerError>>> {
     let (stmts, tail) = match program.value {
         Statement::Program { stmts } => (stmts, None),
         Statement::Repl { stmts, tail } => (stmts, tail),
@@ -46,6 +53,7 @@ pub fn compile_program(program: Spanned<Statement>) -> Result<Chunk, Vec<Spanned
     let mut context = CompileCtx {
         locals: Vec::new(),
         scope_depth: 0,
+        globals: globals.snapshot(),
         errors: Vec::new(),
     };
 
@@ -64,7 +72,7 @@ pub fn compile_program(program: Spanned<Statement>) -> Result<Chunk, Vec<Spanned
         return Err(context.errors);
     }
 
-    Ok(chunk)
+    Ok((chunk, context.globals))
 }
 
 fn emit_statement(chunk: &mut Chunk, context: &mut CompileCtx, statement: Statement, span: Span) {
@@ -78,16 +86,28 @@ fn emit_statement(chunk: &mut Chunk, context: &mut CompileCtx, statement: Statem
             chunk.emit_instruction(Instruction::Pop, span);
         }
 
-        Statement::Declaration {
-            symbol,
-            value: Spanned { value, span },
-        } => {
-            emit_expression(chunk, context, value, span);
+        Statement::Declaration { symbol, value } => {
+            emit_expression(chunk, context, value.value, value.span);
 
-            context.locals.push(Local {
-                name: symbol,
-                scope_depth: context.scope_depth,
-            });
+            // if we are scope_depth==0 (the global scope) declare the variable there instead
+            if context.scope_depth == 0 {
+                let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
+
+                context.globals.known.insert(symbol);
+
+                chunk.emit_instruction(
+                    Instruction::DefineGlobal {
+                        index: symbol_index,
+                    },
+                    span,
+                );
+            } else {
+                // declare the variable as a normal local
+                context.locals.push(Local {
+                    name: symbol,
+                    scope_depth: context.scope_depth,
+                });
+            }
         }
 
         Statement::Print(..) => todo!(),
@@ -193,13 +213,27 @@ fn emit_expression(
         }
 
         Expression::Variable { symbol } => {
-            let Some((index, _)) = context
+            if let Some((index, _)) = context
                 .locals
                 .iter()
                 .enumerate()
                 .rev()
                 .find(|(_, local)| local.name == symbol)
-            else {
+            {
+                // due to the way stack is cleaned up after statements,
+                // the indices from `locals` always match up to the location of elements on the stack,
+                // so can just copy the same index
+                chunk.emit_instruction(Instruction::GetLocal { index: index as u8 }, span);
+            } else if context.globals.known.contains(symbol) {
+                let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
+
+                chunk.emit_instruction(
+                    Instruction::GetGlobal {
+                        index: symbol_index,
+                    },
+                    span,
+                );
+            } else {
                 context.errors.push(Spanned::wrap(
                     CompilerError::UnboundBinding { symbol },
                     span,
@@ -207,11 +241,6 @@ fn emit_expression(
 
                 return;
             };
-
-            // due to the way stack is cleaned up after statements,
-            // the indices from `locals` always match up to the location of elements on the stack,
-            // so can just copy the same index
-            chunk.emit_instruction(Instruction::GetLocal { index: index as u8 }, span);
         }
 
         Expression::Assignment { .. } => todo!(),
