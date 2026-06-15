@@ -46,14 +46,10 @@ impl Engine {
         source: SourceHandle,
     ) -> Result<(), Vec<Spanned<Box<dyn Error>>>> {
         let tokens = collect_errors(Tokenizer::new(SourceMap::get(source)))?;
-        let ast = Parser::new(tokens).parse_source().map_err(|errors| {
-            errors
-                .into_iter()
-                .map(box_error)
-                .collect::<Vec<Spanned<_>>>()
-        })?;
+        let ast = Parser::new(tokens).parse_source().map_err(box_vec_error)?;
+        let chunk = compile_program(ast).map_err(box_vec_error)?;
 
-        self.chunks.insert(source, compile_program(ast));
+        self.chunks.insert(source, chunk);
 
         Ok(())
     }
@@ -68,7 +64,9 @@ impl Engine {
             .parse_repl()
             .map_err(|e| vec![box_error(e)])?;
 
-        self.chunks.insert(source, compile_program(ast));
+        let chunk = compile_program(ast).map_err(box_vec_error)?;
+
+        self.chunks.insert(source, chunk);
 
         Ok(())
     }
@@ -87,8 +85,13 @@ impl Engine {
 }
 
 /// Converts an `Spanned<E: impl Error>` into a `Spanned<Box<dyn Error>>`
-pub fn box_error(error: Spanned<impl Error + 'static>) -> Spanned<Box<dyn Error>> {
+fn box_error(error: Spanned<impl Error + 'static>) -> Spanned<Box<dyn Error>> {
     error.map(|e| Box::new(e) as _)
+}
+
+/// Converts an `Spanned<Vec<Spanned<E: impl Error>>` into a `Spanned<Vec<Box<dyn Error>>>`
+fn box_vec_error(errors: Vec<Spanned<impl Error + 'static>>) -> Vec<Spanned<Box<dyn Error>>> {
+    errors.into_iter().map(box_error).collect_vec()
 }
 
 /// Separates an `Iterator<Item = Result<T, E>> into Result<Vec<T>, Vec<Box<dyn Error>>>`

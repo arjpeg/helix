@@ -25,6 +25,9 @@ pub struct Chunk {
 #[repr(u8)]
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Constant {
+    /// The unit type, also known as `()`.
+    Unit,
+
     /// A 64-bit, signed integer.
     Integer(i64),
     /// A 64-bit, floating point number.
@@ -46,6 +49,12 @@ pub enum Instruction {
     /// Loads a constant from the constant pool.
     LoadConstant {
         /// The index of constant to load.
+        index: u8,
+    },
+
+    /// Retrives a local variable allocated at a given stack location.
+    GetLocal {
+        /// The index on the stack to load.
         index: u8,
     },
 
@@ -78,6 +87,8 @@ pub enum OpCode {
     Pop,
     /// See [Instruction::LoadConstant].
     LoadConstant,
+    /// See [Instruction::GetLocal].
+    GetLocal,
     /// See [Instruction::Add].
     Add,
     /// See [Instruction::Subtract]
@@ -132,6 +143,10 @@ impl Chunk {
                 self.code.push(index);
             }
 
+            Instruction::GetLocal { index } => {
+                self.code.push(index);
+            }
+
             _ => {}
         }
 
@@ -168,6 +183,10 @@ pub fn disassemble(chunk: &Chunk) {
                     "LOAD_CONSTANT ({index} : {:?})",
                     chunk.constants[index as usize]
                 )
+            }
+
+            Instruction::GetLocal { index } => {
+                println!("GET_LOCAL ({index})",)
             }
 
             Instruction::Add => println!("ADD"),
@@ -209,6 +228,12 @@ pub(crate) fn disassemble_instruction(chunk: &Chunk, offset: usize) -> (Instruct
             },
             offset + 2,
         ),
+        OpCode::GetLocal => (
+            Instruction::GetLocal {
+                index: chunk.code[offset + 1],
+            },
+            offset + 2,
+        ),
     }
 }
 
@@ -218,6 +243,7 @@ impl From<&Instruction> for OpCode {
             Instruction::Return => Self::Return,
             Instruction::Pop => Self::Pop,
             Instruction::LoadConstant { .. } => Self::LoadConstant,
+            Instruction::GetLocal { .. } => Self::GetLocal,
             Instruction::Add => Self::Add,
             Instruction::Subtract => Self::Subtract,
             Instruction::Multiply => Self::Multiply,

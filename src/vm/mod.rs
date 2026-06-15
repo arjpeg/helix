@@ -72,6 +72,15 @@ impl VM {
                     println!("constant: {constant:?}");
                 }
 
+                OpCode::GetLocal => {
+                    let index = self.read_byte() as usize;
+                    let value = self.stack[index].clone();
+
+                    println!("local {value:?}");
+
+                    self.stack.push(value);
+                }
+
                 OpCode::Add | OpCode::Subtract | OpCode::Multiply | OpCode::Divide => {
                     self.handle_binary_operation(opcode)?;
                 }

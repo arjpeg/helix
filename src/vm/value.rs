@@ -3,6 +3,9 @@ use crate::{compiler::chunk::Constant, vm::error::RuntimeError};
 /// A value living in the helix runtime environment.
 #[derive(Debug, Clone)]
 pub enum Value {
+    /// The unit type, also known as `()`.
+    Unit,
+
     /// A 64-bit signed integer.
     Integer(i64),
     /// A 64-bit floating point number.
@@ -16,6 +19,7 @@ impl From<Constant> for Value {
         use Constant as C;
 
         match c {
+            C::Unit => Self::Unit,
             C::Integer(i) => Self::Integer(i),
             C::Float(f) => Self::Float(f),
             C::Boolean(b) => Self::Boolean(b),
