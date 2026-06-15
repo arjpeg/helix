@@ -40,6 +40,8 @@ pub enum Instruction {
     /// Return from the current function context, or stop program execution from the global
     /// scope.
     Return,
+    /// Pops the topmost value from the stack, discarding the result.
+    Pop,
 
     /// Loads a constant from the constant pool.
     LoadConstant {
@@ -59,6 +61,11 @@ pub enum Instruction {
     /// Subtracts the top two values on the stack, popping them and then appending the
     /// result back onto the stack.
     Divide,
+
+    /// Negates the top value on the stack in place.
+    Negate,
+    /// Applies the not operation on the top value on the stack in place.
+    Not,
 }
 
 /// The operation code associated with each [`Instruction`].
@@ -67,16 +74,22 @@ pub enum Instruction {
 pub enum OpCode {
     /// See [Instruction::Return].
     Return = 0,
-    /// See [Instruction::Constant].
-    Constant = 1,
+    /// See [Instruction::Pop].
+    Pop,
+    /// See [Instruction::LoadConstant].
+    LoadConstant,
     /// See [Instruction::Add].
-    Add = 2,
+    Add,
     /// See [Instruction::Subtract]
-    Subtract = 3,
+    Subtract,
     /// See [Instruction::Multiply].
-    Multiply = 4,
+    Multiply,
     /// See [Instruction::Divide].
-    Divide = 5,
+    Divide,
+    /// See [Instruction::Negate].
+    Negate,
+    /// See [Instruction::Not].
+    Not,
 }
 
 impl Chunk {
@@ -148,6 +161,8 @@ pub fn disassemble(chunk: &Chunk) {
         match instruction {
             Instruction::Return => println!("RETURN"),
 
+            Instruction::Pop => println!("POP"),
+
             Instruction::LoadConstant { index } => {
                 println!(
                     "LOAD_CONSTANT ({index} : {:?})",
@@ -162,6 +177,10 @@ pub fn disassemble(chunk: &Chunk) {
             Instruction::Multiply => println!("MULTIPLY"),
 
             Instruction::Divide => println!("DIVIDE"),
+
+            Instruction::Negate => println!("NEGATE"),
+
+            Instruction::Not => println!("NOT"),
         }
 
         offset = next;
@@ -175,13 +194,16 @@ pub(crate) fn disassemble_instruction(chunk: &Chunk, offset: usize) -> (Instruct
     match opcode {
         // simple one byte instructions
         OpCode::Return => (Instruction::Return, offset + 1),
+        OpCode::Pop => (Instruction::Pop, offset + 1),
         OpCode::Add => (Instruction::Add, offset + 1),
         OpCode::Subtract => (Instruction::Subtract, offset + 1),
         OpCode::Multiply => (Instruction::Multiply, offset + 1),
         OpCode::Divide => (Instruction::Divide, offset + 1),
+        OpCode::Negate => (Instruction::Negate, offset + 1),
+        OpCode::Not => (Instruction::Not, offset + 1),
 
         // multi byte instructions
-        OpCode::Constant => (
+        OpCode::LoadConstant => (
             Instruction::LoadConstant {
                 index: chunk.code[offset + 1],
             },
@@ -194,11 +216,14 @@ impl From<&Instruction> for OpCode {
     fn from(value: &Instruction) -> Self {
         match value {
             Instruction::Return => Self::Return,
-            Instruction::LoadConstant { .. } => Self::Constant,
+            Instruction::Pop => Self::Pop,
+            Instruction::LoadConstant { .. } => Self::LoadConstant,
             Instruction::Add => Self::Add,
             Instruction::Subtract => Self::Subtract,
             Instruction::Multiply => Self::Multiply,
             Instruction::Divide => Self::Divide,
+            Instruction::Negate => Self::Negate,
+            Instruction::Not => Self::Not,
         }
     }
 }

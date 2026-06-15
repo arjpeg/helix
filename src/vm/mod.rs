@@ -59,7 +59,11 @@ impl VM {
                     return Ok(self.stack.pop());
                 }
 
-                OpCode::Constant => {
+                OpCode::Pop => {
+                    let _ = self.pop_stack();
+                }
+
+                OpCode::LoadConstant => {
                     let index = self.read_byte() as usize;
                     let constant = self.chunk.constants[index];
 
@@ -71,6 +75,8 @@ impl VM {
                 OpCode::Add | OpCode::Subtract | OpCode::Multiply | OpCode::Divide => {
                     self.handle_binary_operation(opcode)?;
                 }
+
+                OpCode::Negate | OpCode::Not => self.handle_unary_operation(opcode)?,
             }
         }
     }
@@ -93,6 +99,24 @@ impl VM {
 
         self.stack
             .push(reducer(lhs, rhs).map_err(|e| Spanned::wrap(e, span))?);
+
+        Ok(())
+    }
+
+    /// Handles a unary instruction.
+    fn handle_unary_operation(&mut self, opcode: OpCode) -> Result<()> {
+        let operand = self.pop_stack();
+
+        let reducer = match opcode {
+            OpCode::Negate => Value::negate,
+            OpCode::Not => Value::not,
+            _ => unreachable!("called handle_unary_operation with non unary opcode"),
+        };
+
+        let span = self.chunk.span_at(self.ip - 1);
+
+        self.stack
+            .push(reducer(operand).map_err(|e| Spanned::wrap(e, span))?);
 
         Ok(())
     }

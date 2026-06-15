@@ -1,6 +1,6 @@
 use crate::{
     compiler::chunk::{Chunk, Constant, Instruction},
-    parser::ast::{BinaryOp, Expression, Statement},
+    parser::ast::{BinaryOp, Expression, Statement, UnaryOp},
     source::{SourceMap, Span, Spanned},
 };
 
@@ -36,7 +36,12 @@ fn emit_statement(chunk: &mut Chunk, statement: Statement, span: Span) {
     match statement {
         Statement::Program { .. } | Statement::Repl { .. } => unreachable!(),
 
-        Statement::Expression { expr, .. } => emit_expression(chunk, expr, span),
+        Statement::Expression { expr, .. } => {
+            emit_expression(chunk, expr, span);
+
+            // clean stack after expression statements
+            chunk.emit_instruction(Instruction::Pop, span);
+        }
 
         Statement::Print(..) => todo!(),
         Statement::While { .. } => todo!(),
@@ -89,9 +94,26 @@ fn emit_expression(chunk: &mut Chunk, expression: Expression, span: Span) {
             );
         }
 
+        Expression::UnaryOperation { operator, operand } => {
+            emit_expression(chunk, operand.value, operand.span);
+
+            // '+' is always a no op
+            if operator == UnaryOp::Plus {
+                return;
+            }
+
+            chunk.emit_instruction(
+                match operator {
+                    UnaryOp::Minus => Instruction::Negate,
+                    UnaryOp::Bang => Instruction::Not,
+                    UnaryOp::Plus => unreachable!(),
+                },
+                span,
+            );
+        }
+
         Expression::Variable { .. } => todo!(),
         Expression::Assignment { .. } => todo!(),
-        Expression::UnaryOperation { .. } => todo!(),
         Expression::List { .. } => todo!(),
         Expression::Block { .. } => todo!(),
         Expression::If { .. } => todo!(),

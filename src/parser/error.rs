@@ -8,7 +8,7 @@ pub enum ParsingError {
     #[error("unexpectedly reached the end of file")]
     UnexpectedEof,
 
-    #[error("expected to find {expected}, but found a token `{found}`")]
+    #[error("expected to find {expected}, but found token `{found}`")]
     UnexpectedToken {
         expected: &'static str,
         found: Token,

@@ -61,21 +61,19 @@ macro_rules! unary_op {
             $( $pattern:pat => $body:expr ),* $(,)?
         }
     ) => {
-        use crate::vm::error::RuntimeError;
-
         impl Value {
-            pub fn $name(operand: Self) -> Result<Self, RuntimeError> {
+            pub fn $name(operand: Self) -> Result<Self, crate::vm::error::RuntimeError> {
                 #[allow(unused)]
                 use Value::*;
                 #[allow(unused)]
-                use crate::parser::ast::UnaryOp;
+                use crate::parser::ast::UnaryOp::*;
 
                 #[allow(unreachable_patterns)]
                 match (operand) {
                     $( $pattern => Ok($body), )*
-                    operand => Err(RuntimeError::InvalidUnaryOperation {
+                    operand => Err(crate::vm::error::RuntimeError::InvalidUnaryOperation {
                         operator: $operator,
-                        operand
+                        operand: operand.into()
                     }),
                 }
             }
@@ -104,4 +102,14 @@ binary_op!(divide: Slash, {
 
     (Float(a), Float(b)) => Float(a / b),
     (Integer(a), Integer(b)) => Integer(a / b),
+});
+
+unary_op!(negate: Minus, {
+    Float(a) => Float(-a),
+    Integer(a) => Integer(-a)
+});
+
+unary_op!(not: Bang, {
+    Integer(a) => Integer(!a),
+    Boolean(a) => Boolean(!a)
 });
