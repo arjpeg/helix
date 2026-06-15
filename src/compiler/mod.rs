@@ -1,15 +1,17 @@
 use crate::{
     compiler::{
-        chunk::{Chunk, Constant, Instruction},
+        chunk::{Chunk, Constant},
         error::{CompilerError, Result},
+        instruction::Instruction,
     },
-    parser::ast::{BinaryOp, Expression, Statement, UnaryOp},
+    parser::ast::{BinaryOp, Expression, LValue, Statement, UnaryOp},
     source::{SourceMap, Span, Spanned},
     vm::globals::Globals,
 };
 
 pub mod chunk;
 pub mod error;
+pub mod instruction;
 
 /// The context of a compilation session of a [`Chunk`].
 struct CompileCtx {
@@ -140,7 +142,10 @@ fn emit_expression(
             let constant = chunk.emit_constant(Constant::from(b));
             chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
-        Expression::String(_) => todo!(),
+        Expression::String(s) => {
+            let constant = chunk.emit_constant(Constant::from(&*s.leak()));
+            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
+        }
 
         Expression::BinaryOperation { lhs, operator, rhs } => {
             emit_expression(chunk, context, lhs.value, lhs.span);
@@ -213,23 +218,22 @@ fn emit_expression(
         }
 
         Expression::Variable { symbol } => {
-            if let Some((index, _)) = context
-                .locals
-                .iter()
-                .enumerate()
-                .rev()
-                .find(|(_, local)| local.name == symbol)
-            {
+            if let Some(index) = find_local(context, symbol) {
                 // due to the way stack is cleaned up after statements,
                 // the indices from `locals` always match up to the location of elements on the stack,
                 // so can just copy the same index
-                chunk.emit_instruction(Instruction::GetLocal { index: index as u8 }, span);
+                chunk.emit_instruction(
+                    Instruction::GetLocal {
+                        stack_index: index as u8,
+                    },
+                    span,
+                );
             } else if context.globals.known.contains(symbol) {
                 let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
 
                 chunk.emit_instruction(
                     Instruction::GetGlobal {
-                        index: symbol_index,
+                        name_index: symbol_index,
                     },
                     span,
                 );
@@ -243,11 +247,56 @@ fn emit_expression(
             };
         }
 
-        Expression::Assignment { .. } => todo!(),
+        Expression::Assignment { target, value } => {
+            emit_expression(chunk, context, value.value, value.span);
+
+            match target.value {
+                LValue::Variable(symbol) => {
+                    if let Some(index) = find_local(context, symbol) {
+                        chunk.emit_instruction(
+                            Instruction::SetLocal {
+                                stack_index: index as u8,
+                            },
+                            target.span,
+                        );
+                    } else if context.globals.known.contains(symbol) {
+                        let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
+
+                        chunk.emit_instruction(
+                            Instruction::GetGlobal {
+                                name_index: symbol_index,
+                            },
+                            target.span,
+                        );
+                    } else {
+                        context.errors.push(Spanned::wrap(
+                            CompilerError::UnboundBinding { symbol },
+                            target.span,
+                        ));
+
+                        return;
+                    };
+                }
+
+                LValue::Index { .. } => todo!(),
+            }
+        }
+
         Expression::List { .. } => todo!(),
         Expression::If { .. } => todo!(),
         Expression::Lambda { .. } => todo!(),
         Expression::Call { .. } => todo!(),
         Expression::Index { .. } => todo!(),
     };
+}
+
+/// Returns the lastmost index of the given variable name in the [`CompileCtx::locals`].
+fn find_local(context: &CompileCtx, symbol: &'static str) -> Option<usize> {
+    context
+        .locals
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, local)| local.name == symbol)
+        .map(|(index, _)| index)
 }
