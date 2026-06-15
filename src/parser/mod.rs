@@ -810,14 +810,11 @@ mod tests {
             Parser,
             ast::{BinaryOp, Expression, Statement, UnaryOp},
         },
-        source::{Source, Span, Spanned},
+        source::{Source, SourceMap, Span, Spanned},
     };
 
     fn make_source(content: &'static str) -> Source {
-        Source {
-            content,
-            path: Path::new("test.hx"),
-        }
+        SourceMap::get(SourceMap::add(content, Path::new("test.hx")))
     }
 
     fn parse_repl(src: &'static str) -> Expression {

@@ -1,13 +1,13 @@
 const BASE_CODE: &str = "
-use helix::{Engine, source::Source};
+use helix::{Engine, source::SourceMap};
 use std::path::Path;
 
-fn run(path: &str, src: &str, expect_error: bool) {
+fn run(path: &'static str, src: &'static str, expect_error: bool) {
     let mut engine = Engine::new();
-    let source = Source {
-        content: Box::leak(src.to_string().into_boxed_str()),
-        path: Box::leak(Path::new(path).to_path_buf().into_boxed_path()),
-    };
+
+    // TODO: make this work with VM and interpreter
+
+    let source = SourceMap::add(src, Path::new(path));
 
     let result = engine.register_program(source).and_then(|_| engine.execute(source).map_err(|e| vec![e]));
     if expect_error {
