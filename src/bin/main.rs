@@ -1,12 +1,5 @@
 use clap::Parser;
-use helix::{
-    Engine,
-    compiler::{chunk::disassemble, compile_program},
-    error,
-    interpreter::value::Value,
-    lexer::Tokenizer,
-    source::SourceMap,
-};
+use helix::{Engine, error, source::SourceMap};
 use reedline::{DefaultPrompt, DefaultPromptSegment, Reedline, Signal};
 use std::path::{Path, PathBuf};
 
@@ -18,19 +11,6 @@ struct Cli {
 }
 
 fn main() {
-    let source = SourceMap::add("1.2 + 2.4 * 3.123;", Path::new("<repl>"));
-
-    let tokens = Tokenizer::new(SourceMap::get(source))
-        .collect::<Result<Vec<_>, _>>()
-        .unwrap();
-
-    let ast = helix::parser::Parser::new(tokens).parse_source().unwrap();
-
-    let chunk = compile_program(ast);
-
-    disassemble(&chunk);
-
-    /*
     let cli = Cli::parse();
     let mut engine = Engine::new();
 
@@ -48,18 +28,18 @@ fn main() {
 
             if let Err(errors) = engine.register_program(source) {
                 for error in errors {
-                    error::print_error(error);
+                    error::print_error(&error);
                 }
                 return;
             }
 
             if let Err(e) = engine.execute(source) {
-                error::print_error(e);
+                error::print_error(&e);
             }
         }
 
         None => repl(),
-    }*/
+    }
 }
 
 fn repl() {
@@ -82,16 +62,16 @@ fn repl() {
 
         if let Err(errors) = engine.register_repl(source) {
             for error in errors {
-                error::print_error(error);
+                error::print_error(&error);
             }
 
             continue;
         }
 
         match engine.execute(source) {
-            Ok(Some(value)) if value != Value::Unit => println!("{value}"),
+            Ok(Some(value)) => println!("{value:?}"),
             Ok(_) => {}
-            Err(e) => error::print_error(e),
+            Err(e) => error::print_error(&e),
         }
     }
 }

@@ -788,11 +788,9 @@ impl Parser {
 
         if token.value != expected {
             return Err(Spanned::wrap(
-                match token.value {
-                    _ => ParsingError::UnexpectedToken {
-                        expected: expected_label,
-                        found: token.value,
-                    },
+                ParsingError::UnexpectedToken {
+                    expected: expected_label,
+                    found: token.value,
                 },
                 token.span,
             ));

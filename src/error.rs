@@ -1,24 +1,11 @@
+use std::error::Error;
+
 use owo_colors::OwoColorize;
-use thiserror::Error;
 
-use crate::{
-    interpreter::error::RuntimeError,
-    lexer::error::TokenizationError,
-    parser::error::ParsingError,
-    source::{SourceMap, Spanned},
-};
-
-/// All errors that can occur during program execution.
-#[derive(Debug, Clone, PartialEq, Error)]
-#[error(transparent)]
-pub enum Error {
-    Tokenization(TokenizationError),
-    Parsing(ParsingError),
-    Runtime(RuntimeError),
-}
+use crate::source::{SourceMap, Spanned};
 
 /// Pretty prints an error to the console.
-pub fn print_error(error: Spanned<Error>) {
+pub fn print_error(error: &Spanned<Box<dyn Error>>) {
     // get the line that the error occured on
     let span = error.span;
     let source = SourceMap::get(span.source);
@@ -56,22 +43,4 @@ pub fn print_error(error: Spanned<Error>) {
         repeat = " ".repeat(line_offset),
         arrows = "^".repeat(span.end - span.start)
     );
-}
-
-impl From<Spanned<TokenizationError>> for Spanned<Error> {
-    fn from(value: Spanned<TokenizationError>) -> Self {
-        value.map(Error::Tokenization)
-    }
-}
-
-impl From<Spanned<ParsingError>> for Spanned<Error> {
-    fn from(value: Spanned<ParsingError>) -> Self {
-        value.map(Error::Parsing)
-    }
-}
-
-impl From<Spanned<RuntimeError>> for Spanned<Error> {
-    fn from(value: Spanned<RuntimeError>) -> Self {
-        value.map(Error::Runtime)
-    }
 }

@@ -1,0 +1,36 @@
+use crate::vm::value::Value;
+
+/// The different *types* [`Value`]s can take on.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Type {
+    /// A 64-bit signed integer.
+    Integer,
+    /// A 64-bit floating point number.
+    Float,
+    /// A logical boolean.
+    Boolean,
+}
+
+impl From<Value> for Type {
+    fn from(value: Value) -> Self {
+        match value {
+            Value::Integer(_) => Self::Integer,
+            Value::Float(_) => Self::Float,
+            Value::Boolean(_) => Self::Boolean,
+        }
+    }
+}
+
+impl std::fmt::Display for Type {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Type::Integer => "integer",
+                Type::Float => "float",
+                Type::Boolean => "boolean",
+            }
+        )
+    }
+}

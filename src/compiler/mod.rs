@@ -6,11 +6,13 @@ use crate::{
 
 pub mod chunk;
 
-/// Compiles a [`Statement::Program`] into an optimized [`Chunk`] ready for virtual machine
-/// execution.
+/// Compiles a [`Statement::Program`] or [`Statement::Repl`] into an optimized [`Chunk`] ready for
+/// execution by the virtual machine.
 pub fn compile_program(program: Spanned<Statement>) -> Chunk {
-    let Statement::Program { stmts } = program.value else {
-        panic!("cannot compile non complete program statement");
+    let (stmts, tail) = match program.value {
+        Statement::Program { stmts } => (stmts, None),
+        Statement::Repl { stmts, tail } => (stmts, tail),
+        _ => panic!("cannot compile non complete program statement"),
     };
 
     let name = SourceMap::get(program.span.source).path.to_str().unwrap();
@@ -18,6 +20,11 @@ pub fn compile_program(program: Spanned<Statement>) -> Chunk {
 
     for statement in stmts {
         emit_statement(&mut chunk, statement.value, statement.span);
+    }
+
+    // emit one additional expression to the stack in REPL mode
+    if let Some(expression) = tail {
+        emit_expression(&mut chunk, expression.value, expression.span);
     }
 
     chunk.emit_instruction(Instruction::Return, program.span);
@@ -47,15 +54,15 @@ fn emit_expression(chunk: &mut Chunk, expression: Expression, span: Span) {
         // constants
         Expression::Integer(i) => {
             let constant = chunk.emit_constant(Constant::from(i));
-            chunk.emit_instruction(Instruction::Constant { index: constant }, span);
+            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
         Expression::Float(f) => {
             let constant = chunk.emit_constant(Constant::from(f));
-            chunk.emit_instruction(Instruction::Constant { index: constant }, span);
+            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
         Expression::Boolean(b) => {
             let constant = chunk.emit_constant(Constant::from(b));
-            chunk.emit_instruction(Instruction::Constant { index: constant }, span);
+            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
         Expression::String(_) => todo!(),
 
@@ -93,4 +100,3 @@ fn emit_expression(chunk: &mut Chunk, expression: Expression, span: Span) {
         Expression::Index { .. } => todo!(),
     };
 }
-

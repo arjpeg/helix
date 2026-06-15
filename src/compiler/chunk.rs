@@ -3,21 +3,22 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use crate::source::Span;
 
 /// A sequence of bytecode generated from an Abstract Syntax Tree.
+#[derive(Clone)]
 pub struct Chunk {
     /// The compiled set of flattened [`Instruction`]s.
-    code: Vec<u8>,
+    pub(crate) code: Vec<u8>,
 
     /// The pool of [`Constant`]s loaded into this chunk.
-    constant_pool: Vec<Constant>,
+    pub(crate) constants: Vec<Constant>,
 
     /// The [`Span`]s associated with each instruction in the `code`, with one span per
     /// instruction.
     ///
     /// Stored in the format (instruction start in `code`, span).
-    spans: Vec<(usize, Span)>,
+    pub(crate) spans: Vec<(usize, Span)>,
 
     /// The debug name of this chunk.
-    name: Option<&'static str>,
+    pub(crate) name: Option<&'static str>,
 }
 
 /// A constant referred to within a [`Chunk`].
@@ -41,7 +42,7 @@ pub enum Instruction {
     Return,
 
     /// Loads a constant from the constant pool.
-    Constant {
+    LoadConstant {
         /// The index of constant to load.
         index: u8,
     },
@@ -83,7 +84,7 @@ impl Chunk {
     pub fn new(name: Option<&'static str>) -> Self {
         Self {
             code: Vec::new(),
-            constant_pool: Vec::new(),
+            constants: Vec::new(),
             spans: Vec::new(),
             name,
         }
@@ -94,12 +95,12 @@ impl Chunk {
     pub fn emit_constant(&mut self, constant: Constant) -> u8 {
         // TODO: add constant deduping
         assert!(
-            self.constant_pool.len() <= u8::MAX as usize,
+            self.constants.len() <= u8::MAX as usize,
             "constant pool doesn't have space for any more constants"
         );
 
-        let position = self.constant_pool.len();
-        self.constant_pool.push(constant);
+        let position = self.constants.len();
+        self.constants.push(constant);
         position as u8
     }
 
@@ -114,7 +115,7 @@ impl Chunk {
 
         // push additional operations for longer instructions
         match instruction {
-            Instruction::Constant { index } => {
+            Instruction::LoadConstant { index } => {
                 self.code.push(index);
             }
 
@@ -147,10 +148,10 @@ pub fn disassemble(chunk: &Chunk) {
         match instruction {
             Instruction::Return => println!("RETURN"),
 
-            Instruction::Constant { index } => {
+            Instruction::LoadConstant { index } => {
                 println!(
                     "LOAD_CONSTANT ({index} : {:?})",
-                    chunk.constant_pool[index as usize]
+                    chunk.constants[index as usize]
                 )
             }
 
@@ -181,7 +182,7 @@ pub(crate) fn disassemble_instruction(chunk: &Chunk, offset: usize) -> (Instruct
 
         // multi byte instructions
         OpCode::Constant => (
-            Instruction::Constant {
+            Instruction::LoadConstant {
                 index: chunk.code[offset + 1],
             },
             offset + 2,
@@ -193,7 +194,7 @@ impl From<&Instruction> for OpCode {
     fn from(value: &Instruction) -> Self {
         match value {
             Instruction::Return => Self::Return,
-            Instruction::Constant { .. } => Self::Constant,
+            Instruction::LoadConstant { .. } => Self::Constant,
             Instruction::Add => Self::Add,
             Instruction::Subtract => Self::Subtract,
             Instruction::Multiply => Self::Multiply,
