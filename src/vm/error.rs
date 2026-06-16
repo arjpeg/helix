@@ -13,7 +13,7 @@ pub type Result<T, E = Spanned<RuntimeError>> = std::result::Result<T, E>;
 #[derive(Debug, Clone, Error)]
 pub enum RuntimeError {
     #[error(
-        "cannot apply binary operator of type: `{operator:?}` between values of type `{}` and `{}`",
+        "cannot apply binary operator `{operator}` between values of type `{}` and `{}`",
         lhs,
         rhs
     )]

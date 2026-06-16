@@ -8,9 +8,22 @@ pub enum Instruction {
     /// Return from the current function context, or stop program execution from the global
     /// scope.
     Return,
+
+    /// Duplicates the topmost value on the stack.
+    Duplicate,
     /// Pops the topmost value from the stack, discarding the result.
     Pop,
 
+    /// Unconditionally jumps by the given offset..
+    Jump {
+        /// The offset from the instruction pointer to jump by.
+        offset: u16,
+    },
+    /// Jumps by the given offset if the popped value at the top of the stack is truthy.
+    JumpIfTrue {
+        /// The offset from the instruction pointer to jump by.
+        offset: u16,
+    },
     /// Jumps by the given offset if the popped value at the top of the stack is falsey.
     JumpIfFalse {
         /// The offset from the instruction pointer to jump by.
@@ -65,10 +78,6 @@ pub enum Instruction {
 
     /// Computes `stack.pop() == stack.pop()`, appending the result back to the stack.
     Equals,
-    /// Computes `stack.pop() && stack.pop()`, appending the result back to the stack.
-    And,
-    /// Computes `stack.pop() || stack.pop()`, appending the result back to the stack.
-    Or,
 
     /// Computes `stack.pop() < stack.pop()`, appending the result back to the stack.
     ///
@@ -93,8 +102,14 @@ pub enum Instruction {
 pub enum OpCode {
     /// See [Instruction::Return].
     Return = 0,
+    /// See [Instruction::Duplicate].
+    Duplicate,
     /// See [Instruction::Pop].
     Pop,
+    /// See [Instruction::Jump].
+    Jump,
+    /// See [Instruction::JumpIfTrue].
+    JumpIfTrue,
     /// See [Instruction::JumpIfFalse].
     JumpIfFalse,
     /// See [Instruction::LoadConstant].
@@ -119,10 +134,6 @@ pub enum OpCode {
     Divide,
     /// See [Instruction::Equals].
     Equals,
-    /// See [Instruction::And].
-    And,
-    /// See [Instruction::Ord].
-    Or,
     /// See [Instruction::LessThan].
     LessThan,
     /// See [Instruction::LessThanEquals].
@@ -141,6 +152,8 @@ impl Instruction {
         match *self {
             Instruction::LoadConstant { index } => buf.push(index),
 
+            Instruction::Jump { offset } => buf.extend(offset.to_ne_bytes()),
+            Instruction::JumpIfTrue { offset } => buf.extend(offset.to_ne_bytes()),
             Instruction::JumpIfFalse { offset } => buf.extend(offset.to_ne_bytes()),
 
             Instruction::DefineGlobal { index } => buf.push(index),
@@ -163,20 +176,31 @@ impl Instruction {
         match opcode {
             // simple one byte instructions
             OpCode::Return => (Instruction::Return, start + 1),
+            OpCode::Duplicate => (Instruction::Duplicate, start + 1),
             OpCode::Pop => (Instruction::Pop, start + 1),
             OpCode::Add => (Instruction::Add, start + 1),
             OpCode::Subtract => (Instruction::Subtract, start + 1),
             OpCode::Multiply => (Instruction::Multiply, start + 1),
             OpCode::Divide => (Instruction::Divide, start + 1),
             OpCode::Equals => (Instruction::Equals, start + 1),
-            OpCode::And => (Instruction::And, start + 1),
-            OpCode::Or => (Instruction::Or, start + 1),
             OpCode::LessThan => (Instruction::LessThan, start + 1),
             OpCode::LessThanEquals => (Instruction::LessThanEquals, start + 1),
             OpCode::Negate => (Instruction::Negate, start + 1),
             OpCode::Not => (Instruction::Not, start + 1),
 
             // multi byte instructions
+            OpCode::Jump => (
+                Instruction::Jump {
+                    offset: u16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
+                },
+                start + 3,
+            ),
+            OpCode::JumpIfTrue => (
+                Instruction::JumpIfTrue {
+                    offset: u16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
+                },
+                start + 3,
+            ),
             OpCode::JumpIfFalse => (
                 Instruction::JumpIfFalse {
                     offset: u16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
@@ -227,7 +251,10 @@ impl From<&Instruction> for OpCode {
     fn from(value: &Instruction) -> Self {
         match value {
             Instruction::Return => Self::Return,
+            Instruction::Duplicate => Self::Duplicate,
             Instruction::Pop => Self::Pop,
+            Instruction::Jump { .. } => Self::Jump,
+            Instruction::JumpIfTrue { .. } => Self::JumpIfTrue,
             Instruction::JumpIfFalse { .. } => Self::JumpIfFalse,
             Instruction::LoadConstant { .. } => Self::LoadConstant,
             Instruction::DefineGlobal { .. } => Self::DefineGlobal,
@@ -240,8 +267,6 @@ impl From<&Instruction> for OpCode {
             Instruction::Multiply => Self::Multiply,
             Instruction::Divide => Self::Divide,
             Instruction::Equals => Self::Equals,
-            Instruction::And => Self::And,
-            Instruction::Or => Self::Or,
             Instruction::LessThan => Self::LessThan,
             Instruction::LessThanEquals => Self::LessThanEquals,
             Instruction::Negate => Self::Negate,
@@ -254,7 +279,10 @@ impl Display for OpCode {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(match self {
             OpCode::Return => "RETURN",
+            OpCode::Duplicate => "DUPLICATE",
             OpCode::Pop => "POP",
+            OpCode::Jump => "JUMP",
+            OpCode::JumpIfTrue => "JUMP_IF_TRUE",
             OpCode::JumpIfFalse => "JUMP_IF_FALSE",
             OpCode::LoadConstant => "LOAD_CONSTANT",
             OpCode::DefineGlobal => "DEFINE_GLOBAL",
@@ -267,8 +295,6 @@ impl Display for OpCode {
             OpCode::Multiply => "MULTIPLY",
             OpCode::Divide => "DIVIDE",
             OpCode::Equals => "EQUALS",
-            OpCode::And => "AND",
-            OpCode::Or => "OR",
             OpCode::LessThan => "LESS_THAN",
             OpCode::LessThanEquals => "LESS_THAN_EQUALS",
             OpCode::Negate => "NEGATE",
@@ -282,7 +308,9 @@ impl Display for Instruction {
         write!(f, "{}", OpCode::from(self))?;
 
         match self {
-            Instruction::JumpIfFalse { offset } => write!(f, " {offset:40x}")?,
+            Instruction::Jump { offset } => write!(f, " {offset:x}")?,
+            Instruction::JumpIfTrue { offset } => write!(f, " {offset:x}")?,
+            Instruction::JumpIfFalse { offset } => write!(f, " {offset:x}")?,
             Instruction::LoadConstant { index } => write!(f, " C:{index}")?,
             Instruction::DefineGlobal { index } => write!(f, " C:{index}")?,
             Instruction::GetGlobal { name_index } => write!(f, " C:{name_index}")?,

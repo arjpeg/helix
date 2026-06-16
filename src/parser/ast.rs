@@ -1,3 +1,5 @@
+use std::fmt::Display;
+
 use crate::{
     interner::Symbol,
     lexer::token::{Keyword, OpKind, Token},
@@ -293,6 +295,35 @@ impl TryFrom<Expression> for LValue {
             Expression::Index { base, index } => Self::Index { base, index },
 
             _ => return Err(()),
+        })
+    }
+}
+
+impl Display for BinaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Plus => "+",
+            Self::Minus => "-",
+            Self::Star => "*",
+            Self::Slash => "/",
+            Self::NotEquals => "!=",
+            Self::Equals => "==",
+            Self::GreaterThan => ">",
+            Self::GreaterThanEquals => ">=",
+            Self::LessThan => "<",
+            Self::LessThanEquals => "<=",
+            Self::And => "and",
+            Self::Or => "or",
+        })
+    }
+}
+
+impl Display for UnaryOp {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Plus => "+",
+            Self::Minus => "-",
+            Self::Bang => "!",
         })
     }
 }

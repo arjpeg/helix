@@ -53,13 +53,14 @@ impl Chunk {
         start
     }
 
-    /// Backpatches the bytecode for an [`Instruction::JumpIfFalse`] starting at `base` to
+    /// Backpatches the bytecode for an [`Instruction::Jump`] (and variants) starting at `base` to
     /// point at the head of the bytecode.
     pub fn backpatch_jump(&mut self, base: usize) {
         // the opcode takes up one byte, starting at base,
         // so we modify the following two bytes
 
-        let offset = u16::try_from(self.code.len() - base - 1).expect("tried to jump too far");
+        // 3 here being one byte for opcode + 2 bytes for offset
+        let offset = u16::try_from(self.code.len() - base - 3).expect("tried to jump too far");
 
         let [a, b] = offset.to_ne_bytes();
         self.code[base + 1] = a;

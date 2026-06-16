@@ -1,7 +1,9 @@
+use std::fmt::Display;
+
 use crate::{compiler::constants::Constant, interner::Interner, vm::error::RuntimeError};
 
 /// A value living in the helix runtime environment.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
     /// The unit type, also known as `()`.
     Unit,
@@ -26,6 +28,36 @@ impl From<Constant> for Value {
             C::Float(f) => Self::Float(f.0),
             C::Boolean(b) => Self::Boolean(b),
             C::Symbol(s) => Self::String(Box::from(Interner::resolve(s))),
+        }
+    }
+}
+
+impl Value {
+    /// Returns true if this value is considered truthy or not (largely follows C convention).
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Self::Unit => false,
+            Self::Integer(n) => *n != 0,
+            Self::Float(n) => *n != 0.0,
+            Self::Boolean(b) => *b,
+            Self::String(s) => !s.is_empty(),
+        }
+    }
+
+    /// Returns true if `this` is equal to `other`.
+    pub fn equals(this: Self, other: Self) -> Result<Self, RuntimeError> {
+        Ok(Self::Boolean(this == other))
+    }
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Unit => write!(f, "()"),
+            Self::Integer(i) => write!(f, "{i}"),
+            Self::Float(fl) => write!(f, "{fl}"),
+            Self::Boolean(b) => write!(f, "{b}"),
+            Self::String(s) => write!(f, "{s}"),
         }
     }
 }
@@ -109,6 +141,16 @@ binary_op!(divide: Slash, {
 
     (Float(a), Float(b)) => Float(a / b),
     (Integer(a), Integer(b)) => Integer(a / b),
+});
+
+binary_op!(less_than: LessThan, {
+    (Float(a), Float(b)) => Boolean(a < b),
+    (Integer(a), Integer(b)) => Boolean(a < b),
+});
+
+binary_op!(less_than_equals: LessThanEquals, {
+    (Float(a), Float(b)) => Boolean(a <= b),
+    (Integer(a), Integer(b)) => Boolean(a <= b),
 });
 
 unary_op!(negate: Minus, {

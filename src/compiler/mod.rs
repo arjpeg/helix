@@ -151,11 +151,42 @@ fn emit_expression(
         }
 
         Expression::BinaryOperation { lhs, operator, rhs } => {
+            // to properly handle short circuiting for logical operations, we implement
+            // 'and' and 'or' in a special way
+
+            // A && B and A ||B compiles to
+            // A
+            // DUPLICATE // store A temporarily
+            // JUMP_IF_XXXX L1 // leaves A whatever the value of A was
+            // POP
+            // B // leaves B (true or false) since it determines the value of the operation
+            // L1
+            //
+            // where XXX = false if op = and, and XXX = true if op = or
+            if operator == BinaryOp::And || operator == BinaryOp::Or {
+                emit_expression(chunk, context, lhs.value, lhs.span);
+                chunk.emit_instruction(Instruction::Duplicate, lhs.span);
+
+                let jump_instruction = if operator == BinaryOp::And {
+                    Instruction::JumpIfFalse { offset: 0 }
+                } else {
+                    Instruction::JumpIfTrue { offset: 0 }
+                };
+
+                let jump = chunk.emit_instruction(jump_instruction, span);
+                chunk.emit_instruction(Instruction::Pop, lhs.span);
+                emit_expression(chunk, context, rhs.value, rhs.span);
+
+                chunk.backpatch_jump(jump);
+
+                return;
+            }
+
             // swap order arguments are placed on the stack for these two operators,
             // as a > b is equivalent to b < a
             if operator == BinaryOp::GreaterThan || operator == BinaryOp::GreaterThanEquals {
-                emit_expression(chunk, context, rhs.value, lhs.span);
-                emit_expression(chunk, context, lhs.value, rhs.span);
+                emit_expression(chunk, context, rhs.value, rhs.span);
+                emit_expression(chunk, context, lhs.value, lhs.span);
             } else {
                 emit_expression(chunk, context, lhs.value, lhs.span);
                 emit_expression(chunk, context, rhs.value, rhs.span);
@@ -174,8 +205,9 @@ fn emit_expression(
                     BinaryOp::GreaterThanEquals => Instruction::LessThanEquals,
                     BinaryOp::LessThan => Instruction::LessThan,
                     BinaryOp::LessThanEquals => Instruction::LessThanEquals,
-                    BinaryOp::And => Instruction::And,
-                    BinaryOp::Or => Instruction::Or,
+
+                    // handled above
+                    BinaryOp::And | BinaryOp::Or => unreachable!(),
                 },
                 span,
             );
@@ -300,10 +332,14 @@ fn emit_expression(
 
             let jump_base = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
             emit_expression(chunk, context, body.value, body.span);
-            chunk.backpatch_jump(jump_base);
 
             if let Some(expression) = else_clause {
+                let end_jump = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
+                chunk.backpatch_jump(jump_base); // skip past the jump at the end of the if block
                 emit_expression(chunk, context, expression.value, expression.span);
+                chunk.backpatch_jump(end_jump);
+            } else {
+                chunk.backpatch_jump(jump_base);
             }
         }
 
