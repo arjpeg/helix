@@ -8,6 +8,7 @@ clap = { version = "4.5.60", features = ["derive"] }
 itertools = "0.14.0"
 lasso = { version = "0.7.3", features = ["multi-threaded"] }
 num_enum = "0.7.6"
+ordered-float = "5.3.0"
 owo-colors = "4.2.3"
 reedline = "0.46.0"
 thiserror = "2.0.16"

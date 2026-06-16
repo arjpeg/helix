@@ -1,6 +1,7 @@
 use crate::{
     compiler::{
-        chunk::{Chunk, Constant},
+        chunk::Chunk,
+        constants::Constant,
         error::{CompilerError, Result},
         instruction::Instruction,
     },
@@ -11,6 +12,7 @@ use crate::{
 };
 
 pub mod chunk;
+pub mod constants;
 pub mod error;
 pub mod instruction;
 
@@ -264,7 +266,7 @@ fn emit_expression(
                         let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
 
                         chunk.emit_instruction(
-                            Instruction::GetGlobal {
+                            Instruction::SetGlobal {
                                 name_index: symbol_index,
                             },
                             target.span,

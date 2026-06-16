@@ -7,8 +7,9 @@ use num_enum::TryFromPrimitive;
 
 use crate::{
     compiler::{
-        chunk::{Chunk, Constant},
-        instruction::{OpCode, disassemble_instruction},
+        chunk::Chunk,
+        constants::Constant,
+        instruction::{Instruction, OpCode},
     },
     source::Spanned,
     vm::{error::Result, globals::Globals, value::Value},
@@ -51,7 +52,7 @@ impl VM {
                 println!("ip:          {}", self.ip);
                 println!(
                     "instruction: {:?}",
-                    disassemble_instruction(&chunk, self.ip).0
+                    Instruction::decode(&chunk.code, self.ip).0
                 );
                 println!("stack:       {:?}", self.stack);
                 println!("globals:     {:?}", self.globals);
@@ -70,17 +71,14 @@ impl VM {
                 }
 
                 OpCode::LoadConstant => {
-                    let index = self.read_byte(chunk) as usize;
-                    let constant = chunk.constants[index];
-
+                    let constant = chunk.constants[self.read_byte(chunk)];
                     self.stack.push(Value::from(constant));
 
                     println!("constant: {constant:?}");
                 }
 
                 OpCode::DefineGlobal => {
-                    let index = self.read_byte(chunk) as usize;
-                    let Constant::Symbol(name) = chunk.constants[index] else {
+                    let Constant::Symbol(name) = chunk.constants[self.read_byte(chunk)] else {
                         panic!("index into constant pool for global was not a symbol");
                     };
 
@@ -90,8 +88,7 @@ impl VM {
                 }
 
                 OpCode::GetGlobal => {
-                    let index = self.read_byte(chunk) as usize;
-                    let Constant::Symbol(name) = chunk.constants[index] else {
+                    let Constant::Symbol(name) = chunk.constants[self.read_byte(chunk)] else {
                         panic!("index into constant pool for global was not a symbol");
                     };
 
@@ -108,8 +105,7 @@ impl VM {
                 }
 
                 OpCode::SetGlobal => {
-                    let index = self.read_byte(chunk) as usize;
-                    let Constant::Symbol(name) = chunk.constants[index] else {
+                    let Constant::Symbol(name) = chunk.constants[self.read_byte(chunk)] else {
                         panic!("index into constant pool for global was not a symbol");
                     };
 

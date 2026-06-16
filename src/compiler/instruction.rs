@@ -1,6 +1,6 @@
-use num_enum::{IntoPrimitive, TryFromPrimitive};
+use std::fmt::Display;
 
-use crate::compiler::chunk::Chunk;
+use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 /// All the different instructions performed by the VM.
 #[derive(Debug, Clone, PartialEq)]
@@ -54,10 +54,10 @@ pub enum Instruction {
     /// Subtracts the top two values on the stack, popping them and then appending the
     /// result back onto the stack.
     Subtract,
-    /// Subtracts the top two values on the stack, popping them and then appending the
+    /// Multiplies the top two values on the stack, popping them and then appending the
     /// result back onto the stack.
     Multiply,
-    /// Subtracts the top two values on the stack, popping them and then appending the
+    /// Divides the top two values on the stack, popping them and then appending the
     /// result back onto the stack.
     Divide,
 
@@ -101,6 +101,83 @@ pub enum OpCode {
     Not,
 }
 
+impl Instruction {
+    /// Encodes this instruction as a sequence of bytes, appending it to `buf`.
+    pub fn encode(&self, buf: &mut Vec<u8>) {
+        buf.push(OpCode::from(self) as u8);
+
+        match *self {
+            Instruction::LoadConstant { index } => buf.push(index),
+
+            Instruction::DefineGlobal { index } => buf.push(index),
+            Instruction::GetGlobal { name_index } => buf.push(name_index),
+            Instruction::SetGlobal { name_index } => buf.push(name_index),
+
+            Instruction::GetLocal { stack_index } => buf.push(stack_index),
+            Instruction::SetLocal { stack_index } => buf.push(stack_index),
+
+            _ => {}
+        }
+    }
+
+    /// Decodes an instruction starting from `start` of `buf`, returning the decoded instruction and
+    /// the index to the start of the next instruction (if any).
+    pub fn decode(buf: &[u8], start: usize) -> (Self, usize) {
+        let opcode = OpCode::try_from_primitive(buf[start])
+            .expect("dissassembler started on invalid instruction");
+
+        match opcode {
+            // simple one byte instructions
+            OpCode::Return => (Instruction::Return, start + 1),
+            OpCode::Pop => (Instruction::Pop, start + 1),
+            OpCode::Add => (Instruction::Add, start + 1),
+            OpCode::Subtract => (Instruction::Subtract, start + 1),
+            OpCode::Multiply => (Instruction::Multiply, start + 1),
+            OpCode::Divide => (Instruction::Divide, start + 1),
+            OpCode::Negate => (Instruction::Negate, start + 1),
+            OpCode::Not => (Instruction::Not, start + 1),
+
+            // multi byte instructions
+            OpCode::LoadConstant => (
+                Instruction::LoadConstant {
+                    index: buf[start + 1],
+                },
+                start + 2,
+            ),
+            OpCode::DefineGlobal => (
+                Instruction::DefineGlobal {
+                    index: buf[start + 1],
+                },
+                start + 2,
+            ),
+            OpCode::GetGlobal => (
+                Instruction::GetGlobal {
+                    name_index: buf[start + 1],
+                },
+                start + 2,
+            ),
+            OpCode::SetGlobal => (
+                Instruction::SetGlobal {
+                    name_index: buf[start + 1],
+                },
+                start + 2,
+            ),
+            OpCode::GetLocal => (
+                Instruction::GetLocal {
+                    stack_index: buf[start + 1],
+                },
+                start + 2,
+            ),
+            OpCode::SetLocal => (
+                Instruction::SetLocal {
+                    stack_index: buf[start + 1],
+                },
+                start + 2,
+            ),
+        }
+    }
+}
+
 impl From<&Instruction> for OpCode {
     fn from(value: &Instruction) -> Self {
         match value {
@@ -122,57 +199,41 @@ impl From<&Instruction> for OpCode {
     }
 }
 
-pub(crate) fn disassemble_instruction(chunk: &Chunk, offset: usize) -> (Instruction, usize) {
-    let opcode = OpCode::try_from_primitive(chunk.code[offset])
-        .expect("dissassembler started on invalid instruction");
+impl Display for OpCode {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            OpCode::Return => "RETURN",
+            OpCode::Pop => "POP",
+            OpCode::LoadConstant => "LOAD_CONSTANT",
+            OpCode::DefineGlobal => "DEFINE_GLOBAL",
+            OpCode::GetGlobal => "GET_GLOBAL",
+            OpCode::SetGlobal => "SET_GLOBAL",
+            OpCode::GetLocal => "GET_LOCAL",
+            OpCode::SetLocal => "SET_LOCAL",
+            OpCode::Add => "ADD",
+            OpCode::Subtract => "SUBTRACT",
+            OpCode::Multiply => "MULTIPLY",
+            OpCode::Divide => "DIVIDE",
+            OpCode::Negate => "NEGATE",
+            OpCode::Not => "NOT",
+        })
+    }
+}
 
-    match opcode {
-        // simple one byte instructions
-        OpCode::Return => (Instruction::Return, offset + 1),
-        OpCode::Pop => (Instruction::Pop, offset + 1),
-        OpCode::Add => (Instruction::Add, offset + 1),
-        OpCode::Subtract => (Instruction::Subtract, offset + 1),
-        OpCode::Multiply => (Instruction::Multiply, offset + 1),
-        OpCode::Divide => (Instruction::Divide, offset + 1),
-        OpCode::Negate => (Instruction::Negate, offset + 1),
-        OpCode::Not => (Instruction::Not, offset + 1),
+impl Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", OpCode::from(self))?;
 
-        // multi byte instructions
-        OpCode::LoadConstant => (
-            Instruction::LoadConstant {
-                index: chunk.code[offset + 1],
-            },
-            offset + 2,
-        ),
-        OpCode::DefineGlobal => (
-            Instruction::DefineGlobal {
-                index: chunk.code[offset + 1],
-            },
-            offset + 2,
-        ),
-        OpCode::GetGlobal => (
-            Instruction::GetGlobal {
-                name_index: chunk.code[offset + 1],
-            },
-            offset + 2,
-        ),
-        OpCode::SetGlobal => (
-            Instruction::GetGlobal {
-                name_index: chunk.code[offset + 1],
-            },
-            offset + 2,
-        ),
-        OpCode::GetLocal => (
-            Instruction::GetLocal {
-                stack_index: chunk.code[offset + 1],
-            },
-            offset + 2,
-        ),
-        OpCode::SetLocal => (
-            Instruction::GetLocal {
-                stack_index: chunk.code[offset + 1],
-            },
-            offset + 2,
-        ),
+        match self {
+            Instruction::LoadConstant { index } => write!(f, " C:{index}")?,
+            Instruction::DefineGlobal { index } => write!(f, " C:{index}")?,
+            Instruction::GetGlobal { name_index } => write!(f, " C:{name_index}")?,
+            Instruction::SetGlobal { name_index } => write!(f, " C:{name_index}")?,
+            Instruction::GetLocal { stack_index } => write!(f, " S:{stack_index}")?,
+            Instruction::SetLocal { stack_index } => write!(f, " S:{stack_index}")?,
+            _ => {}
+        };
+
+        Ok(())
     }
 }
