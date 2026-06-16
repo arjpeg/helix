@@ -53,6 +53,19 @@ impl Chunk {
         start
     }
 
+    /// Backpatches the bytecode for an [`Instruction::JumpIfFalse`] starting at `base` to
+    /// point at the head of the bytecode.
+    pub fn backpatch_jump(&mut self, base: usize) {
+        // the opcode takes up one byte, starting at base,
+        // so we modify the following two bytes
+
+        let offset = u16::try_from(self.code.len() - base - 1).expect("tried to jump too far");
+
+        let [a, b] = offset.to_ne_bytes();
+        self.code[base + 1] = a;
+        self.code[base + 2] = b;
+    }
+
     /// Returns the left span corresponding to the given code offset.
     pub fn span_at(&self, offset: usize) -> Span {
         let i = self.spans.partition_point(|&(start, _)| start <= offset);

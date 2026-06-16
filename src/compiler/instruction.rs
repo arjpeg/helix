@@ -11,6 +11,12 @@ pub enum Instruction {
     /// Pops the topmost value from the stack, discarding the result.
     Pop,
 
+    /// Jumps by the given offset if the popped value at the top of the stack is falsey.
+    JumpIfFalse {
+        /// The offset from the instruction pointer to jump by.
+        offset: u16,
+    },
+
     /// Loads a constant from the constant pool.
     LoadConstant {
         /// The index of constant to load.
@@ -48,18 +54,32 @@ pub enum Instruction {
         stack_index: u8,
     },
 
-    /// Adds the top two values on the stack, popping them and then appending the
-    /// result back onto the stack.
+    /// Computes `stack.pop() + stack.pop()`, appending the result back to the stack.
     Add,
-    /// Subtracts the top two values on the stack, popping them and then appending the
-    /// result back onto the stack.
+    /// Computes `stack.pop() - stack.pop()`, appending the result back to the stack.
     Subtract,
-    /// Multiplies the top two values on the stack, popping them and then appending the
-    /// result back onto the stack.
+    /// Computes `stack.pop() * stack.pop()`, appending the result back to the stack.
     Multiply,
-    /// Divides the top two values on the stack, popping them and then appending the
-    /// result back onto the stack.
+    /// Computes `stack.pop() / stack.pop()`, appending the result back to the stack.
     Divide,
+
+    /// Computes `stack.pop() == stack.pop()`, appending the result back to the stack.
+    Equals,
+    /// Computes `stack.pop() && stack.pop()`, appending the result back to the stack.
+    And,
+    /// Computes `stack.pop() || stack.pop()`, appending the result back to the stack.
+    Or,
+
+    /// Computes `stack.pop() < stack.pop()`, appending the result back to the stack.
+    ///
+    /// Can be used to compute greater than, by swapping the order arguments are placed on the
+    /// stack.
+    LessThan,
+    /// Computes `stack.pop() <= stack.pop()`, appending the result back to the stack.
+    ///
+    /// Can be used to compute greater than equals, by swapping the order arguments are placed on the
+    /// stack.
+    LessThanEquals,
 
     /// Negates the top value on the stack in place.
     Negate,
@@ -75,6 +95,8 @@ pub enum OpCode {
     Return = 0,
     /// See [Instruction::Pop].
     Pop,
+    /// See [Instruction::JumpIfFalse].
+    JumpIfFalse,
     /// See [Instruction::LoadConstant].
     LoadConstant,
     /// See [Instruction::DefineGlobal].
@@ -95,6 +117,16 @@ pub enum OpCode {
     Multiply,
     /// See [Instruction::Divide].
     Divide,
+    /// See [Instruction::Equals].
+    Equals,
+    /// See [Instruction::And].
+    And,
+    /// See [Instruction::Ord].
+    Or,
+    /// See [Instruction::LessThan].
+    LessThan,
+    /// See [Instruction::LessThanEquals].
+    LessThanEquals,
     /// See [Instruction::Negate].
     Negate,
     /// See [Instruction::Not].
@@ -108,6 +140,8 @@ impl Instruction {
 
         match *self {
             Instruction::LoadConstant { index } => buf.push(index),
+
+            Instruction::JumpIfFalse { offset } => buf.extend(offset.to_ne_bytes()),
 
             Instruction::DefineGlobal { index } => buf.push(index),
             Instruction::GetGlobal { name_index } => buf.push(name_index),
@@ -134,10 +168,21 @@ impl Instruction {
             OpCode::Subtract => (Instruction::Subtract, start + 1),
             OpCode::Multiply => (Instruction::Multiply, start + 1),
             OpCode::Divide => (Instruction::Divide, start + 1),
+            OpCode::Equals => (Instruction::Equals, start + 1),
+            OpCode::And => (Instruction::And, start + 1),
+            OpCode::Or => (Instruction::Or, start + 1),
+            OpCode::LessThan => (Instruction::LessThan, start + 1),
+            OpCode::LessThanEquals => (Instruction::LessThanEquals, start + 1),
             OpCode::Negate => (Instruction::Negate, start + 1),
             OpCode::Not => (Instruction::Not, start + 1),
 
             // multi byte instructions
+            OpCode::JumpIfFalse => (
+                Instruction::JumpIfFalse {
+                    offset: u16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
+                },
+                start + 3,
+            ),
             OpCode::LoadConstant => (
                 Instruction::LoadConstant {
                     index: buf[start + 1],
@@ -183,6 +228,7 @@ impl From<&Instruction> for OpCode {
         match value {
             Instruction::Return => Self::Return,
             Instruction::Pop => Self::Pop,
+            Instruction::JumpIfFalse { .. } => Self::JumpIfFalse,
             Instruction::LoadConstant { .. } => Self::LoadConstant,
             Instruction::DefineGlobal { .. } => Self::DefineGlobal,
             Instruction::GetGlobal { .. } => Self::GetGlobal,
@@ -193,6 +239,11 @@ impl From<&Instruction> for OpCode {
             Instruction::Subtract => Self::Subtract,
             Instruction::Multiply => Self::Multiply,
             Instruction::Divide => Self::Divide,
+            Instruction::Equals => Self::Equals,
+            Instruction::And => Self::And,
+            Instruction::Or => Self::Or,
+            Instruction::LessThan => Self::LessThan,
+            Instruction::LessThanEquals => Self::LessThanEquals,
             Instruction::Negate => Self::Negate,
             Instruction::Not => Self::Not,
         }
@@ -204,6 +255,7 @@ impl Display for OpCode {
         f.write_str(match self {
             OpCode::Return => "RETURN",
             OpCode::Pop => "POP",
+            OpCode::JumpIfFalse => "JUMP_IF_FALSE",
             OpCode::LoadConstant => "LOAD_CONSTANT",
             OpCode::DefineGlobal => "DEFINE_GLOBAL",
             OpCode::GetGlobal => "GET_GLOBAL",
@@ -214,6 +266,11 @@ impl Display for OpCode {
             OpCode::Subtract => "SUBTRACT",
             OpCode::Multiply => "MULTIPLY",
             OpCode::Divide => "DIVIDE",
+            OpCode::Equals => "EQUALS",
+            OpCode::And => "AND",
+            OpCode::Or => "OR",
+            OpCode::LessThan => "LESS_THAN",
+            OpCode::LessThanEquals => "LESS_THAN_EQUALS",
             OpCode::Negate => "NEGATE",
             OpCode::Not => "NOT",
         })
@@ -225,6 +282,7 @@ impl Display for Instruction {
         write!(f, "{}", OpCode::from(self))?;
 
         match self {
+            Instruction::JumpIfFalse { offset } => write!(f, " {offset:40x}")?,
             Instruction::LoadConstant { index } => write!(f, " C:{index}")?,
             Instruction::DefineGlobal { index } => write!(f, " C:{index}")?,
             Instruction::GetGlobal { name_index } => write!(f, " C:{name_index}")?,

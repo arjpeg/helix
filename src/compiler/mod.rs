@@ -151,8 +151,15 @@ fn emit_expression(
         }
 
         Expression::BinaryOperation { lhs, operator, rhs } => {
-            emit_expression(chunk, context, lhs.value, lhs.span);
-            emit_expression(chunk, context, rhs.value, rhs.span);
+            // swap order arguments are placed on the stack for these two operators,
+            // as a > b is equivalent to b < a
+            if operator == BinaryOp::GreaterThan || operator == BinaryOp::GreaterThanEquals {
+                emit_expression(chunk, context, rhs.value, lhs.span);
+                emit_expression(chunk, context, lhs.value, rhs.span);
+            } else {
+                emit_expression(chunk, context, lhs.value, lhs.span);
+                emit_expression(chunk, context, rhs.value, rhs.span);
+            }
 
             chunk.emit_instruction(
                 match operator {
@@ -160,35 +167,34 @@ fn emit_expression(
                     BinaryOp::Minus => Instruction::Subtract,
                     BinaryOp::Star => Instruction::Multiply,
                     BinaryOp::Slash => Instruction::Divide,
-                    BinaryOp::NotEquals => todo!(),
-                    BinaryOp::Equals => todo!(),
-                    BinaryOp::GreaterThan => todo!(),
-                    BinaryOp::GreaterThanEquals => todo!(),
-                    BinaryOp::LessThan => todo!(),
-                    BinaryOp::LessThanEquals => todo!(),
-                    BinaryOp::And => todo!(),
-                    BinaryOp::Or => todo!(),
+                    BinaryOp::Equals => Instruction::Equals,
+                    // we correct not equals below
+                    BinaryOp::NotEquals => Instruction::Equals,
+                    BinaryOp::GreaterThan => Instruction::LessThan,
+                    BinaryOp::GreaterThanEquals => Instruction::LessThanEquals,
+                    BinaryOp::LessThan => Instruction::LessThan,
+                    BinaryOp::LessThanEquals => Instruction::LessThanEquals,
+                    BinaryOp::And => Instruction::And,
+                    BinaryOp::Or => Instruction::Or,
                 },
                 span,
             );
+
+            // correct for not equals, as a != b is equivalent to !(a == b)
+            if operator == BinaryOp::NotEquals {
+                chunk.emit_instruction(Instruction::Not, span);
+            }
         }
 
         Expression::UnaryOperation { operator, operand } => {
             emit_expression(chunk, context, operand.value, operand.span);
 
-            // '+' is always a no op
-            if operator == UnaryOp::Plus {
-                return;
-            }
-
-            chunk.emit_instruction(
-                match operator {
-                    UnaryOp::Minus => Instruction::Negate,
-                    UnaryOp::Bang => Instruction::Not,
-                    UnaryOp::Plus => unreachable!(),
-                },
-                span,
-            );
+            match operator {
+                UnaryOp::Minus => chunk.emit_instruction(Instruction::Negate, span),
+                UnaryOp::Bang => chunk.emit_instruction(Instruction::Not, span),
+                // '+' is always a no op
+                UnaryOp::Plus => 0,
+            };
         }
 
         Expression::Block { stmts, tail } => {
@@ -285,8 +291,23 @@ fn emit_expression(
             }
         }
 
+        Expression::If {
+            predicate,
+            body,
+            else_clause,
+        } => {
+            emit_expression(chunk, context, predicate.value, predicate.span);
+
+            let jump_base = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
+            emit_expression(chunk, context, body.value, body.span);
+            chunk.backpatch_jump(jump_base);
+
+            if let Some(expression) = else_clause {
+                emit_expression(chunk, context, expression.value, expression.span);
+            }
+        }
+
         Expression::List { .. } => todo!(),
-        Expression::If { .. } => todo!(),
         Expression::Lambda { .. } => todo!(),
         Expression::Call { .. } => todo!(),
         Expression::Index { .. } => todo!(),
