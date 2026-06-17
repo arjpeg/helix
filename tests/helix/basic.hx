@@ -1,6 +1,14 @@
-let a = 5 + 5;
+let a = 0;
 
-if a == 10 {
-    5;
+while a != 5 {
+    if a == 3 {
+        a = 5;
+        continue;
+    };
+
+    print a;
+    a = a + 1;
 }
+
+print a;
 

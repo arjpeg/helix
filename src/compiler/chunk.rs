@@ -102,7 +102,7 @@ pub fn disassemble(chunk: &Chunk) {
         let span = chunk.span_at(offset);
 
         println!(
-            "{:0>4} ({}..{})  {instruction}",
+            "{:0>4} ({: >2}..{: <2})  {instruction}",
             offset, span.start, span.end
         );
 

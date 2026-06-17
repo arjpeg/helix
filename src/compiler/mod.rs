@@ -27,6 +27,11 @@ struct CompileCtx {
     /// A set of all the known global variables declared.
     globals: Globals,
 
+    /// The list of addresses of `break` instructions that need to be backpatched (last = innermost).
+    break_addresses: Vec<Vec<usize>>,
+    /// The list of addresses of `continue` instructions that need to be backpatched (last = innermost).
+    continue_addresses: Vec<Vec<usize>>,
+
     /// All errors accumulated so far.
     errors: Vec<Spanned<CompilerError>>,
 }
@@ -59,6 +64,8 @@ pub fn compile_program(
         locals: Vec::new(),
         scope_depth: 0,
         globals: globals.snapshot(),
+        break_addresses: Vec::new(),
+        continue_addresses: Vec::new(),
         errors: Vec::new(),
     };
 
@@ -133,6 +140,9 @@ fn emit_statement(
             let loop_start = emit_expression(chunk, context, predicate.value, predicate.span);
             let jump_to_end = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
 
+            context.break_addresses.push(Vec::new());
+            context.continue_addresses.push(Vec::new());
+
             emit_expression(chunk, context, body.value, body.span);
             // clean stack from the expression
             chunk.emit_instruction(Instruction::Pop, body.span);
@@ -140,6 +150,17 @@ fn emit_statement(
             let jump_to_start = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
             chunk.backpatch_jump(jump_to_start, Some(loop_start));
             chunk.backpatch_jump(jump_to_end, None);
+
+            let break_backpatches = context.break_addresses.pop().unwrap();
+            let continue_backpatches = context.continue_addresses.pop().unwrap();
+
+            for break_address in break_backpatches {
+                chunk.backpatch_jump(break_address, None);
+            }
+
+            for continue_address in continue_backpatches {
+                chunk.backpatch_jump(continue_address, Some(loop_start));
+            }
         }
 
         Statement::Print(expression) => {
@@ -147,8 +168,30 @@ fn emit_statement(
             chunk.emit_instruction(Instruction::Print, span);
         }
 
-        Statement::Break => todo!(),
-        Statement::Continue => todo!(),
+        Statement::Break => {
+            let Some(loop_ctx) = context.break_addresses.last_mut() else {
+                context
+                    .errors
+                    .push(Spanned::wrap(CompilerError::Break, span));
+
+                return start;
+            };
+
+            loop_ctx.push(chunk.emit_instruction(Instruction::Jump { offset: 0 }, span));
+        }
+
+        Statement::Continue => {
+            let Some(loop_ctx) = context.continue_addresses.last_mut() else {
+                context
+                    .errors
+                    .push(Spanned::wrap(CompilerError::Continue, span));
+
+                return start;
+            };
+
+            loop_ctx.push(chunk.emit_instruction(Instruction::Jump { offset: 0 }, span));
+        }
+
         Statement::FunctionDeclaration { .. } => todo!(),
         Statement::Return { .. } => todo!(),
         Statement::Assert(..) => todo!(),
@@ -324,6 +367,7 @@ fn emit_expression(
 
         Expression::Assignment { target, value } => {
             emit_expression(chunk, context, value.value, value.span);
+            chunk.emit_instruction(Instruction::Duplicate, value.span);
 
             match target.value {
                 LValue::Variable(symbol) => {
@@ -364,17 +408,23 @@ fn emit_expression(
         } => {
             emit_expression(chunk, context, predicate.value, predicate.span);
 
-            let jump_base = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
+            let else_jump = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
             emit_expression(chunk, context, body.value, body.span);
 
+            // the end of the entire if (else) chain
+            let end_jump = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
+            chunk.backpatch_jump(else_jump, None); // skip past the jump at the end of the if block
+
             if let Some(expression) = else_clause {
-                let end_jump = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
-                chunk.backpatch_jump(jump_base, None); // skip past the jump at the end of the if block
+                // write the else block
                 emit_expression(chunk, context, expression.value, expression.span);
-                chunk.backpatch_jump(end_jump, None);
             } else {
-                chunk.backpatch_jump(jump_base, None);
+                // keep consistant stack
+                let c = chunk.emit_constant(Constant::Unit);
+                chunk.emit_instruction(Instruction::LoadConstant { index: c }, span);
             }
+
+            chunk.backpatch_jump(end_jump, None);
         }
 
         Expression::List { .. } => todo!(),

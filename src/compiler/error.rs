@@ -13,4 +13,10 @@ pub enum CompilerError {
         /// The symbol of the binding.
         symbol: Symbol,
     },
+
+    #[error("attempted to `break` outside a loop")]
+    Break,
+
+    #[error("attempted to `continue` outside a loop")]
+    Continue,
 }

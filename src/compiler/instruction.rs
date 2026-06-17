@@ -36,20 +36,18 @@ pub enum Instruction {
         index: u8,
     },
 
-    /// Declares a new global variable with the value as the top value on the stack, which then
-    /// gets popped.
+    /// Declares a new global variable with the value as the popped value on the top of the stack.
     DefineGlobal {
         /// The index of the constant containing the name of the variable.
         index: u8,
     },
-
     /// Reads the value of a previously declared global variable, placing it at the top of the
     /// stack.
     GetGlobal {
         /// The index of the constant containing the name of the variable.
         name_index: u8,
     },
-    /// Updates the value of a global variable by copying the top of the stack.
+    /// Updates the value of a global variable by popping the top of the stack.
     SetGlobal {
         /// The index of the constant containing the name of the variable.
         name_index: u8,
@@ -60,8 +58,7 @@ pub enum Instruction {
         /// The index on the stack to load.
         stack_index: u8,
     },
-
-    /// Updates the value of a local variable by copying the top of the stack.
+    /// Updates the value of a local variable by popping the top of the stack.
     SetLocal {
         /// The index on the stack to update.
         stack_index: u8,

@@ -131,26 +131,19 @@ impl VM {
                         panic!("index into constant pool for global was not a symbol");
                     };
 
-                    let value = self.stack.last().unwrap().clone();
-
+                    let value = self.pop_stack().clone();
                     self.globals.runtime.insert(name, value);
                 }
 
                 OpCode::GetLocal => {
                     let index = self.read_byte(chunk) as usize;
                     let value = self.stack[index].clone();
-
-                    println!("local {value:?}");
-
                     self.stack.push(value);
                 }
 
                 OpCode::SetLocal => {
                     let index = self.read_byte(chunk) as usize;
-
-                    // leave the top of the stack in place
-                    let value = self.stack.last().unwrap().clone();
-
+                    let value = self.pop_stack().clone();
                     self.stack[index] = value;
                 }
 
