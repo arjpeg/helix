@@ -1,4 +1,7 @@
-use std::{fmt::Display, sync::LazyLock};
+use std::{
+    fmt::{Debug, Display},
+    sync::LazyLock,
+};
 
 use lasso::{Spur, ThreadedRodeo};
 
@@ -6,7 +9,7 @@ use lasso::{Spur, ThreadedRodeo};
 pub struct Interner(ThreadedRodeo);
 
 /// A unique, cheap handle for an interned string in the source code.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Symbol(Spur);
 
 /// The global [`Interner`], allocated once at program initialization.
@@ -21,6 +24,14 @@ impl Interner {
     /// Resolves the associated text for the given [`Symbol`].
     pub fn resolve(symbol: Symbol) -> &'static str {
         INTERNER.0.resolve(&symbol.0)
+    }
+}
+
+impl Debug for Symbol {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_tuple("Symbol")
+            .field(&Interner::resolve(*self))
+            .finish()
     }
 }
 

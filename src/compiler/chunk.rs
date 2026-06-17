@@ -55,16 +55,30 @@ impl Chunk {
 
     /// Backpatches the bytecode for an [`Instruction::Jump`] (and variants) starting at `base` to
     /// point at the head of the bytecode.
-    pub fn backpatch_jump(&mut self, base: usize) {
+    ///
+    /// If `to` is `None`, the jump is backpatched to the current [`Chunk::position`].
+    pub fn backpatch_jump(&mut self, base: usize, to: Option<usize>) {
         // the opcode takes up one byte, starting at base,
         // so we modify the following two bytes
 
+        let to = to.unwrap_or(self.position()) as i16;
+        let base = base as i16;
+
         // 3 here being one byte for opcode + 2 bytes for offset
-        let offset = u16::try_from(self.code.len() - base - 3).expect("tried to jump too far");
+        let offset = if to > base {
+            to - base - 3
+        } else {
+            to - base - 3
+        };
 
         let [a, b] = offset.to_ne_bytes();
-        self.code[base + 1] = a;
-        self.code[base + 2] = b;
+        self.code[base as usize + 1] = a;
+        self.code[base as usize + 2] = b;
+    }
+
+    /// Returns the length, or current position of the chunk.
+    pub fn position(&mut self) -> usize {
+        self.code.len()
     }
 
     /// Returns the left span corresponding to the given code offset.

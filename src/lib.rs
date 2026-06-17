@@ -22,6 +22,9 @@ pub mod parser;
 pub mod source;
 pub mod vm;
 
+/// Whether or not the running chunk is disassembled for debugging purposes or not.
+pub const DEBUG_DISASSEMBLE_CHUNK: bool = false;
+
 /// Manages the lifetime of program and REPL evaluation.
 pub struct Engine {
     /// The registered [`SourceHandle`]s, along with their optimized [`Chunk`]s.
@@ -82,7 +85,10 @@ impl Engine {
         source: SourceHandle,
     ) -> Result<Option<Value>, Spanned<Box<dyn Error>>> {
         let chunk = self.chunks.get(&source).unwrap();
-        disassemble(chunk);
+
+        if DEBUG_DISASSEMBLE_CHUNK {
+            disassemble(chunk);
+        }
 
         self.vm.globals = self.globals.snapshot();
 

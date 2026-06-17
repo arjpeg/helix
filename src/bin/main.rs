@@ -69,7 +69,7 @@ fn repl() {
         }
 
         match engine.execute(source) {
-            Ok(Some(value)) => println!("{value:?}"),
+            Ok(Some(value)) => println!("{value}"),
             Ok(_) => {}
             Err(e) => error::print_error(&e),
         }

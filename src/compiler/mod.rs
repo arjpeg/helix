@@ -80,7 +80,14 @@ pub fn compile_program(
     Ok((chunk, context.globals))
 }
 
-fn emit_statement(chunk: &mut Chunk, context: &mut CompileCtx, statement: Statement, span: Span) {
+fn emit_statement(
+    chunk: &mut Chunk,
+    context: &mut CompileCtx,
+    statement: Statement,
+    span: Span,
+) -> usize {
+    let start = chunk.code.len();
+
     match statement {
         Statement::Program { .. } | Statement::Repl { .. } => unreachable!(),
 
@@ -115,14 +122,39 @@ fn emit_statement(chunk: &mut Chunk, context: &mut CompileCtx, statement: Statem
             }
         }
 
-        Statement::Print(..) => todo!(),
-        Statement::While { .. } => todo!(),
+        Statement::While { predicate, body } => {
+            // $START:
+            // predicate
+            // JUMP_IF_FALSE $END
+            // body
+            // JUMP $START
+            // $END:
+
+            let loop_start = emit_expression(chunk, context, predicate.value, predicate.span);
+            let jump_to_end = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
+
+            emit_expression(chunk, context, body.value, body.span);
+            // clean stack from the expression
+            chunk.emit_instruction(Instruction::Pop, body.span);
+
+            let jump_to_start = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
+            chunk.backpatch_jump(jump_to_start, Some(loop_start));
+            chunk.backpatch_jump(jump_to_end, None);
+        }
+
+        Statement::Print(expression) => {
+            emit_expression(chunk, context, expression.value, expression.span);
+            chunk.emit_instruction(Instruction::Print, span);
+        }
+
         Statement::Break => todo!(),
         Statement::Continue => todo!(),
         Statement::FunctionDeclaration { .. } => todo!(),
         Statement::Return { .. } => todo!(),
         Statement::Assert(..) => todo!(),
     };
+
+    start
 }
 
 fn emit_expression(
@@ -130,7 +162,9 @@ fn emit_expression(
     context: &mut CompileCtx,
     expression: Expression,
     span: Span,
-) {
+) -> usize {
+    let start = chunk.code.len();
+
     match expression {
         // constants
         Expression::Integer(i) => {
@@ -177,9 +211,9 @@ fn emit_expression(
                 chunk.emit_instruction(Instruction::Pop, lhs.span);
                 emit_expression(chunk, context, rhs.value, rhs.span);
 
-                chunk.backpatch_jump(jump);
+                chunk.backpatch_jump(jump, None);
 
-                return;
+                return start;
             }
 
             // swap order arguments are placed on the stack for these two operators,
@@ -284,7 +318,7 @@ fn emit_expression(
                     span,
                 ));
 
-                return;
+                return start;
             };
         }
 
@@ -315,7 +349,7 @@ fn emit_expression(
                             target.span,
                         ));
 
-                        return;
+                        return start;
                     };
                 }
 
@@ -335,11 +369,11 @@ fn emit_expression(
 
             if let Some(expression) = else_clause {
                 let end_jump = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
-                chunk.backpatch_jump(jump_base); // skip past the jump at the end of the if block
+                chunk.backpatch_jump(jump_base, None); // skip past the jump at the end of the if block
                 emit_expression(chunk, context, expression.value, expression.span);
-                chunk.backpatch_jump(end_jump);
+                chunk.backpatch_jump(end_jump, None);
             } else {
-                chunk.backpatch_jump(jump_base);
+                chunk.backpatch_jump(jump_base, None);
             }
         }
 
@@ -348,6 +382,8 @@ fn emit_expression(
         Expression::Call { .. } => todo!(),
         Expression::Index { .. } => todo!(),
     };
+
+    start
 }
 
 /// Returns the lastmost index of the given variable name in the [`CompileCtx::locals`].

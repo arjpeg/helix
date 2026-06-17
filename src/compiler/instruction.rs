@@ -17,17 +17,17 @@ pub enum Instruction {
     /// Unconditionally jumps by the given offset..
     Jump {
         /// The offset from the instruction pointer to jump by.
-        offset: u16,
+        offset: i16,
     },
     /// Jumps by the given offset if the popped value at the top of the stack is truthy.
     JumpIfTrue {
         /// The offset from the instruction pointer to jump by.
-        offset: u16,
+        offset: i16,
     },
     /// Jumps by the given offset if the popped value at the top of the stack is falsey.
     JumpIfFalse {
         /// The offset from the instruction pointer to jump by.
-        offset: u16,
+        offset: i16,
     },
 
     /// Loads a constant from the constant pool.
@@ -66,6 +66,9 @@ pub enum Instruction {
         /// The index on the stack to update.
         stack_index: u8,
     },
+
+    /// Prints the popped value at the top of the stack.
+    Print,
 
     /// Computes `stack.pop() + stack.pop()`, appending the result back to the stack.
     Add,
@@ -124,6 +127,8 @@ pub enum OpCode {
     GetLocal,
     /// See [Instruction::SetLocal].
     SetLocal,
+    /// See [Instruction::Print].
+    Print,
     /// See [Instruction::Add].
     Add,
     /// See [Instruction::Subtract]
@@ -178,6 +183,7 @@ impl Instruction {
             OpCode::Return => (Instruction::Return, start + 1),
             OpCode::Duplicate => (Instruction::Duplicate, start + 1),
             OpCode::Pop => (Instruction::Pop, start + 1),
+            OpCode::Print => (Instruction::Print, start + 1),
             OpCode::Add => (Instruction::Add, start + 1),
             OpCode::Subtract => (Instruction::Subtract, start + 1),
             OpCode::Multiply => (Instruction::Multiply, start + 1),
@@ -191,19 +197,19 @@ impl Instruction {
             // multi byte instructions
             OpCode::Jump => (
                 Instruction::Jump {
-                    offset: u16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
+                    offset: i16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
                 },
                 start + 3,
             ),
             OpCode::JumpIfTrue => (
                 Instruction::JumpIfTrue {
-                    offset: u16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
+                    offset: i16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
                 },
                 start + 3,
             ),
             OpCode::JumpIfFalse => (
                 Instruction::JumpIfFalse {
-                    offset: u16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
+                    offset: i16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
                 },
                 start + 3,
             ),
@@ -262,6 +268,7 @@ impl From<&Instruction> for OpCode {
             Instruction::SetGlobal { .. } => Self::SetGlobal,
             Instruction::GetLocal { .. } => Self::GetLocal,
             Instruction::SetLocal { .. } => Self::SetLocal,
+            Instruction::Print => Self::Print,
             Instruction::Add => Self::Add,
             Instruction::Subtract => Self::Subtract,
             Instruction::Multiply => Self::Multiply,
@@ -290,6 +297,7 @@ impl Display for OpCode {
             OpCode::SetGlobal => "SET_GLOBAL",
             OpCode::GetLocal => "GET_LOCAL",
             OpCode::SetLocal => "SET_LOCAL",
+            OpCode::Print => "PRINT",
             OpCode::Add => "ADD",
             OpCode::Subtract => "SUBTRACT",
             OpCode::Multiply => "MULTIPLY",
@@ -308,9 +316,9 @@ impl Display for Instruction {
         write!(f, "{}", OpCode::from(self))?;
 
         match self {
-            Instruction::Jump { offset } => write!(f, " {offset:x}")?,
-            Instruction::JumpIfTrue { offset } => write!(f, " {offset:x}")?,
-            Instruction::JumpIfFalse { offset } => write!(f, " {offset:x}")?,
+            Instruction::Jump { offset } => write!(f, " O:{offset:}")?,
+            Instruction::JumpIfTrue { offset } => write!(f, " O:{offset:}")?,
+            Instruction::JumpIfFalse { offset } => write!(f, " O:{offset:}")?,
             Instruction::LoadConstant { index } => write!(f, " C:{index}")?,
             Instruction::DefineGlobal { index } => write!(f, " C:{index}")?,
             Instruction::GetGlobal { name_index } => write!(f, " C:{name_index}")?,
