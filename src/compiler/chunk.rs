@@ -7,7 +7,7 @@ use crate::{
 };
 
 /// A sequence of bytecode generated from an Abstract Syntax Tree.
-#[derive(Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Chunk {
     /// The compiled set of flattened [`Instruction`]s.
     pub(crate) code: Vec<u8>,

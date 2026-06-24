@@ -316,21 +316,29 @@ fn emit_expression(
             if let Some(expression) = tail {
                 emit_expression(chunk, context, expression.value, expression.span);
             } else {
-                // push a `()` onto the stack to properly indicate this block didn't have a tail
+                // push a `()` onto the stack to keep the stack balanced
                 let index = chunk.emit_constant(Constant::Unit);
                 chunk.emit_instruction(Instruction::LoadConstant { index }, span);
             }
 
-            // clean up all variables owned by this block
-            while let Some(Local {
-                scope_depth: local_depth,
-                ..
-            }) = context.locals.last()
-                && *local_depth == context.scope_depth
-            {
-                let _ = context.locals.pop();
-                chunk.emit_instruction(Instruction::Pop, span);
-            }
+            // clean up all locals owned by this block
+            let scope_local_count = context
+                .locals
+                .iter()
+                .rev()
+                .take_while(|l| l.scope_depth == context.scope_depth)
+                .count();
+
+            context
+                .locals
+                .truncate(context.locals.len() - scope_local_count);
+
+            chunk.emit_instruction(
+                Instruction::PopUnder {
+                    n: scope_local_count as u8,
+                },
+                span,
+            );
 
             context.scope_depth -= 1;
         }

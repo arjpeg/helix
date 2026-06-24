@@ -1,9 +1,12 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    fmt::Debug,
+};
 
 use crate::{interner::Symbol, vm::value::Value};
 
 /// Manages synchronization of global variables across compilation and program execution.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct Globals {
     /// The globals defined at compile time.
     pub known: HashSet<Symbol>,
@@ -24,5 +27,13 @@ impl Globals {
     /// Creates a snapshot of the current state of global variables.
     pub fn snapshot(&self) -> Self {
         self.clone()
+    }
+}
+
+impl Debug for Globals {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Globals")
+            .field("rt", &self.runtime)
+            .finish()
     }
 }

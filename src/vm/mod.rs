@@ -75,6 +75,14 @@ impl VM {
                     let _ = self.pop_stack();
                 }
 
+                OpCode::PopUnder => {
+                    let n = self.read_byte(chunk);
+                    let top = self.pop_stack();
+
+                    self.stack.truncate(self.stack.len() - n as usize);
+                    self.stack.push(top);
+                }
+
                 OpCode::Jump => {
                     let offset = i16::from_ne_bytes([self.read_byte(chunk), self.read_byte(chunk)]);
                     self.ip = self.ip.saturating_add_signed(offset as isize);

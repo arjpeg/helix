@@ -24,7 +24,7 @@ pub enum Constant {
 }
 
 /// A deduplicated pool of constants stored per chunk.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq)]
 pub struct ConstantPool {
     /// A list of the constants currently stored, with a maximum of 256 constants.
     list: Vec<Constant>,

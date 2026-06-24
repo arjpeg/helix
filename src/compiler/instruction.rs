@@ -13,6 +13,11 @@ pub enum Instruction {
     Duplicate,
     /// Pops the topmost value from the stack, discarding the result.
     Pop,
+    /// Pops `n` values from under the top of the stack, leaving the top in place.
+    PopUnder {
+        /// The number of values to pop.
+        n: u8,
+    },
 
     /// Unconditionally jumps by the given offset..
     Jump {
@@ -106,6 +111,8 @@ pub enum OpCode {
     Duplicate,
     /// See [Instruction::Pop].
     Pop,
+    /// See [Instruction::PopUnder].
+    PopUnder,
     /// See [Instruction::Jump].
     Jump,
     /// See [Instruction::JumpIfTrue].
@@ -152,6 +159,8 @@ impl Instruction {
         buf.push(OpCode::from(self) as u8);
 
         match *self {
+            Instruction::PopUnder { n } => buf.push(n),
+
             Instruction::LoadConstant { index } => buf.push(index),
 
             Instruction::Jump { offset } => buf.extend(offset.to_ne_bytes()),
@@ -192,6 +201,7 @@ impl Instruction {
             OpCode::Not => (Instruction::Not, start + 1),
 
             // multi byte instructions
+            OpCode::PopUnder => (Instruction::PopUnder { n: buf[start + 1] }, start + 2),
             OpCode::Jump => (
                 Instruction::Jump {
                     offset: i16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
@@ -256,6 +266,7 @@ impl From<&Instruction> for OpCode {
             Instruction::Return => Self::Return,
             Instruction::Duplicate => Self::Duplicate,
             Instruction::Pop => Self::Pop,
+            Instruction::PopUnder { .. } => Self::PopUnder,
             Instruction::Jump { .. } => Self::Jump,
             Instruction::JumpIfTrue { .. } => Self::JumpIfTrue,
             Instruction::JumpIfFalse { .. } => Self::JumpIfFalse,
@@ -285,6 +296,7 @@ impl Display for OpCode {
             OpCode::Return => "RETURN",
             OpCode::Duplicate => "DUPLICATE",
             OpCode::Pop => "POP",
+            OpCode::PopUnder => "POP_UNDER",
             OpCode::Jump => "JUMP",
             OpCode::JumpIfTrue => "JUMP_IF_TRUE",
             OpCode::JumpIfFalse => "JUMP_IF_FALSE",
@@ -313,9 +325,10 @@ impl Display for Instruction {
         write!(f, "{}", OpCode::from(self))?;
 
         match self {
-            Instruction::Jump { offset } => write!(f, " O:{offset:}")?,
-            Instruction::JumpIfTrue { offset } => write!(f, " O:{offset:}")?,
-            Instruction::JumpIfFalse { offset } => write!(f, " O:{offset:}")?,
+            Instruction::PopUnder { n } => write!(f, " N:{n}")?,
+            Instruction::Jump { offset } => write!(f, " O:{offset}")?,
+            Instruction::JumpIfTrue { offset } => write!(f, " O:{offset}")?,
+            Instruction::JumpIfFalse { offset } => write!(f, " O:{offset}")?,
             Instruction::LoadConstant { index } => write!(f, " C:{index}")?,
             Instruction::DefineGlobal { index } => write!(f, " C:{index}")?,
             Instruction::GetGlobal { name_index } => write!(f, " C:{name_index}")?,

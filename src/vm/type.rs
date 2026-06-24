@@ -14,6 +14,8 @@ pub enum Type {
     Boolean,
     /// A utf-8 encoded immutable string.
     String,
+    /// A helix-defined function.
+    Function,
 }
 
 impl From<Value> for Type {
@@ -24,6 +26,7 @@ impl From<Value> for Type {
             Value::Float(_) => Self::Float,
             Value::Boolean(_) => Self::Boolean,
             Value::String(_) => Self::String,
+            Value::Function(_) => Self::Function,
         }
     }
 }
@@ -39,6 +42,7 @@ impl std::fmt::Display for Type {
                 Type::Float => "float",
                 Type::Boolean => "boolean",
                 Type::String => "string",
+                Type::Function => "function",
             }
         )
     }

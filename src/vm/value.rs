@@ -1,6 +1,10 @@
-use std::fmt::Display;
+use std::{fmt::Display, rc::Rc};
 
-use crate::{compiler::constants::Constant, interner::Interner, vm::error::RuntimeError};
+use crate::{
+    compiler::{chunk::Chunk, constants::Constant},
+    interner::{Interner, Symbol},
+    vm::error::RuntimeError,
+};
 
 /// A value living in the helix runtime environment.
 #[derive(Debug, Clone, PartialEq)]
@@ -15,7 +19,21 @@ pub enum Value {
     /// A logical boolean.
     Boolean(bool),
     /// A utf-8 encoded immutable string.
-    String(Box<str>),
+    String(Rc<str>),
+
+    /// A helix-defined function.
+    Function(Rc<Function>),
+}
+
+/// The metadata representing a complete function defined in helix.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Function {
+    /// The number of parameters this function accepts.
+    pub(crate) arity: usize,
+    /// The bytecode [`Chunk`] to execute when this function is invoked.
+    pub(crate) chunk: Chunk,
+    /// The function's given name (or `None` if it is anonymous).
+    pub name: Option<Symbol>,
 }
 
 impl From<Constant> for Value {
@@ -27,7 +45,7 @@ impl From<Constant> for Value {
             C::Integer(i) => Self::Integer(i),
             C::Float(f) => Self::Float(f.0),
             C::Boolean(b) => Self::Boolean(b),
-            C::Symbol(s) => Self::String(Box::from(Interner::resolve(s))),
+            C::Symbol(s) => Self::String(Rc::from(Interner::resolve(s))),
         }
     }
 }
@@ -41,6 +59,7 @@ impl Value {
             Self::Float(n) => *n != 0.0,
             Self::Boolean(b) => *b,
             Self::String(s) => !s.is_empty(),
+            Self::Function(_) => true,
         }
     }
 
@@ -58,6 +77,11 @@ impl Display for Value {
             Self::Float(fl) => write!(f, "{fl}"),
             Self::Boolean(b) => write!(f, "{b}"),
             Self::String(s) => write!(f, "{s}"),
+            Self::Function(fn_) => write!(
+                f,
+                "<fn `{}`>",
+                fn_.name.unwrap_or(Interner::intern("(anonymous)"))
+            ),
         }
     }
 }
