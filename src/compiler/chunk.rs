@@ -3,6 +3,7 @@ use crate::{
         constants::{Constant, ConstantPool},
         instruction::Instruction,
     },
+    interner::{Interner, Symbol},
     source::Span,
 };
 
@@ -22,12 +23,12 @@ pub struct Chunk {
     pub(crate) spans: Vec<(usize, Span)>,
 
     /// The debug name of this chunk.
-    pub(crate) name: Option<&'static str>,
+    pub(crate) name: Option<Symbol>,
 }
 
 impl Chunk {
     /// Creates a new, empty [`Chunk`].
-    pub fn new(name: Option<&'static str>) -> Self {
+    pub fn new(name: Option<Symbol>) -> Self {
         Self {
             code: Vec::new(),
             constants: ConstantPool::new(),
@@ -91,7 +92,10 @@ impl Chunk {
 
 /// Disassemble a [`Chunk`] into a format suitable for debugging.
 pub fn disassemble(chunk: &Chunk) {
-    println!("== {} ==", chunk.name.unwrap_or("<anonymous>"));
+    println!(
+        "== {} ==",
+        chunk.name.unwrap_or(Interner::intern("<anonymous>"))
+    );
 
     println!("constants: {:?}", chunk.constants);
 

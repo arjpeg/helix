@@ -5,7 +5,7 @@ use crate::{
         error::{CompilerError, Result},
         instruction::Instruction,
     },
-    interner::Symbol,
+    interner::{Interner, Symbol},
     parser::ast::{BinaryOp, Expression, LValue, Statement, UnaryOp},
     source::{SourceMap, Span, Spanned},
     vm::globals::Globals,
@@ -16,24 +16,37 @@ pub mod constants;
 pub mod error;
 pub mod instruction;
 
-/// The context of a compilation session of a [`Chunk`].
+/// The context of compiling a complete program.
 struct CompileCtx {
+    /// A set of all the known global variables declared.
+    globals: Globals,
+    /// The stack of [`FunctionCtx`]s (last = innermost compiled function).
+    functions: Vec<FunctionCtx>,
+
+    /// All errors accumulated so far.
+    errors: Vec<Spanned<CompilerError>>,
+}
+
+/// The state of compilation in a function, or the global script.
+struct FunctionCtx {
+    /// The current [`Chunk`] buffer associated with this function.
+    chunk: Chunk,
+
+    /// The name of this function.
+    name: Symbol,
+    /// The arity of this function (if applicable).
+    arity: Option<u8>,
+
     /// All the local variables allocated thus far. May contain duplicates to
     /// support variable shadowing.
     locals: Vec<Local>,
     /// The current depth of scopes (how many blocks deep we are).
     scope_depth: usize,
 
-    /// A set of all the known global variables declared.
-    globals: Globals,
-
     /// The list of addresses of `break` instructions that need to be backpatched (last = innermost).
     break_addresses: Vec<Vec<usize>>,
     /// The list of addresses of `continue` instructions that need to be backpatched (last = innermost).
     continue_addresses: Vec<Vec<usize>>,
-
-    /// All errors accumulated so far.
-    errors: Vec<Spanned<CompilerError>>,
 }
 
 /// A reference to a local variable.
@@ -43,6 +56,32 @@ struct Local {
     name: Symbol,
     /// The scope depth this local was first referenced at.
     scope_depth: usize,
+}
+
+impl CompileCtx {
+    /// Returns an immutable reference to the innermost [`FunctionCtx`].
+    fn current(&self) -> &FunctionCtx {
+        self.functions
+            .last()
+            .expect("should never stack underflow of function contexts")
+    }
+
+    /// Returns a mutable reference to the innermost [`FunctionCtx`].
+    fn current_mut(&mut self) -> &mut FunctionCtx {
+        self.functions
+            .last_mut()
+            .expect("should never stack underflow of function contexts")
+    }
+
+    /// Returns an immutable reference to the innermost [`Chunk`].
+    fn chunk(&self) -> &Chunk {
+        &self.current().chunk
+    }
+
+    /// Returns a mutable reference to the innermost [`Chunk`].
+    fn chunk_mut(&mut self) -> &mut Chunk {
+        &mut self.current_mut().chunk
+    }
 }
 
 /// Compiles a [`Statement::Program`] or [`Statement::Repl`] into an optimized [`Chunk`] ready for
@@ -57,64 +96,75 @@ pub fn compile_program(
         _ => panic!("cannot compile non complete program statement"),
     };
 
-    let name = SourceMap::get(program.span.source).path.to_str().unwrap();
+    let name = Interner::intern(SourceMap::get(program.span.source).path.to_str().unwrap());
 
-    let mut chunk = Chunk::new(Some(name));
-    let mut context = CompileCtx {
-        locals: Vec::new(),
+    let script = FunctionCtx {
+        chunk: Chunk::new(Some(name)),
+        name,
+        arity: None,
+        locals: vec![],
         scope_depth: 0,
+        break_addresses: vec![],
+        continue_addresses: vec![],
+    };
+
+    let mut context = CompileCtx {
+        functions: vec![script],
         globals: globals.snapshot(),
-        break_addresses: Vec::new(),
-        continue_addresses: Vec::new(),
         errors: Vec::new(),
     };
 
     for statement in stmts {
-        emit_statement(&mut chunk, &mut context, statement.value, statement.span);
+        emit_statement(&mut context, statement.value, statement.span);
     }
 
     // emit one additional expression to the stack in REPL mode
     if let Some(expression) = tail {
-        emit_expression(&mut chunk, &mut context, expression.value, expression.span);
+        emit_expression(&mut context, expression.value, expression.span);
     }
 
-    chunk.emit_instruction(Instruction::Return, program.span);
+    context
+        .chunk_mut()
+        .emit_instruction(Instruction::Return, program.span);
 
     if !context.errors.is_empty() {
         return Err(context.errors);
     }
 
-    Ok((chunk, context.globals))
+    // extract the innermost chunk
+    let script = context.functions.pop().unwrap();
+
+    assert!(
+        context.functions.is_empty(),
+        "compile context should be empty after compilation"
+    );
+
+    Ok((script.chunk, context.globals))
 }
 
-fn emit_statement(
-    chunk: &mut Chunk,
-    context: &mut CompileCtx,
-    statement: Statement,
-    span: Span,
-) -> usize {
-    let start = chunk.code.len();
+fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) -> usize {
+    let start = context.chunk().code.len();
 
     match statement {
         Statement::Program { .. } | Statement::Repl { .. } => unreachable!(),
 
         Statement::Expression { expr, .. } => {
-            emit_expression(chunk, context, expr, span);
+            emit_expression(context, expr, span);
 
             // clean stack after expression statements
-            chunk.emit_instruction(Instruction::Pop, span);
+            context.chunk_mut().emit_instruction(Instruction::Pop, span);
         }
 
         Statement::Declaration { symbol, value } => {
-            emit_expression(chunk, context, value.value, value.span);
+            emit_expression(context, value.value, value.span);
 
             // if we are scope_depth==0 (the global scope) declare the variable there instead
-            if context.scope_depth == 0 {
-                let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
+            if context.current().scope_depth == 0 {
+                let symbol_index = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
 
                 context.globals.known.insert(symbol);
 
-                chunk.emit_instruction(
+                context.chunk_mut().emit_instruction(
                     Instruction::DefineGlobal {
                         index: symbol_index,
                     },
@@ -122,9 +172,11 @@ fn emit_statement(
                 );
             } else {
                 // declare the variable as a normal local
-                context.locals.push(Local {
+                let current_depth = context.current().scope_depth;
+
+                context.current_mut().locals.push(Local {
                     name: symbol,
-                    scope_depth: context.scope_depth,
+                    scope_depth: current_depth,
                 });
             }
         }
@@ -137,39 +189,55 @@ fn emit_statement(
             // JUMP $START
             // $END:
 
-            let loop_start = emit_expression(chunk, context, predicate.value, predicate.span);
-            let jump_to_end = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
+            let loop_start = emit_expression(context, predicate.value, predicate.span);
+            let jump_to_end = context
+                .chunk_mut()
+                .emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
 
-            context.break_addresses.push(Vec::new());
-            context.continue_addresses.push(Vec::new());
+            context.current_mut().break_addresses.push(Vec::new());
+            context.current_mut().continue_addresses.push(Vec::new());
 
-            emit_expression(chunk, context, body.value, body.span);
+            emit_expression(context, body.value, body.span);
             // clean stack from the expression
-            chunk.emit_instruction(Instruction::Pop, body.span);
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::Pop, body.span);
 
-            let jump_to_start = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
-            chunk.backpatch_jump(jump_to_start, Some(loop_start));
-            chunk.backpatch_jump(jump_to_end, None);
+            let jump_to_start = context
+                .chunk_mut()
+                .emit_instruction(Instruction::Jump { offset: 0 }, span);
+            context
+                .chunk_mut()
+                .backpatch_jump(jump_to_start, Some(loop_start));
+            context.chunk_mut().backpatch_jump(jump_to_end, None);
 
-            let break_backpatches = context.break_addresses.pop().unwrap();
-            let continue_backpatches = context.continue_addresses.pop().unwrap();
+            let break_backpatches = context.current_mut().break_addresses.pop().unwrap();
+            let continue_backpatches = context.current_mut().continue_addresses.pop().unwrap();
 
             for break_address in break_backpatches {
-                chunk.backpatch_jump(break_address, None);
+                context.chunk_mut().backpatch_jump(break_address, None);
             }
 
             for continue_address in continue_backpatches {
-                chunk.backpatch_jump(continue_address, Some(loop_start));
+                context
+                    .chunk_mut()
+                    .backpatch_jump(continue_address, Some(loop_start));
             }
         }
 
         Statement::Print(expression) => {
-            emit_expression(chunk, context, expression.value, expression.span);
-            chunk.emit_instruction(Instruction::Print, span);
+            emit_expression(context, expression.value, expression.span);
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::Print, span);
         }
 
         Statement::Break => {
-            let Some(loop_ctx) = context.break_addresses.last_mut() else {
+            let jump = context
+                .chunk_mut()
+                .emit_instruction(Instruction::Jump { offset: 0 }, span);
+
+            let Some(loop_ctx) = context.current_mut().break_addresses.last_mut() else {
                 context
                     .errors
                     .push(Spanned::new(CompilerError::Break, span));
@@ -177,11 +245,15 @@ fn emit_statement(
                 return start;
             };
 
-            loop_ctx.push(chunk.emit_instruction(Instruction::Jump { offset: 0 }, span));
+            loop_ctx.push(jump);
         }
 
         Statement::Continue => {
-            let Some(loop_ctx) = context.continue_addresses.last_mut() else {
+            let jump = context
+                .chunk_mut()
+                .emit_instruction(Instruction::Jump { offset: 0 }, span);
+
+            let Some(loop_ctx) = context.current_mut().continue_addresses.last_mut() else {
                 context
                     .errors
                     .push(Spanned::new(CompilerError::Continue, span));
@@ -189,7 +261,7 @@ fn emit_statement(
                 return start;
             };
 
-            loop_ctx.push(chunk.emit_instruction(Instruction::Jump { offset: 0 }, span));
+            loop_ctx.push(jump);
         }
 
         Statement::FunctionDeclaration { .. } => todo!(),
@@ -200,31 +272,36 @@ fn emit_statement(
     start
 }
 
-fn emit_expression(
-    chunk: &mut Chunk,
-    context: &mut CompileCtx,
-    expression: Expression,
-    span: Span,
-) -> usize {
-    let start = chunk.code.len();
+fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span) -> usize {
+    let start = context.chunk().code.len();
 
     match expression {
         // constants
         Expression::Integer(i) => {
-            let constant = chunk.emit_constant(Constant::from(i));
-            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
+            let constant = context.chunk_mut().emit_constant(Constant::from(i));
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
         Expression::Float(f) => {
-            let constant = chunk.emit_constant(Constant::from(f));
-            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
+            let constant = context.chunk_mut().emit_constant(Constant::from(f));
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
         Expression::Boolean(b) => {
-            let constant = chunk.emit_constant(Constant::from(b));
-            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
+            let constant = context.chunk_mut().emit_constant(Constant::from(b));
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
         Expression::String(s) => {
-            let constant = chunk.emit_constant(Constant::from(&*s.leak()));
-            chunk.emit_instruction(Instruction::LoadConstant { index: constant }, span);
+            let constant = context
+                .chunk_mut()
+                .emit_constant(Constant::from(&*s.leak()));
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
         }
 
         Expression::BinaryOperation { lhs, operator, rhs } => {
@@ -241,8 +318,10 @@ fn emit_expression(
             //
             // where XXX = false if op = and, and XXX = true if op = or
             if operator == BinaryOp::And || operator == BinaryOp::Or {
-                emit_expression(chunk, context, lhs.value, lhs.span);
-                chunk.emit_instruction(Instruction::Duplicate, lhs.span);
+                emit_expression(context, lhs.value, lhs.span);
+                context
+                    .chunk_mut()
+                    .emit_instruction(Instruction::Duplicate, lhs.span);
 
                 let jump_instruction = if operator == BinaryOp::And {
                     Instruction::JumpIfFalse { offset: 0 }
@@ -250,11 +329,14 @@ fn emit_expression(
                     Instruction::JumpIfTrue { offset: 0 }
                 };
 
-                let jump = chunk.emit_instruction(jump_instruction, span);
-                chunk.emit_instruction(Instruction::Pop, lhs.span);
-                emit_expression(chunk, context, rhs.value, rhs.span);
+                let jump = context.chunk_mut().emit_instruction(jump_instruction, span);
+                context
+                    .chunk_mut()
+                    .emit_instruction(Instruction::Pop, lhs.span);
 
-                chunk.backpatch_jump(jump, None);
+                emit_expression(context, rhs.value, rhs.span);
+
+                context.chunk_mut().backpatch_jump(jump, None);
 
                 return start;
             }
@@ -262,14 +344,14 @@ fn emit_expression(
             // swap order arguments are placed on the stack for these two operators,
             // as a > b is equivalent to b < a
             if operator == BinaryOp::GreaterThan || operator == BinaryOp::GreaterThanEquals {
-                emit_expression(chunk, context, rhs.value, rhs.span);
-                emit_expression(chunk, context, lhs.value, lhs.span);
+                emit_expression(context, rhs.value, rhs.span);
+                emit_expression(context, lhs.value, lhs.span);
             } else {
-                emit_expression(chunk, context, lhs.value, lhs.span);
-                emit_expression(chunk, context, rhs.value, rhs.span);
+                emit_expression(context, lhs.value, lhs.span);
+                emit_expression(context, rhs.value, rhs.span);
             }
 
-            chunk.emit_instruction(
+            context.chunk_mut().emit_instruction(
                 match operator {
                     BinaryOp::Plus => Instruction::Add,
                     BinaryOp::Minus => Instruction::Subtract,
@@ -291,56 +373,62 @@ fn emit_expression(
 
             // correct for not equals, as a != b is equivalent to !(a == b)
             if operator == BinaryOp::NotEquals {
-                chunk.emit_instruction(Instruction::Not, span);
+                context.chunk_mut().emit_instruction(Instruction::Not, span);
             }
         }
 
         Expression::UnaryOperation { operator, operand } => {
-            emit_expression(chunk, context, operand.value, operand.span);
+            emit_expression(context, operand.value, operand.span);
 
             match operator {
-                UnaryOp::Minus => chunk.emit_instruction(Instruction::Negate, span),
-                UnaryOp::Bang => chunk.emit_instruction(Instruction::Not, span),
+                UnaryOp::Minus => context
+                    .chunk_mut()
+                    .emit_instruction(Instruction::Negate, span),
+                UnaryOp::Bang => context.chunk_mut().emit_instruction(Instruction::Not, span),
                 // '+' is always a no op
                 UnaryOp::Plus => 0,
             };
         }
 
         Expression::Block { stmts, tail } => {
-            context.scope_depth += 1;
+            context.current_mut().scope_depth += 1;
 
             for statement in stmts {
-                emit_statement(chunk, context, statement.value, statement.span);
+                emit_statement(context, statement.value, statement.span);
             }
 
             if let Some(expression) = tail {
-                emit_expression(chunk, context, expression.value, expression.span);
+                emit_expression(context, expression.value, expression.span);
             } else {
                 // push a `()` onto the stack to keep the stack balanced
-                let index = chunk.emit_constant(Constant::Unit);
-                chunk.emit_instruction(Instruction::LoadConstant { index }, span);
+                let index = context.chunk_mut().emit_constant(Constant::Unit);
+                context
+                    .chunk_mut()
+                    .emit_instruction(Instruction::LoadConstant { index }, span);
             }
+
+            let current_depth = context.current().scope_depth;
 
             // clean up all locals owned by this block
             let scope_local_count = context
+                .current()
                 .locals
                 .iter()
                 .rev()
-                .take_while(|l| l.scope_depth == context.scope_depth)
+                .take_while(|l| l.scope_depth == current_depth)
                 .count();
 
-            context
-                .locals
-                .truncate(context.locals.len() - scope_local_count);
+            let new_size = context.current().locals.len() - scope_local_count;
+            context.current_mut().locals.truncate(new_size);
 
-            chunk.emit_instruction(
+            context.chunk_mut().emit_instruction(
                 Instruction::PopUnder {
                     n: scope_local_count as u8,
                 },
                 span,
             );
 
-            context.scope_depth -= 1;
+            context.current_mut().scope_depth -= 1;
         }
 
         Expression::Variable { symbol } => {
@@ -348,16 +436,16 @@ fn emit_expression(
                 // due to the way stack is cleaned up after statements,
                 // the indices from `locals` always match up to the location of elements on the stack,
                 // so can just copy the same index
-                chunk.emit_instruction(
+                context.chunk_mut().emit_instruction(
                     Instruction::GetLocal {
                         stack_index: index as u8,
                     },
                     span,
                 );
             } else if context.globals.known.contains(&symbol) {
-                let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
+                let symbol_index = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
 
-                chunk.emit_instruction(
+                context.chunk_mut().emit_instruction(
                     Instruction::GetGlobal {
                         name_index: symbol_index,
                     },
@@ -373,22 +461,26 @@ fn emit_expression(
         }
 
         Expression::Assignment { target, value } => {
-            emit_expression(chunk, context, value.value, value.span);
-            chunk.emit_instruction(Instruction::Duplicate, value.span);
+            emit_expression(context, value.value, value.span);
+
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::Duplicate, value.span);
 
             match target.value {
                 LValue::Variable(symbol) => {
                     if let Some(index) = find_local(context, symbol) {
-                        chunk.emit_instruction(
+                        context.chunk_mut().emit_instruction(
                             Instruction::SetLocal {
                                 stack_index: index as u8,
                             },
                             target.span,
                         );
                     } else if context.globals.known.contains(&symbol) {
-                        let symbol_index = chunk.emit_constant(Constant::Symbol(symbol));
+                        let symbol_index =
+                            context.chunk_mut().emit_constant(Constant::Symbol(symbol));
 
-                        chunk.emit_instruction(
+                        context.chunk_mut().emit_instruction(
                             Instruction::SetGlobal {
                                 name_index: symbol_index,
                             },
@@ -413,25 +505,34 @@ fn emit_expression(
             body,
             else_clause,
         } => {
-            emit_expression(chunk, context, predicate.value, predicate.span);
+            emit_expression(context, predicate.value, predicate.span);
 
-            let else_jump = chunk.emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
-            emit_expression(chunk, context, body.value, body.span);
+            let else_jump = context
+                .chunk_mut()
+                .emit_instruction(Instruction::JumpIfFalse { offset: 0 }, span);
+
+            emit_expression(context, body.value, body.span);
 
             // the end of the entire if (else) chain
-            let end_jump = chunk.emit_instruction(Instruction::Jump { offset: 0 }, span);
-            chunk.backpatch_jump(else_jump, None); // skip past the jump at the end of the if block
+            let end_jump = context
+                .chunk_mut()
+                .emit_instruction(Instruction::Jump { offset: 0 }, span);
+
+            context.chunk_mut().backpatch_jump(else_jump, None); // skip past the jump at the end of the if block
 
             if let Some(expression) = else_clause {
                 // write the else block
-                emit_expression(chunk, context, expression.value, expression.span);
+                emit_expression(context, expression.value, expression.span);
             } else {
-                // keep consistant stack
-                let c = chunk.emit_constant(Constant::Unit);
-                chunk.emit_instruction(Instruction::LoadConstant { index: c }, span);
+                // keep consistent stack
+                let c = context.chunk_mut().emit_constant(Constant::Unit);
+
+                context
+                    .chunk_mut()
+                    .emit_instruction(Instruction::LoadConstant { index: c }, span);
             }
 
-            chunk.backpatch_jump(end_jump, None);
+            context.chunk_mut().backpatch_jump(end_jump, None);
         }
 
         Expression::List { .. } => todo!(),
@@ -443,9 +544,10 @@ fn emit_expression(
     start
 }
 
-/// Returns the lastmost index of the given variable name in the [`CompileCtx::locals`].
+/// Returns the lastmost index of the given variable name in the innermost [`FunctionCtx::locals`].
 fn find_local(context: &CompileCtx, symbol: Symbol) -> Option<usize> {
     context
+        .current()
         .locals
         .iter()
         .enumerate()
