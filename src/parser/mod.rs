@@ -38,7 +38,7 @@ impl Parser {
     /// Parses a full source file.
     pub fn parse_source(&mut self) -> Result<Spanned<Statement>, Vec<Spanned<ParsingError>>> {
         if self.peek() == Token::Eof {
-            return Ok(Spanned::wrap(
+            return Ok(Spanned::new(
                 Statement::Program { stmts: vec![] },
                 self.consume().unwrap().span,
             ));
@@ -84,13 +84,13 @@ impl Parser {
 
         let span = Span::merge(stmts.first().unwrap().span, stmts.last().unwrap().span);
 
-        Ok(Spanned::wrap(Statement::Program { stmts }, span))
+        Ok(Spanned::new(Statement::Program { stmts }, span))
     }
 
     /// Parses a source file as a REPL file.
     pub fn parse_repl(&mut self) -> StatementResult {
         if self.peek() == Token::Eof {
-            return Ok(Spanned::wrap(
+            return Ok(Spanned::new(
                 Statement::Program { stmts: vec![] },
                 self.consume()?.span,
             ));
@@ -109,7 +109,7 @@ impl Parser {
                 has_semicolon: false,
             } = statement.value
             {
-                tail = Some(Box::new(Spanned::wrap(expr, statement.span)));
+                tail = Some(Box::new(Spanned::new(expr, statement.span)));
                 break;
             }
 
@@ -130,7 +130,7 @@ impl Parser {
 
         let span = Span::merge(first, last);
 
-        Ok(Spanned::wrap(Statement::Repl { stmts, tail }, span))
+        Ok(Spanned::new(Statement::Repl { stmts, tail }, span))
     }
 
     /// Synchronizes the parser back to a valid starting point after an error.
@@ -204,7 +204,7 @@ impl Parser {
                 let semicolon_span = self.expect(Token::Semicolon, "';'")?.span;
                 let span = Span::merge(keyword_span, semicolon_span);
 
-                Ok(Spanned::wrap(Statement::Return { result }, span))
+                Ok(Spanned::new(Statement::Return { result }, span))
             }
 
             // function definition statements must have a name associated with them, otherwise we
@@ -238,7 +238,7 @@ impl Parser {
 
         let span = Span::merge(keyword_span, semicolon_span);
 
-        Ok(Spanned::wrap(Statement::Print(expr), span))
+        Ok(Spanned::new(Statement::Print(expr), span))
     }
 
     fn r#while(&mut self) -> StatementResult {
@@ -254,7 +254,7 @@ impl Parser {
             closing_span = self.consume()?.span;
         }
 
-        Ok(Spanned::wrap(
+        Ok(Spanned::new(
             Statement::While { predicate, body },
             Span::merge(keyword_span, closing_span),
         ))
@@ -279,7 +279,7 @@ impl Parser {
 
         let span = Span::merge(keyword_span, semicolon_span);
 
-        Ok(Spanned::wrap(
+        Ok(Spanned::new(
             Statement::Declaration {
                 symbol,
                 value: expr,
@@ -305,7 +305,7 @@ impl Parser {
 
         let span = Span::merge(keyword.span, body.span);
 
-        Ok(Spanned::wrap(
+        Ok(Spanned::new(
             Statement::FunctionDeclaration {
                 symbol,
                 parameters,
@@ -324,7 +324,7 @@ impl Parser {
 
         let span = Span::merge(keyword_span, semicolon_span);
 
-        Ok(Spanned::wrap(Statement::Assert(expr), span))
+        Ok(Spanned::new(Statement::Assert(expr), span))
     }
 
     fn expr(&mut self) -> ExprResult {
@@ -342,7 +342,7 @@ impl Parser {
         let lhs_span = expr.span;
 
         let Ok(target) = LValue::try_from(expr.value) else {
-            return Err(Spanned::wrap(ParsingError::InvalidAssignmentLhs, lhs_span));
+            return Err(Spanned::new(ParsingError::InvalidAssignmentLhs, lhs_span));
         };
 
         // advance past the '='
@@ -352,9 +352,9 @@ impl Parser {
 
         let span = Span::merge(lhs_span, value.span);
 
-        Ok(Spanned::wrap(
+        Ok(Spanned::new(
             Expression::Assignment {
-                target: Spanned::wrap(target, lhs_span),
+                target: Spanned::new(target, lhs_span),
                 value: Box::new(value),
             },
             span,
@@ -402,7 +402,7 @@ impl Parser {
             let expression = self.unary()?;
             let span = Span::merge(op_span, expression.span);
 
-            Ok(Spanned::wrap(
+            Ok(Spanned::new(
                 Expression::UnaryOperation {
                     operator: op,
                     operand: Box::new(expression),
@@ -425,7 +425,7 @@ impl Parser {
 
                     let span = Span::merge(expr.span, arguments.span);
 
-                    expr = Spanned::wrap(
+                    expr = Spanned::new(
                         Expression::Call {
                             callee: Box::new(expr),
                             arguments: arguments.value,
@@ -445,7 +445,7 @@ impl Parser {
 
                     let span = Span::merge(expr.span, ending_span);
 
-                    expr = Spanned::wrap(
+                    expr = Spanned::new(
                         Expression::Index {
                             base: Box::new(expr),
                             index: Box::new(index),
@@ -480,7 +480,7 @@ impl Parser {
                         has_semicolon: false,
                     } = statement.value
                     {
-                        tail = Some(Box::new(Spanned::wrap(expr, statement.span)));
+                        tail = Some(Box::new(Spanned::new(expr, statement.span)));
                         break;
                     }
 
@@ -498,7 +498,7 @@ impl Parser {
 
         let span = Span::merge(opening.span, closing.span);
 
-        Ok(Spanned::wrap(Expression::Block { stmts, tail }, span))
+        Ok(Spanned::new(Expression::Block { stmts, tail }, span))
     }
 
     fn r#if(&mut self) -> ExprResult {
@@ -519,7 +519,7 @@ impl Parser {
 
                 let span = Span::merge(if_token.span, else_clause.span);
 
-                return Ok(Spanned::wrap(
+                return Ok(Spanned::new(
                     Expression::If {
                         predicate,
                         body,
@@ -534,7 +534,7 @@ impl Parser {
 
             let span = Span::merge(if_token.span, else_body.span);
 
-            return Ok(Spanned::wrap(
+            return Ok(Spanned::new(
                 Expression::If {
                     predicate,
                     body,
@@ -546,7 +546,7 @@ impl Parser {
 
         let span = Span::merge(if_token.span, body.span);
 
-        Ok(Spanned::wrap(
+        Ok(Spanned::new(
             Expression::If {
                 predicate,
                 body,
@@ -561,27 +561,27 @@ impl Parser {
         let token = self.consume()?;
 
         let expression = match token.value {
-            Token::Integer(int) => Spanned::wrap(Expression::Integer(int), token.span),
+            Token::Integer(int) => Spanned::new(Expression::Integer(int), token.span),
 
-            Token::Float(float) => Spanned::wrap(Expression::Float(float), token.span),
+            Token::Float(float) => Spanned::new(Expression::Float(float), token.span),
 
-            Token::Keyword(Keyword::True) => Spanned::wrap(Expression::Boolean(true), token.span),
+            Token::Keyword(Keyword::True) => Spanned::new(Expression::Boolean(true), token.span),
 
-            Token::Keyword(Keyword::False) => Spanned::wrap(Expression::Boolean(false), token.span),
+            Token::Keyword(Keyword::False) => Spanned::new(Expression::Boolean(false), token.span),
 
-            Token::String(string) => Spanned::wrap(
+            Token::String(string) => Spanned::new(
                 Expression::String(String::from(Interner::resolve(string))),
                 token.span,
             ),
 
-            Token::Symbol(symbol) => Spanned::wrap(Expression::Variable { symbol }, token.span),
+            Token::Symbol(symbol) => Spanned::new(Expression::Variable { symbol }, token.span),
 
             Token::Grouping(Grouping::OpeningParen) => {
                 let expr = self.expr()?;
                 let next = self.consume()?;
 
                 if next.value != Token::Grouping(Grouping::ClosingParen) {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         ParsingError::UnexpectedToken {
                             expected: "')'",
                             found: next.value,
@@ -590,7 +590,7 @@ impl Parser {
                     ));
                 }
 
-                Spanned::wrap(expr.value, Span::merge(token.span, next.span))
+                Spanned::new(expr.value, Span::merge(token.span, next.span))
             }
 
             Token::Grouping(Grouping::OpeningBracket) => {
@@ -623,11 +623,11 @@ impl Parser {
 
                 let span = Span::merge(token.span, body.span);
 
-                Spanned::wrap(Expression::Lambda { parameters, body }, span)
+                Spanned::new(Expression::Lambda { parameters, body }, span)
             }
 
             found => {
-                return Err(Spanned::wrap(
+                return Err(Spanned::new(
                     ParsingError::UnexpectedToken {
                         expected: "an expression",
                         found,
@@ -642,7 +642,7 @@ impl Parser {
 
     /// Consumes a single token, returning an error if it wasn't present.
     fn consume(&mut self) -> Result<Spanned<Token>, Spanned<ParsingError>> {
-        let result = self.tokens.get(self.cursor).cloned().ok_or(Spanned::wrap(
+        let result = self.tokens.get(self.cursor).cloned().ok_or(Spanned::new(
             ParsingError::UnexpectedEof,
             self.tokens.last().unwrap().span,
         ));
@@ -678,7 +678,7 @@ impl Parser {
                 let token = self_.consume()?;
 
                 let Token::Symbol(parameter) = token.value else {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         ParsingError::UnexpectedToken {
                             expected: "a parameter symbol",
                             found: token.value,
@@ -745,7 +745,7 @@ impl Parser {
 
         let closing = self.expect(closing, closing_label)?;
 
-        Ok(Spanned::wrap(
+        Ok(Spanned::new(
             result,
             Span::merge(opening.span, closing.span),
         ))
@@ -768,7 +768,7 @@ impl Parser {
             let rhs = f(self)?;
             let span = Span::merge(lhs.span, rhs.span);
 
-            lhs = Spanned::wrap(
+            lhs = Spanned::new(
                 Expression::BinaryOperation {
                     lhs: Box::new(lhs),
                     operator,
@@ -791,7 +791,7 @@ impl Parser {
         let token = self.consume()?;
 
         if token.value != expected {
-            return Err(Spanned::wrap(
+            return Err(Spanned::new(
                 ParsingError::UnexpectedToken {
                     expected: expected_label,
                     found: token.value,

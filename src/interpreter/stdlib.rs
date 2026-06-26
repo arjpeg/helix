@@ -54,7 +54,7 @@ fn len(params: Vec<Spanned<Value>>) -> ValueResult {
         Value::List(l) => Ok(Value::Integer(l.borrow().len() as _)),
         Value::String(s) => Ok(Value::Integer(s.chars().count() as _)),
 
-        _ => Err(Spanned::wrap(
+        _ => Err(Spanned::new(
             RuntimeError::TypeError {
                 name: "len",
                 expected: "string or list",
@@ -69,7 +69,7 @@ fn push(mut params: Vec<Spanned<Value>>) -> ValueResult {
     let value = params.pop().unwrap().value;
 
     let Value::List(list) = &params[0].value else {
-        return Err(Spanned::wrap(
+        return Err(Spanned::new(
             RuntimeError::TypeError {
                 name: "push",
                 expected: "list",

@@ -172,7 +172,7 @@ fn emit_statement(
             let Some(loop_ctx) = context.break_addresses.last_mut() else {
                 context
                     .errors
-                    .push(Spanned::wrap(CompilerError::Break, span));
+                    .push(Spanned::new(CompilerError::Break, span));
 
                 return start;
             };
@@ -184,7 +184,7 @@ fn emit_statement(
             let Some(loop_ctx) = context.continue_addresses.last_mut() else {
                 context
                     .errors
-                    .push(Spanned::wrap(CompilerError::Continue, span));
+                    .push(Spanned::new(CompilerError::Continue, span));
 
                 return start;
             };
@@ -364,10 +364,9 @@ fn emit_expression(
                     span,
                 );
             } else {
-                context.errors.push(Spanned::wrap(
-                    CompilerError::UnboundBinding { symbol },
-                    span,
-                ));
+                context
+                    .errors
+                    .push(Spanned::new(CompilerError::UnboundBinding { symbol }, span));
 
                 return start;
             };
@@ -396,7 +395,7 @@ fn emit_expression(
                             target.span,
                         );
                     } else {
-                        context.errors.push(Spanned::wrap(
+                        context.errors.push(Spanned::new(
                             CompilerError::UnboundBinding { symbol },
                             target.span,
                         ));

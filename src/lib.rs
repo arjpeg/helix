@@ -1,4 +1,4 @@
-use std::{collections::HashMap, error::Error};
+use std::collections::HashMap;
 
 use itertools::{Either, Itertools};
 
@@ -7,6 +7,7 @@ use crate::{
         chunk::{Chunk, disassemble},
         compile_program,
     },
+    error::Error,
     lexer::Tokenizer,
     parser::Parser,
     source::{SourceHandle, SourceMap, Spanned},
@@ -47,13 +48,10 @@ impl Engine {
     }
 
     /// Parses a [`Source`] file as a complete helix program, making it ready for evaluation.
-    pub fn register_program(
-        &mut self,
-        source: SourceHandle,
-    ) -> Result<(), Vec<Spanned<Box<dyn Error>>>> {
+    pub fn register_program(&mut self, source: SourceHandle) -> Result<(), Vec<Spanned<Error>>> {
         let tokens = collect_errors(Tokenizer::new(SourceMap::get(source)))?;
-        let ast = Parser::new(tokens).parse_source().map_err(box_vec_error)?;
-        let (chunk, globals) = compile_program(ast, &self.globals).map_err(box_vec_error)?;
+        let ast = Parser::new(tokens).parse_source().map_err(flatten_errors)?;
+        let (chunk, globals) = compile_program(ast, &self.globals).map_err(flatten_errors)?;
 
         self.chunks.insert(source, chunk);
         self.globals = globals;
@@ -62,15 +60,13 @@ impl Engine {
     }
 
     /// Parses a [`Source`] file as a REPL input, making it ready for evaluation.
-    pub fn register_repl(
-        &mut self,
-        source: SourceHandle,
-    ) -> Result<(), Vec<Spanned<Box<dyn Error>>>> {
+    pub fn register_repl(&mut self, source: SourceHandle) -> Result<(), Vec<Spanned<Error>>> {
         let tokens = collect_errors(Tokenizer::new(SourceMap::get(source)))?;
         let ast = Parser::new(tokens)
             .parse_repl()
-            .map_err(|e| vec![box_error(e)])?;
-        let (chunk, globals) = compile_program(ast, &self.globals).map_err(box_vec_error)?;
+            .map_err(|e| vec![e.into()])?;
+
+        let (chunk, globals) = compile_program(ast, &self.globals).map_err(flatten_errors)?;
 
         self.chunks.insert(source, chunk);
         self.globals = globals;
@@ -80,10 +76,7 @@ impl Engine {
 
     /// Executes an input [`SourceHandle`], blocking until completion.
     /// Panics if the [Source] was not already registered.
-    pub fn execute(
-        &mut self,
-        source: SourceHandle,
-    ) -> Result<Option<Value>, Spanned<Box<dyn Error>>> {
+    pub fn execute(&mut self, source: SourceHandle) -> Result<Option<Value>, Spanned<Error>> {
         let chunk = self.chunks.get(&source).unwrap();
 
         if DEBUG_DISASSEMBLE_CHUNK {
@@ -99,28 +92,29 @@ impl Engine {
                 Ok(value)
             }
 
-            Err(e) => Err(box_error(e)),
+            Err(e) => Err(e.into()),
         }
     }
 }
 
-/// Converts an `Spanned<E: impl Error>` into a `Spanned<Box<dyn Error>>`
-fn box_error(error: Spanned<impl Error + 'static>) -> Spanned<Box<dyn Error>> {
-    error.map(|e| Box::new(e) as _)
+/// Flattens a list of specific concrete errors into a list of [`Error`]s.
+fn flatten_errors(errors: Vec<Spanned<impl Into<Error>>>) -> Vec<Spanned<Error>> {
+    errors
+        .into_iter()
+        .map(|spanned| spanned.map(Into::into))
+        .collect()
 }
 
-/// Converts an `Spanned<Vec<Spanned<E: impl Error>>` into a `Spanned<Vec<Box<dyn Error>>>`
-fn box_vec_error(errors: Vec<Spanned<impl Error + 'static>>) -> Vec<Spanned<Box<dyn Error>>> {
-    errors.into_iter().map(box_error).collect_vec()
-}
-
-/// Separates an `Iterator<Item = Result<T, E>> into Result<Vec<T>, Vec<Box<dyn Error>>>`
-fn collect_errors<T, E: Into<Spanned<impl Error + 'static>>>(
+/// Separates an `Iterator<Item = Result<T, E>> into Result<Vec<T>, Vec<Spanned<Error>>>`
+fn collect_errors<T, E>(
     iter: impl Iterator<Item = Result<T, E>>,
-) -> Result<Vec<T>, Vec<Spanned<Box<dyn Error>>>> {
+) -> Result<Vec<T>, Vec<Spanned<Error>>>
+where
+    E: Into<Spanned<Error>>,
+{
     let (oks, errs): (Vec<_>, Vec<_>) = iter.into_iter().partition_map(|r| match r {
         Ok(t) => Either::Left(t),
-        Err(e) => Either::Right(box_error(e.into())),
+        Err(e) => Either::Right(e.into()),
     });
 
     if errs.is_empty() { Ok(oks) } else { Err(errs) }

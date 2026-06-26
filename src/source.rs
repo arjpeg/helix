@@ -103,7 +103,7 @@ impl Span {
 
 impl<T> Spanned<T> {
     /// Wraps the input argument inside a new [`Spanned`] object.
-    pub fn wrap(value: T, span: Span) -> Self {
+    pub fn new(value: T, span: Span) -> Self {
         Self { value, span }
     }
 

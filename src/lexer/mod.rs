@@ -52,7 +52,7 @@ impl Tokenizer {
         self.cursor += c.len_utf8();
         let end = self.cursor;
 
-        Some(Spanned::wrap(c, Span::new(self.source.handle, start..end)))
+        Some(Spanned::new(c, Span::new(self.source.handle, start..end)))
     }
 
     /// Advances the cursor past all whitespace characters.
@@ -82,7 +82,7 @@ impl Tokenizer {
             .map(Token::Keyword)
             .unwrap_or(Token::Symbol(Interner::intern(symbol)));
 
-        Spanned::wrap(token, span)
+        Spanned::new(token, span)
     }
 
     /// Tokenizes a single grouping symbol.
@@ -103,7 +103,7 @@ impl Tokenizer {
 
         let span = Span::new(self.source.handle, start..self.cursor);
 
-        Spanned::wrap(Token::Operator(operator), span)
+        Spanned::new(Token::Operator(operator), span)
     }
 
     /// Tokenizes a single number literal.
@@ -120,7 +120,7 @@ impl Tokenizer {
         if matches!(self.peek(), Some(c) if c.is_xid_continue()) {
             let trailing = self.advance_while(|c| c.is_xid_continue());
             let span = Span::merge(span, trailing);
-            return Err(Spanned::wrap(
+            return Err(Spanned::new(
                 TokenizationError::InvalidNumericLiteral(span.text()),
                 span,
             ));
@@ -130,15 +130,15 @@ impl Tokenizer {
 
         let token = if found_decimal {
             Token::Float(literal.parse::<f64>().map_err(|_| {
-                Spanned::wrap(TokenizationError::InvalidNumericLiteral(literal), span)
+                Spanned::new(TokenizationError::InvalidNumericLiteral(literal), span)
             })?)
         } else {
             Token::Integer(literal.parse::<i64>().map_err(|_| {
-                Spanned::wrap(TokenizationError::InvalidNumericLiteral(literal), span)
+                Spanned::new(TokenizationError::InvalidNumericLiteral(literal), span)
             })?)
         };
 
-        Ok(Spanned::wrap(token, span))
+        Ok(Spanned::new(token, span))
     }
 
     /// Tokenizes a single line string literal.
@@ -149,7 +149,7 @@ impl Tokenizer {
 
         loop {
             let Some(c) = self.advance() else {
-                return Err(Spanned::wrap(
+                return Err(Spanned::new(
                     TokenizationError::UnterminatedStringLiteral,
                     Span::merge(opening.span, last_span),
                 ));
@@ -159,7 +159,7 @@ impl Tokenizer {
 
             match c.value {
                 '\n' => {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         TokenizationError::UnterminatedStringLiteral,
                         Span::merge(opening.span, last_span),
                     ));
@@ -175,7 +175,7 @@ impl Tokenizer {
                         '\\' => buf.push('\\'),
                         _ => {
                             let span = Span::merge(c.span, next.span);
-                            return Err(Spanned::wrap(
+                            return Err(Spanned::new(
                                 TokenizationError::InvalidEscapeSequence(span.text()),
                                 span,
                             ));
@@ -185,7 +185,7 @@ impl Tokenizer {
 
                 ch if ch == opening.value => {
                     let span = Span::merge(opening.span, last_span);
-                    return Ok(Spanned::wrap(Token::String(Interner::intern(&buf)), span));
+                    return Ok(Spanned::new(Token::String(Interner::intern(&buf)), span));
                 }
 
                 ch => buf.push(ch),
@@ -215,7 +215,7 @@ impl Iterator for Tokenizer {
         let Some(c) = self.peek() else {
             self.eof_emitted = true;
 
-            return Some(Ok(Spanned::wrap(
+            return Some(Ok(Spanned::new(
                 Token::Eof,
                 Span::new(
                     self.source.handle,
@@ -242,7 +242,7 @@ impl Iterator for Tokenizer {
             _ => {
                 let span = self.advance_while(|c| !c.is_whitespace());
 
-                Err(Spanned::wrap(
+                Err(Spanned::new(
                     TokenizationError::UnknownSymbol(span.text()),
                     span,
                 ))

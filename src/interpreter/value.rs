@@ -110,18 +110,18 @@ impl Value {
                     .collect::<Result<Vec<_>, _>>()?;
 
                 f.call(arguments, call_expr_span)
-                    .map(|value| Spanned::wrap(value, call_expr_span))
+                    .map(|value| Spanned::new(value, call_expr_span))
                     .map_err(|err| err.map(Interrupt::Error))
             }
 
             Self::Closure(closure) => Ok(Closure::call(
-                Spanned::wrap(closure.as_ref(), callee.span),
+                Spanned::new(closure.as_ref(), callee.span),
                 interpreter,
                 arguments,
                 call_expr_span,
             )?),
 
-            _ => Err(Spanned::wrap(
+            _ => Err(Spanned::new(
                 RuntimeError::NotCallable {
                     callee: callee.value,
                 }
@@ -139,7 +139,7 @@ impl Value {
                 let index_span = index.span;
 
                 let Value::Integer(index) = index.value else {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         RuntimeError::InvalidIndex {
                             base: Value::List(list),
                             index: index.value,
@@ -151,7 +151,7 @@ impl Value {
                 let list = list.borrow();
 
                 if index > list.len() as _ {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         RuntimeError::IndexOutOfBounds {
                             index: Value::Integer(index),
                             size: Value::Integer(list.len() as _),
@@ -166,7 +166,7 @@ impl Value {
             }
 
             _ => {
-                return Err(Spanned::wrap(
+                return Err(Spanned::new(
                     RuntimeError::InvalidIndexBase { base: base.value },
                     base.span,
                 ));
@@ -186,7 +186,7 @@ impl Value {
                 let index_span = index.span;
 
                 let Value::Integer(index) = index.value else {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         RuntimeError::InvalidIndex {
                             base: Value::List(list),
                             index: index.value,
@@ -198,7 +198,7 @@ impl Value {
                 let mut list = list.borrow_mut();
 
                 if index > list.len() as _ {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         RuntimeError::IndexOutOfBounds {
                             index: Value::Integer(index),
                             size: Value::Integer(list.len() as _),
@@ -213,7 +213,7 @@ impl Value {
             }
 
             _ => {
-                return Err(Spanned::wrap(
+                return Err(Spanned::new(
                     RuntimeError::InvalidIndexBase { base: base.value },
                     base.span,
                 ));
@@ -426,7 +426,7 @@ impl NativeFn {
         if let Some(arity) = self.arity
             && arity != arguments.len()
         {
-            return Err(Spanned::wrap(
+            return Err(Spanned::new(
                 RuntimeError::MismatchedArity {
                     name: Interner::resolve(self.name),
                     expected: arity,
@@ -456,7 +456,7 @@ impl Closure {
 
         // define all parameters
         if parameters.len() != arguments.len() {
-            return Err(Spanned::wrap(
+            return Err(Spanned::new(
                 RuntimeError::MismatchedArity {
                     name: name.map(Interner::resolve).unwrap_or("(anonymous)"),
                     expected: parameters.len(),
@@ -495,15 +495,12 @@ impl Closure {
             Ok(v) => Ok(v),
 
             Err(interrupt) => match interrupt.value {
-                Interrupt::Signal(Signal::Return(value)) => {
-                    Ok(Spanned::wrap(value, call_expr_span))
-                }
+                Interrupt::Signal(Signal::Return(value)) => Ok(Spanned::new(value, call_expr_span)),
 
-                Interrupt::Error(e) => Err(Spanned::wrap(e.into(), call_expr_span)),
-                Interrupt::Signal(sig) => Err(Spanned::wrap(
-                    RuntimeError::from(sig).into(),
-                    call_expr_span,
-                )),
+                Interrupt::Error(e) => Err(Spanned::new(e.into(), call_expr_span)),
+                Interrupt::Signal(sig) => {
+                    Err(Spanned::new(RuntimeError::from(sig).into(), call_expr_span))
+                }
             },
         };
 

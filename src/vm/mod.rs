@@ -194,7 +194,7 @@ impl VM {
         let span = chunk.span_at(self.ip - 1);
 
         self.stack
-            .push(reducer(lhs, rhs).map_err(|e| Spanned::wrap(e, span))?);
+            .push(reducer(lhs, rhs).map_err(|e| Spanned::new(e, span))?);
 
         Ok(())
     }
@@ -212,7 +212,7 @@ impl VM {
         let span = chunk.span_at(self.ip - 1);
 
         self.stack
-            .push(reducer(operand).map_err(|e| Spanned::wrap(e, span))?);
+            .push(reducer(operand).map_err(|e| Spanned::new(e, span))?);
 
         Ok(())
     }

@@ -1,11 +1,30 @@
-use std::error::Error;
-
 use owo_colors::OwoColorize;
+use thiserror::Error;
 
-use crate::source::{SourceMap, Spanned};
+use crate::{
+    compiler::error::CompilerError,
+    interpreter::error::RuntimeError as InterpreterError,
+    lexer::error::TokenizationError,
+    parser::error::ParsingError,
+    source::{SourceMap, Spanned},
+    vm::error::RuntimeError as VMError,
+};
+
+/// All the types of errors that can occur during the program compilation/execution pipeline.
+#[derive(Debug, Clone, Error)]
+#[error(transparent)]
+pub enum Error {
+    Lexer(#[from] TokenizationError),
+    Parser(#[from] ParsingError),
+
+    Interpreter(#[from] InterpreterError),
+
+    Compiler(#[from] CompilerError),
+    VM(#[from] VMError),
+}
 
 /// Pretty prints an error to the console.
-pub fn print_error(error: &Spanned<Box<dyn Error>>) {
+pub fn print_error(error: Spanned<impl Into<Error>>) {
     // get the line that the error occured on
     let span = error.span;
     let source = SourceMap::get(span.source);
@@ -30,7 +49,7 @@ pub fn print_error(error: &Spanned<Box<dyn Error>>) {
     // how far into the line span starts
     let line_offset = span.start - line_start;
 
-    println!("{}: {}", "error".red().bold(), error.value.bold());
+    println!("{}: {}", "error".red().bold(), error.value.into().bold());
     println!(
         "  {}:{}",
         source.path.display().cyan().dimmed(),
@@ -44,3 +63,20 @@ pub fn print_error(error: &Spanned<Box<dyn Error>>) {
         arrows = "^".repeat(span.end - span.start)
     );
 }
+
+// Handles the implementation for converting a Spanned<specific error> -> Spanned<Error>
+macro_rules! spanned_from {
+    ($($ty:ty),* $(,)?) => { $(
+        impl From<Spanned<$ty>> for Spanned<Error> {
+            fn from(e: Spanned<$ty>) -> Self { e.map(Error::from) }
+        }
+    )* };
+}
+
+spanned_from!(
+    TokenizationError,
+    ParsingError,
+    CompilerError,
+    InterpreterError,
+    VMError
+);

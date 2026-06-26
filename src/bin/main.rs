@@ -28,13 +28,14 @@ fn main() {
 
             if let Err(errors) = engine.register_program(source) {
                 for error in errors {
-                    error::print_error(&error);
+                    error::print_error(error);
                 }
+
                 return;
             }
 
             if let Err(e) = engine.execute(source) {
-                error::print_error(&e);
+                error::print_error(e);
             }
         }
 
@@ -62,7 +63,7 @@ fn repl() {
 
         if let Err(errors) = engine.register_repl(source) {
             for error in errors {
-                error::print_error(&error);
+                error::print_error(error);
             }
 
             continue;
@@ -71,7 +72,7 @@ fn repl() {
         match engine.execute(source) {
             Ok(Some(value)) => println!("{value}"),
             Ok(_) => {}
-            Err(e) => error::print_error(&e),
+            Err(e) => error::print_error(e),
         }
     }
 }

@@ -96,7 +96,7 @@ impl Interpreter {
                 let value = self.expression(&expression.value, expression.span)?.value;
 
                 if !value.is_truthy() {
-                    return Err(Spanned::wrap(
+                    return Err(Spanned::new(
                         RuntimeError::AssertionFailed(value).into(),
                         expression.span,
                     ));
@@ -134,11 +134,11 @@ impl Interpreter {
             }
 
             Statement::Break => {
-                return Err(Spanned::wrap(Signal::Break.into(), span));
+                return Err(Spanned::new(Signal::Break.into(), span));
             }
 
             Statement::Continue => {
-                return Err(Spanned::wrap(Signal::Continue.into(), span));
+                return Err(Spanned::new(Signal::Continue.into(), span));
             }
 
             Statement::FunctionDeclaration {
@@ -167,7 +167,7 @@ impl Interpreter {
                     None => Value::Unit,
                 };
 
-                return Err(Spanned::wrap(Signal::Return(result).into(), span));
+                return Err(Spanned::new(Signal::Return(result).into(), span));
             }
         };
 
@@ -180,19 +180,19 @@ impl Interpreter {
         span: Span,
     ) -> Result<Spanned<Value>> {
         match expression {
-            Expression::Integer(n) => Ok(Spanned::wrap(Value::Integer(*n), span)),
+            Expression::Integer(n) => Ok(Spanned::new(Value::Integer(*n), span)),
 
-            Expression::Float(n) => Ok(Spanned::wrap(Value::Float(*n), span)),
+            Expression::Float(n) => Ok(Spanned::new(Value::Float(*n), span)),
 
-            Expression::Boolean(b) => Ok(Spanned::wrap(Value::Boolean(*b), span)),
+            Expression::Boolean(b) => Ok(Spanned::new(Value::Boolean(*b), span)),
 
-            Expression::String(s) => Ok(Spanned::wrap(Value::String(s.to_owned()), span)),
+            Expression::String(s) => Ok(Spanned::new(Value::String(s.to_owned()), span)),
 
             Expression::Variable { symbol } => {
                 if let Some(value) = self.environment.borrow().search(*symbol) {
-                    Ok(Spanned::wrap(value, span))
+                    Ok(Spanned::new(value, span))
                 } else {
-                    Err(Spanned::wrap(
+                    Err(Spanned::new(
                         RuntimeError::UnboundBinding {
                             symbol: Interner::resolve(*symbol),
                         }
@@ -213,14 +213,14 @@ impl Interpreter {
                         .environment
                         .borrow_mut()
                         .assign(*symbol, value.value.clone())
-                        .map_err(|e| Spanned::wrap(e.into(), target.span))?,
+                        .map_err(|e| Spanned::new(e.into(), target.span))?,
 
                     LValue::Index { base, index } => {
                         let base = self.expression(&base.value, base.span)?;
                         let index = self.expression(&index.value, index.span)?;
 
                         if let Err(e) = Value::index_mut(base, index, value.value.clone()) {
-                            return Err(Spanned::wrap(e.value.into(), e.span));
+                            return Err(Spanned::new(e.value.into(), e.span));
                         };
                     }
                 };
@@ -233,16 +233,16 @@ impl Interpreter {
                 let rhs_result = self.expression(&rhs.value, rhs.span)?;
 
                 Value::binary_operation(lhs_result.value, *operator, rhs_result.value)
-                    .map(|value| Spanned::wrap(value, span))
-                    .map_err(|error| Spanned::wrap(error.into(), span))
+                    .map(|value| Spanned::new(value, span))
+                    .map_err(|error| Spanned::new(error.into(), span))
             }
 
             Expression::UnaryOperation { operator, operand } => {
                 let operand = self.expression(&operand.value, operand.span)?.value;
 
                 Value::unary_operation(*operator, operand)
-                    .map(|value| Spanned::wrap(value, span))
-                    .map_err(|error| Spanned::wrap(error.into(), span))
+                    .map(|value| Spanned::new(value, span))
+                    .map_err(|error| Spanned::new(error.into(), span))
             }
 
             Expression::Block { stmts, tail } => {
@@ -260,7 +260,7 @@ impl Interpreter {
                 let result = if let Some(tail) = tail {
                     self.expression(&tail.value, tail.span)
                 } else {
-                    Ok(Spanned::wrap(Value::Unit, span))
+                    Ok(Spanned::new(Value::Unit, span))
                 };
 
                 self.environment = parent;
@@ -280,11 +280,11 @@ impl Interpreter {
                 } else if let Some(else_clause) = else_clause {
                     self.expression(&else_clause.value, else_clause.span)
                 } else {
-                    Ok(Spanned::wrap(Value::Unit, span))
+                    Ok(Spanned::new(Value::Unit, span))
                 }
             }
 
-            Expression::Lambda { parameters, body } => Ok(Spanned::wrap(
+            Expression::Lambda { parameters, body } => Ok(Spanned::new(
                 Value::Closure(Rc::new(Closure {
                     name: None,
                     parameters: parameters.clone(),
@@ -306,8 +306,8 @@ impl Interpreter {
                 let index = self.expression(&index.value, index.span)?;
 
                 Value::index(base, index)
-                    .map(|value| Spanned::wrap(value, span))
-                    .map_err(|err| Spanned::wrap(err.value.into(), err.span))
+                    .map(|value| Spanned::new(value, span))
+                    .map_err(|err| Spanned::new(err.value.into(), err.span))
             }
 
             Expression::List { elements } => {
@@ -316,7 +316,7 @@ impl Interpreter {
                     .map(|e| self.expression(&e.value, e.span).map(|expr| expr.value))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                Ok(Spanned::wrap(
+                Ok(Spanned::new(
                     Value::List(Rc::new(RefCell::new(elements))),
                     span,
                 ))
