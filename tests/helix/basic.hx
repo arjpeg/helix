@@ -1,14 +1,17 @@
-let a = 0;
 
-while a != 5 {
-    if a == 3 {
-        a = 5;
-        continue;
-    };
+fn A() {
+    let message = "bruh";
 
-    print a;
-    a = a + 1;
+    fn B() {
+        print "no closures yet";
+        return 42;
+    }
+
+    print message;
+
+    B
 }
 
-print a;
+let b = A();
+print b();
 

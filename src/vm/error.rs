@@ -1,6 +1,7 @@
 use thiserror::Error;
 
 use crate::{
+    interner::Symbol,
     parser::ast::{BinaryOp, UnaryOp},
     source::Spanned,
     vm::r#type::Type,
@@ -36,4 +37,20 @@ pub enum RuntimeError {
 
     #[error("attempted to divide by zero")]
     DivisionByZero,
+
+    #[error("cannot call value of type: `{}`", callee)]
+    NotCallable {
+        /// The type value attempted to being called.
+        callee: Type,
+    },
+
+    #[error("function `{name}` expects {expected} parameters, but received {actual} arguments")]
+    MismatchedArity {
+        /// The name of the function being called.
+        name: Symbol,
+        /// The expected number of parameters.
+        expected: usize,
+        /// The number of arguments actually passed in.
+        actual: usize,
+    },
 }

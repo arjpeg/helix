@@ -12,10 +12,12 @@ use crate::{
         constants::Constant,
         instruction::{Instruction, OpCode},
     },
+    interner::Interner,
     source::Spanned,
     vm::{
-        error::Result,
+        error::{Result, RuntimeError},
         globals::Globals,
+        r#type::Type,
         value::{Function, Value},
     },
 };
@@ -70,7 +72,7 @@ impl VM {
         loop {
             if DEBUG_INSTRUCTION_TRACKING {
                 let ip = self.frame().ip;
-                let instruction = Instruction::decode(&self.frame().function.chunk.code, ip);
+                let instruction = Instruction::decode(&self.frame().function.chunk.code, ip).0;
 
                 println!("\n=== instruction dump ===");
                 println!("ip:          {ip}");
@@ -150,11 +152,28 @@ impl VM {
                     let arguments = self.read_byte();
                     let slot_base = self.stack.len() - arguments as usize - 1;
 
-                    // TODO: correct error handling
-                    let callable = self.stack[slot_base].clone();
-                    let Value::Function(function) = callable else {
-                        panic!("stop doing this");
+                    let span = self.frame().function.chunk.span_at(self.frame().ip - 1);
+
+                    let callee = self.stack[slot_base].clone();
+                    let Value::Function(function) = callee else {
+                        return Err(Spanned::new(
+                            RuntimeError::NotCallable {
+                                callee: Type::from(callee),
+                            },
+                            span,
+                        ));
                     };
+
+                    if function.arity != arguments {
+                        return Err(Spanned::new(
+                            RuntimeError::MismatchedArity {
+                                name: function.name.unwrap_or(Interner::intern("<anonymous>")),
+                                expected: function.arity as usize,
+                                actual: arguments as usize,
+                            },
+                            span,
+                        ));
+                    }
 
                     self.frames.push(CallFrame {
                         ip: 0,

@@ -1,4 +1,7 @@
-use std::{fmt::Display, rc::Rc};
+use std::{
+    fmt::{Debug, Display},
+    rc::Rc,
+};
 
 use crate::{
     compiler::{chunk::Chunk, constants::Constant},
@@ -26,7 +29,7 @@ pub enum Value {
 }
 
 /// The metadata representing a complete function defined in helix.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone, PartialEq)]
 pub struct Function {
     /// The number of parameters this function accepts.
     pub(crate) arity: u8,
@@ -89,6 +92,15 @@ impl Display for Value {
                 fn_.name.unwrap_or(Interner::intern("(anonymous)"))
             ),
         }
+    }
+}
+
+impl Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Fn")
+            .field("arity", &self.arity)
+            .field("name", &self.name)
+            .finish()
     }
 }
 
