@@ -29,7 +29,7 @@ pub enum Value {
 #[derive(Debug, Clone, PartialEq)]
 pub struct Function {
     /// The number of parameters this function accepts.
-    pub(crate) arity: usize,
+    pub(crate) arity: u8,
     /// The bytecode [`Chunk`] to execute when this function is invoked.
     pub(crate) chunk: Chunk,
     /// The function's given name (or `None` if it is anonymous).
@@ -47,6 +47,12 @@ impl From<Constant> for Value {
             C::Boolean(b) => Self::Boolean(b),
             C::Symbol(s) => Self::String(Rc::from(Interner::resolve(s))),
         }
+    }
+}
+
+impl From<Rc<Function>> for Value {
+    fn from(value: Rc<Function>) -> Self {
+        Self::Function(value)
     }
 }
 

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     compiler::{
         chunk::Chunk,
@@ -8,7 +10,7 @@ use crate::{
     interner::{Interner, Symbol},
     parser::ast::{BinaryOp, Expression, LValue, Statement, UnaryOp},
     source::{SourceMap, Span, Spanned},
-    vm::globals::Globals,
+    vm::{globals::Globals, value::Function},
 };
 
 pub mod chunk;
@@ -157,28 +159,8 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
 
         Statement::Declaration { symbol, value } => {
             emit_expression(context, value.value, value.span);
-
-            // if we are scope_depth==0 (the global scope) declare the variable there instead
-            if context.current().scope_depth == 0 {
-                let symbol_index = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
-
-                context.globals.known.insert(symbol);
-
-                context.chunk_mut().emit_instruction(
-                    Instruction::DefineGlobal {
-                        index: symbol_index,
-                    },
-                    span,
-                );
-            } else {
-                // declare the variable as a normal local
-                let current_depth = context.current().scope_depth;
-
-                context.current_mut().locals.push(Local {
-                    name: symbol,
-                    scope_depth: current_depth,
-                });
-            }
+            declare_binding(context, symbol);
+            define_binding(context, symbol, span);
         }
 
         Statement::While { predicate, body } => {
@@ -264,7 +246,51 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
             loop_ctx.push(jump);
         }
 
-        Statement::FunctionDeclaration { .. } => todo!(),
+        Statement::FunctionDeclaration {
+            symbol: name,
+            parameters,
+            body,
+        } => {
+            let arity = u8::try_from(parameters.len()).unwrap();
+
+            context.functions.push(FunctionCtx {
+                chunk: Chunk::new(Some(name)),
+                name,
+                arity: Some(arity),
+                locals: Vec::new(),
+                scope_depth: 0,
+                break_addresses: Vec::new(),
+                continue_addresses: Vec::new(),
+            });
+
+            declare_binding(context, name);
+            emit_expression(context, body.value, body.span);
+
+            // TODO: force return
+
+            let FunctionCtx {
+                chunk: compiled, ..
+            } = context.functions.pop().unwrap();
+
+            let chunk = context.chunk_mut();
+            let function_idx = u8::try_from(chunk.functions.len()).unwrap();
+
+            chunk.functions.push(Rc::new(Function {
+                arity,
+                chunk: compiled,
+                name: Some(name),
+            }));
+
+            chunk.emit_instruction(
+                Instruction::MakeClosure {
+                    index: function_idx,
+                },
+                span,
+            );
+
+            define_binding(context, name, span);
+        }
+
         Statement::Return { .. } => todo!(),
         Statement::Assert(..) => todo!(),
     };
@@ -542,6 +568,44 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
     };
 
     start
+}
+
+/// Declares a local or global variable based on the current scope depth.
+///
+/// If the `context.current().scope_depth` == 0, the value is defined as a global,
+/// else as a local
+fn declare_binding(context: &mut CompileCtx, symbol: Symbol) {
+    // if we are scope_depth==0 (the global scope) declare the variable there instead
+    if context.current().scope_depth == 0 {
+        context.globals.known.insert(symbol);
+    } else {
+        // declare the variable as a normal local
+        let current_depth = context.current().scope_depth;
+
+        context.current_mut().locals.push(Local {
+            name: symbol,
+            scope_depth: current_depth,
+        });
+    }
+}
+
+/// Defines a local or global variable based on the current scope depth.
+///
+/// For local variables, this function has no effect, but for global variables,
+/// the top most value on the stack is popped and used as the value for the symbol.
+fn define_binding(context: &mut CompileCtx, symbol: Symbol, span: Span) {
+    if context.current().scope_depth != 0 {
+        return;
+    }
+
+    let symbol_index = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
+
+    context.chunk_mut().emit_instruction(
+        Instruction::DefineGlobal {
+            index: symbol_index,
+        },
+        span,
+    );
 }
 
 /// Returns the lastmost index of the given variable name in the innermost [`FunctionCtx::locals`].

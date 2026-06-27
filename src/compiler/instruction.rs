@@ -40,6 +40,11 @@ pub enum Instruction {
         /// The index of constant to load.
         index: u8,
     },
+    /// Allocates a new closure object by loading a template from the function pool.
+    MakeClosure {
+        /// The index of function to load.
+        index: u8,
+    },
 
     /// Declares a new global variable with the value as the popped value on the top of the stack.
     DefineGlobal {
@@ -121,6 +126,8 @@ pub enum OpCode {
     JumpIfFalse,
     /// See [Instruction::LoadConstant].
     LoadConstant,
+    /// See [Instruction::MakeClosure].
+    MakeClosure,
     /// See [Instruction::DefineGlobal].
     DefineGlobal,
     /// See [Instruction::GetGlobal].
@@ -162,6 +169,7 @@ impl Instruction {
             Instruction::PopUnder { n } => buf.push(n),
 
             Instruction::LoadConstant { index } => buf.push(index),
+            Instruction::MakeClosure { index } => buf.push(index),
 
             Instruction::Jump { offset } => buf.extend(offset.to_ne_bytes()),
             Instruction::JumpIfTrue { offset } => buf.extend(offset.to_ne_bytes()),
@@ -226,6 +234,12 @@ impl Instruction {
                 },
                 start + 2,
             ),
+            OpCode::MakeClosure => (
+                Instruction::MakeClosure {
+                    index: buf[start + 1],
+                },
+                start + 2,
+            ),
             OpCode::DefineGlobal => (
                 Instruction::DefineGlobal {
                     index: buf[start + 1],
@@ -271,6 +285,7 @@ impl From<&Instruction> for OpCode {
             Instruction::JumpIfTrue { .. } => Self::JumpIfTrue,
             Instruction::JumpIfFalse { .. } => Self::JumpIfFalse,
             Instruction::LoadConstant { .. } => Self::LoadConstant,
+            Instruction::MakeClosure { .. } => Self::MakeClosure,
             Instruction::DefineGlobal { .. } => Self::DefineGlobal,
             Instruction::GetGlobal { .. } => Self::GetGlobal,
             Instruction::SetGlobal { .. } => Self::SetGlobal,
@@ -301,6 +316,7 @@ impl Display for OpCode {
             OpCode::JumpIfTrue => "JUMP_IF_TRUE",
             OpCode::JumpIfFalse => "JUMP_IF_FALSE",
             OpCode::LoadConstant => "LOAD_CONSTANT",
+            OpCode::MakeClosure => "MAKE_CLOSURE",
             OpCode::DefineGlobal => "DEFINE_GLOBAL",
             OpCode::GetGlobal => "GET_GLOBAL",
             OpCode::SetGlobal => "SET_GLOBAL",
@@ -330,6 +346,7 @@ impl Display for Instruction {
             Instruction::JumpIfTrue { offset } => write!(f, " O:{offset}")?,
             Instruction::JumpIfFalse { offset } => write!(f, " O:{offset}")?,
             Instruction::LoadConstant { index } => write!(f, " C:{index}")?,
+            Instruction::MakeClosure { index } => write!(f, " F:{index}")?,
             Instruction::DefineGlobal { index } => write!(f, " C:{index}")?,
             Instruction::GetGlobal { name_index } => write!(f, " C:{name_index}")?,
             Instruction::SetGlobal { name_index } => write!(f, " C:{name_index}")?,

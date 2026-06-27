@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     compiler::{
         constants::{Constant, ConstantPool},
@@ -5,6 +7,7 @@ use crate::{
     },
     interner::{Interner, Symbol},
     source::Span,
+    vm::value::Function,
 };
 
 /// A sequence of bytecode generated from an Abstract Syntax Tree.
@@ -15,6 +18,8 @@ pub struct Chunk {
 
     /// The pool of [`Constant`]s loaded into this chunk.
     pub(crate) constants: ConstantPool,
+    /// The pool of [`Function`]s compiled within this chunk.
+    pub(crate) functions: Vec<Rc<Function>>,
 
     /// The [`Span`]s associated with each instruction in the `code`, with one span per
     /// instruction.
@@ -32,6 +37,7 @@ impl Chunk {
         Self {
             code: Vec::new(),
             constants: ConstantPool::new(),
+            functions: Vec::new(),
             spans: Vec::new(),
             name,
         }

@@ -3,6 +3,8 @@ pub mod globals;
 pub mod r#type;
 pub mod value;
 
+use std::rc::Rc;
+
 use num_enum::TryFromPrimitive;
 
 use crate::{
@@ -107,6 +109,11 @@ impl VM {
                 OpCode::LoadConstant => {
                     let constant = chunk.constants[self.read_byte(chunk)];
                     self.stack.push(Value::from(constant));
+                }
+
+                OpCode::MakeClosure => {
+                    let function = Rc::clone(&chunk.functions[self.read_byte(chunk) as usize]);
+                    self.stack.push(Value::from(function));
                 }
 
                 OpCode::DefineGlobal => {
