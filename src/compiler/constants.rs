@@ -1,4 +1,4 @@
-use std::{collections::HashMap, ops::Index};
+use std::{collections::HashMap, fmt::Debug, ops::Index};
 
 use ordered_float::OrderedFloat;
 
@@ -24,7 +24,7 @@ pub enum Constant {
 }
 
 /// A deduplicated pool of constants stored per chunk.
-#[derive(Debug, Clone, Default, PartialEq)]
+#[derive(Clone, Default, PartialEq)]
 pub struct ConstantPool {
     /// A list of the constants currently stored, with a maximum of 256 constants.
     list: Vec<Constant>,
@@ -95,5 +95,11 @@ impl From<bool> for Constant {
 impl From<&'static str> for Constant {
     fn from(value: &'static str) -> Self {
         Self::Symbol(Interner::intern(value))
+    }
+}
+
+impl Debug for ConstantPool {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_map().entries(self.list.iter().enumerate()).finish()
     }
 }

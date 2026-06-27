@@ -1,17 +1,18 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use itertools::{Either, Itertools};
 
 use crate::{
-    compiler::{
-        chunk::{Chunk, disassemble},
-        compile_program,
-    },
+    compiler::{chunk::disassemble, compile_program},
     error::Error,
     lexer::Tokenizer,
     parser::Parser,
     source::{SourceHandle, SourceMap, Spanned},
-    vm::{VM, globals::Globals, value::Value},
+    vm::{
+        VM,
+        globals::Globals,
+        value::{Function, Value},
+    },
 };
 
 pub mod compiler;
@@ -23,13 +24,13 @@ pub mod parser;
 pub mod source;
 pub mod vm;
 
-/// Whether or not the running chunk is disassembled for debugging purposes or not.
-pub const DEBUG_DISASSEMBLE_CHUNK: bool = false;
+/// Whether or not the running script is disassembled for debugging purposes or not.
+pub const DEBUG_DISASSEMBLE_SCRIPT: bool = false;
 
 /// Manages the lifetime of program and REPL evaluation.
 pub struct Engine {
-    /// The registered [`SourceHandle`]s, along with their optimized [`Chunk`]s.
-    chunks: HashMap<SourceHandle, Chunk>,
+    /// The registered [`SourceHandle`]s, along with their optimized [`Function`]s.
+    scripts: HashMap<SourceHandle, Rc<Function>>,
 
     /// The running virtual machine, shared across evaluations.
     vm: VM,
@@ -41,7 +42,7 @@ pub struct Engine {
 impl Engine {
     pub fn new() -> Self {
         Self {
-            chunks: HashMap::new(),
+            scripts: HashMap::new(),
             vm: VM::new(),
             globals: Globals::new(),
         }
@@ -53,7 +54,7 @@ impl Engine {
         let ast = Parser::new(tokens).parse_source().map_err(flatten_errors)?;
         let (chunk, globals) = compile_program(ast, &self.globals).map_err(flatten_errors)?;
 
-        self.chunks.insert(source, chunk);
+        self.scripts.insert(source, Rc::new(chunk));
         self.globals = globals;
 
         Ok(())
@@ -68,7 +69,7 @@ impl Engine {
 
         let (chunk, globals) = compile_program(ast, &self.globals).map_err(flatten_errors)?;
 
-        self.chunks.insert(source, chunk);
+        self.scripts.insert(source, Rc::new(chunk));
         self.globals = globals;
 
         Ok(())
@@ -77,15 +78,15 @@ impl Engine {
     /// Executes an input [`SourceHandle`], blocking until completion.
     /// Panics if the [Source] was not already registered.
     pub fn execute(&mut self, source: SourceHandle) -> Result<Option<Value>, Spanned<Error>> {
-        let chunk = self.chunks.get(&source).unwrap();
+        let script = Rc::clone(&self.scripts.get(&source).unwrap());
 
-        if DEBUG_DISASSEMBLE_CHUNK {
-            disassemble(chunk);
+        if DEBUG_DISASSEMBLE_SCRIPT {
+            disassemble(&script);
         }
 
         self.vm.globals = self.globals.snapshot();
 
-        match self.vm.execute(chunk) {
+        match self.vm.execute(script) {
             Ok(value) => {
                 // synchronize global states
                 self.globals = self.vm.globals.snapshot();

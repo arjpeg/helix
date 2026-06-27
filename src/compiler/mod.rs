@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::{
     compiler::{
         chunk::Chunk,
@@ -86,12 +84,12 @@ impl CompileCtx {
     }
 }
 
-/// Compiles a [`Statement::Program`] or [`Statement::Repl`] into an optimized [`Chunk`] ready for
+/// Compiles a [`Statement::Program`] or [`Statement::Repl`] into an optimized [`Function`] ready for
 /// execution by the virtual machine.
 pub fn compile_program(
     program: Spanned<Statement>,
     globals: &Globals,
-) -> Result<(Chunk, Globals), Vec<Spanned<CompilerError>>> {
+) -> Result<(Function, Globals), Vec<Spanned<CompilerError>>> {
     let (stmts, tail) = match program.value {
         Statement::Program { stmts } => (stmts, None),
         Statement::Repl { stmts, tail } => (stmts, tail),
@@ -141,7 +139,7 @@ pub fn compile_program(
         "compile context should be empty after compilation"
     );
 
-    Ok((script.chunk, context.globals))
+    Ok((Function::from(script), context.globals))
 }
 
 fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) -> usize {
@@ -253,45 +251,56 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
         } => {
             let arity = u8::try_from(parameters.len()).unwrap();
 
+            // declare binding for outer scopes
+            declare_binding(context, name);
+
             context.functions.push(FunctionCtx {
                 chunk: Chunk::new(Some(name)),
                 name,
                 arity: Some(arity),
                 locals: Vec::new(),
-                scope_depth: 0,
+                scope_depth: 1,
                 break_addresses: Vec::new(),
                 continue_addresses: Vec::new(),
             });
 
+            // declare binding for inner scope to allow recursion
             declare_binding(context, name);
+
+            // define all parameters
+            for parameter in parameters {
+                declare_binding(context, parameter.value);
+            }
+
             emit_expression(context, body.value, body.span);
 
-            // TODO: force return
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::Return, span);
 
-            let FunctionCtx {
-                chunk: compiled, ..
-            } = context.functions.pop().unwrap();
+            let compiled = context.functions.pop().unwrap();
 
             let chunk = context.chunk_mut();
-            let function_idx = u8::try_from(chunk.functions.len()).unwrap();
-
-            chunk.functions.push(Rc::new(Function {
-                arity,
-                chunk: compiled,
-                name: Some(name),
-            }));
-
-            chunk.emit_instruction(
-                Instruction::MakeClosure {
-                    index: function_idx,
-                },
-                span,
-            );
+            let function = chunk.emit_function(Function::from(compiled));
+            chunk.emit_instruction(Instruction::MakeClosure { index: function }, span);
 
             define_binding(context, name, span);
         }
 
-        Statement::Return { .. } => todo!(),
+        Statement::Return { result } => {
+            if let Some(return_value) = result {
+                emit_expression(context, return_value.value, return_value.span);
+            } else {
+                let chunk = context.chunk_mut();
+                let index = chunk.emit_constant(Constant::Unit);
+                chunk.emit_instruction(Instruction::LoadConstant { index }, span);
+            }
+
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::Return, span);
+        }
+
         Statement::Assert(..) => todo!(),
     };
 
@@ -561,9 +570,26 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
             context.chunk_mut().backpatch_jump(end_jump, None);
         }
 
+        Expression::Call { callee, arguments } => {
+            emit_expression(context, callee.value, callee.span);
+
+            let n_arguments = u8::try_from(arguments.len()).unwrap();
+
+            // the `n`th argument corresponds to the `n`th parameter
+            for argument in arguments {
+                emit_expression(context, argument.value, argument.span);
+            }
+
+            context.chunk_mut().emit_instruction(
+                Instruction::Call {
+                    arguments: n_arguments,
+                },
+                span,
+            );
+        }
+
         Expression::List { .. } => todo!(),
         Expression::Lambda { .. } => todo!(),
-        Expression::Call { .. } => todo!(),
         Expression::Index { .. } => todo!(),
     };
 
@@ -618,4 +644,14 @@ fn find_local(context: &CompileCtx, symbol: Symbol) -> Option<usize> {
         .rev()
         .find(|(_, local)| local.name == symbol)
         .map(|(index, _)| index)
+}
+
+impl From<FunctionCtx> for Function {
+    fn from(value: FunctionCtx) -> Self {
+        Self {
+            arity: value.arity.unwrap_or(0),
+            chunk: value.chunk,
+            name: Some(value.name),
+        }
+    }
 }

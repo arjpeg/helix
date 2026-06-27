@@ -43,10 +43,18 @@ impl Chunk {
         }
     }
 
-    /// Appends one [`Constant`] to this chunk, returning the index of the constant within the
-    /// `constant_pool`.
+    /// Appends one [`Constant`] to this chunk, returning the index of the constant within
+    /// [`Self::constants`].
     pub fn emit_constant(&mut self, constant: Constant) -> u8 {
         self.constants.insert(constant)
+    }
+
+    /// Appends one [`Function`] to this chunk, returning the index of the function within
+    /// [`Self::functions`].
+    pub fn emit_function(&mut self, function: Function) -> u8 {
+        let index = self.functions.len();
+        self.functions.push(Rc::new(function));
+        u8::try_from(index).unwrap()
     }
 
     /// Appends one [`Instruction`] to this chunk, returning the index of the start of the
@@ -96,14 +104,21 @@ impl Chunk {
     }
 }
 
-/// Disassemble a [`Chunk`] into a format suitable for debugging.
-pub fn disassemble(chunk: &Chunk) {
+/// Disassembles a [`Function`] into a format suitable for debugging.
+pub fn disassemble(f: &Function) {
     println!(
         "== {} ==",
-        chunk.name.unwrap_or(Interner::intern("<anonymous>"))
+        f.name.unwrap_or(Interner::intern("<anonymous>"))
     );
 
+    let chunk = &f.chunk;
+
     println!("constants: {:?}", chunk.constants);
+    println!("functions:");
+    for function in &chunk.functions {
+        disassemble(function);
+    }
+    println!();
 
     let mut offset = 0;
 
@@ -118,4 +133,9 @@ pub fn disassemble(chunk: &Chunk) {
 
         offset = next;
     }
+
+    println!(
+        "== end {} ==",
+        f.name.unwrap_or(Interner::intern("<anonymous>"))
+    );
 }

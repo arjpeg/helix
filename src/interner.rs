@@ -29,9 +29,7 @@ impl Interner {
 
 impl Debug for Symbol {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_tuple("Symbol")
-            .field(&Interner::resolve(*self))
-            .finish()
+        f.write_str(Interner::resolve(*self))
     }
 }
 
