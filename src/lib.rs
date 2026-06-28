@@ -3,16 +3,15 @@ use std::{collections::HashMap, rc::Rc};
 use itertools::{Either, Itertools};
 
 use crate::{
-    compiler::{chunk::disassemble, compile_program},
+    compiler::{
+        chunk::{Function, disassemble},
+        compile_program,
+    },
     error::Error,
     lexer::Tokenizer,
     parser::Parser,
     source::{SourceHandle, SourceMap, Spanned},
-    vm::{
-        VM,
-        globals::Globals,
-        value::{Function, Value},
-    },
+    vm::{VM, globals::Globals, value::Value},
 };
 
 pub mod compiler;

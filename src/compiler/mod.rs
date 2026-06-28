@@ -1,6 +1,6 @@
 use crate::{
     compiler::{
-        chunk::Chunk,
+        chunk::{Chunk, Function},
         constants::Constant,
         error::{CompilerError, Result},
         instruction::Instruction,
@@ -8,7 +8,7 @@ use crate::{
     interner::{Interner, Symbol},
     parser::ast::{BinaryOp, Expression, LValue, Statement, UnaryOp},
     source::{SourceMap, Span, Spanned},
-    vm::{globals::Globals, value::Function},
+    vm::globals::Globals,
 };
 
 pub mod chunk;

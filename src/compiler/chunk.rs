@@ -7,7 +7,6 @@ use crate::{
     },
     interner::{Interner, Symbol},
     source::Span,
-    vm::value::Function,
 };
 
 /// A sequence of bytecode generated from an Abstract Syntax Tree.
@@ -29,6 +28,17 @@ pub struct Chunk {
 
     /// The debug name of this chunk.
     pub(crate) name: Option<Symbol>,
+}
+
+/// The metadata representing a complete function defined in helix.
+#[derive(Clone, PartialEq)]
+pub struct Function {
+    /// The number of parameters this function accepts.
+    pub(crate) arity: u8,
+    /// The bytecode [`Chunk`] to execute when this function is invoked.
+    pub(crate) chunk: Chunk,
+    /// The function's given name (or `None` if it is anonymous).
+    pub name: Option<Symbol>,
 }
 
 impl Chunk {
@@ -138,4 +148,13 @@ pub fn disassemble(f: &Function) {
         "== end {} ==",
         f.name.unwrap_or(Interner::intern("<anonymous>"))
     );
+}
+
+impl std::fmt::Debug for Function {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Fn")
+            .field("name", &self.name)
+            .field("arity", &self.arity)
+            .finish()
+    }
 }

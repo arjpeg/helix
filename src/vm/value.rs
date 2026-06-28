@@ -4,8 +4,8 @@ use std::{
 };
 
 use crate::{
-    compiler::{chunk::Chunk, constants::Constant},
-    interner::{Interner, Symbol},
+    compiler::{chunk::Function, constants::Constant},
+    interner::Interner,
     vm::error::RuntimeError,
 };
 
@@ -25,18 +25,14 @@ pub enum Value {
     String(Rc<str>),
 
     /// A helix-defined function.
-    Function(Rc<Function>),
+    Closure(Rc<Closure>),
 }
 
-/// The metadata representing a complete function defined in helix.
-#[derive(Clone, PartialEq)]
-pub struct Function {
-    /// The number of parameters this function accepts.
-    pub(crate) arity: u8,
-    /// The bytecode [`Chunk`] to execute when this function is invoked.
-    pub(crate) chunk: Chunk,
-    /// The function's given name (or `None` if it is anonymous).
-    pub name: Option<Symbol>,
+/// The runtime manifestation of a [`Function`], along with the data it may close over.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Closure {
+    /// The function this closure executes (may be shared across different closures).
+    pub(crate) function: Rc<Function>,
 }
 
 impl From<Constant> for Value {
@@ -54,8 +50,14 @@ impl From<Constant> for Value {
 }
 
 impl From<Rc<Function>> for Value {
-    fn from(value: Rc<Function>) -> Self {
-        Self::Function(value)
+    fn from(function: Rc<Function>) -> Self {
+        Self::Closure(Rc::new(Closure::from(function)))
+    }
+}
+
+impl From<Rc<Function>> for Closure {
+    fn from(function: Rc<Function>) -> Self {
+        Self { function }
     }
 }
 
@@ -68,7 +70,7 @@ impl Value {
             Self::Float(n) => *n != 0.0,
             Self::Boolean(b) => *b,
             Self::String(s) => !s.is_empty(),
-            Self::Function(_) => true,
+            Self::Closure(_) => true,
         }
     }
 
@@ -86,21 +88,12 @@ impl Display for Value {
             Self::Float(fl) => write!(f, "{fl}"),
             Self::Boolean(b) => write!(f, "{b}"),
             Self::String(s) => write!(f, "{s}"),
-            Self::Function(fn_) => write!(
+            Self::Closure(c) => write!(
                 f,
                 "<fn `{}`>",
-                fn_.name.unwrap_or(Interner::intern("(anonymous)"))
+                c.function.name.unwrap_or(Interner::intern("(anonymous)"))
             ),
         }
-    }
-}
-
-impl Debug for Function {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Fn")
-            .field("arity", &self.arity)
-            .field("name", &self.name)
-            .finish()
     }
 }
 

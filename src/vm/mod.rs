@@ -9,6 +9,7 @@ use num_enum::TryFromPrimitive;
 
 use crate::{
     compiler::{
+        chunk::{Chunk, Function},
         constants::Constant,
         instruction::{Instruction, OpCode},
     },
@@ -18,7 +19,7 @@ use crate::{
         error::{Result, RuntimeError},
         globals::Globals,
         r#type::Type,
-        value::{Function, Value},
+        value::{Closure, Value},
     },
 };
 
@@ -43,8 +44,8 @@ struct CallFrame {
     /// pointer.
     ip: usize,
 
-    /// The function being called within this frame.
-    function: Rc<Function>,
+    /// The [`Closure`] being called within this frame.
+    closure: Rc<Closure>,
 
     /// The offset from the base of the [`VM::stack`] where the locals for this frame begin.
     slot_base: usize,
@@ -66,13 +67,14 @@ impl VM {
         self.frames = vec![CallFrame {
             ip: 0,
             slot_base: 0,
-            function,
+            closure: Rc::new(Closure::from(function)),
         }];
 
         loop {
             if DEBUG_INSTRUCTION_TRACKING {
                 let ip = self.frame().ip;
-                let instruction = Instruction::decode(&self.frame().function.chunk.code, ip).0;
+                let instruction =
+                    Instruction::decode(&self.frame().closure.function.chunk.code, ip).0;
 
                 println!("\n=== instruction dump ===");
                 println!("ip:          {ip}");
@@ -152,10 +154,10 @@ impl VM {
                     let arguments = self.read_byte();
                     let slot_base = self.stack.len() - arguments as usize - 1;
 
-                    let span = self.frame().function.chunk.span_at(self.frame().ip - 1);
+                    let span = self.chunk().span_at(self.frame().ip - 1);
 
                     let callee = self.stack[slot_base].clone();
-                    let Value::Function(function) = callee else {
+                    let Value::Closure(closure) = callee else {
                         return Err(Spanned::new(
                             RuntimeError::NotCallable {
                                 callee: Type::from(callee),
@@ -164,11 +166,14 @@ impl VM {
                         ));
                     };
 
-                    if function.arity != arguments {
+                    if closure.function.arity != arguments {
                         return Err(Spanned::new(
                             RuntimeError::MismatchedArity {
-                                name: function.name.unwrap_or(Interner::intern("<anonymous>")),
-                                expected: function.arity as usize,
+                                name: closure
+                                    .function
+                                    .name
+                                    .unwrap_or(Interner::intern("<anonymous>")),
+                                expected: closure.function.arity as usize,
                                 actual: arguments as usize,
                             },
                             span,
@@ -177,7 +182,7 @@ impl VM {
 
                     self.frames.push(CallFrame {
                         ip: 0,
-                        function,
+                        closure,
                         slot_base,
                     });
                 }
@@ -268,7 +273,7 @@ impl VM {
             _ => unreachable!("called handle_binary_operation with non binary opcode"),
         };
 
-        let span = self.frame().function.chunk.span_at(self.frame().ip - 1);
+        let span = self.chunk().span_at(self.frame().ip - 1);
 
         self.stack
             .push(reducer(lhs, rhs).map_err(|e| Spanned::new(e, span))?);
@@ -286,7 +291,7 @@ impl VM {
             _ => unreachable!("called handle_unary_operation with non unary opcode"),
         };
 
-        let span = self.frame().function.chunk.span_at(self.frame().ip - 1);
+        let span = self.chunk().span_at(self.frame().ip - 1);
 
         self.stack
             .push(reducer(operand).map_err(|e| Spanned::new(e, span))?);
@@ -318,22 +323,27 @@ impl VM {
         self.frames.last_mut().unwrap()
     }
 
+    /// Retuns an immutable reference to the current frame's chunk.
+    fn chunk(&self) -> &Chunk {
+        &self.frame().closure.function.chunk
+    }
+
     /// Returns the [`Constant`] indexed from the current byte from the current frame's [`Chunk::constants`].
     fn load_constant(&mut self) -> Constant {
         let n = self.read_byte();
-        self.frame().function.chunk.constants[n]
+        self.chunk().constants[n]
     }
 
     /// Returns the [`Function`] indexed from the current byte from the current frame's [`Chunk::functions`].
     fn load_function(&mut self) -> Rc<Function> {
         let n = self.read_byte();
-        Rc::clone(&self.frame().function.chunk.functions[n as usize])
+        Rc::clone(&self.chunk().functions[n as usize])
     }
 
     /// Reads one byte from the current frame's [`Chunk::code`], advancing the instruction pointer by one byte.
     fn read_byte(&mut self) -> u8 {
         let frame = self.frame_mut();
-        let value = frame.function.chunk.code[frame.ip];
+        let value = frame.closure.function.chunk.code[frame.ip];
         frame.ip += 1;
         value
     }
