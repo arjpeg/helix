@@ -3,14 +3,18 @@ pub mod globals;
 pub mod r#type;
 pub mod value;
 
-use std::rc::Rc;
+use std::{cell::RefCell, rc::Rc};
 
 use num_enum::TryFromPrimitive;
 
 use crate::{
     compiler::{
+        Upvalue,
         chunk::{Chunk, Function},
         constants::Constant,
+        index::{
+            ConstantIndex, FunctionIndex, InstructionPointer, LocalIndex, StackIndex, UpvalueIndex,
+        },
         instruction::{Instruction, OpCode},
     },
     interner::Interner,
@@ -19,7 +23,7 @@ use crate::{
         error::{Result, RuntimeError},
         globals::Globals,
         r#type::Type,
-        value::{Closure, Value},
+        value::{Closure, UpvalueCell, Value},
     },
 };
 
@@ -42,7 +46,7 @@ pub struct VM {
 struct CallFrame {
     /// The index to the instruction currently being executed, also known as the instruction
     /// pointer.
-    ip: usize,
+    ip: InstructionPointer,
 
     /// The [`Closure`] being called within this frame.
     closure: Rc<Closure>,
@@ -65,9 +69,13 @@ impl VM {
     pub fn execute(&mut self, function: Rc<Function>) -> Result<Option<Value>> {
         self.stack = Vec::with_capacity(128);
         self.frames = vec![CallFrame {
-            ip: 0,
+            ip: InstructionPointer(0),
             slot_base: 0,
-            closure: Rc::new(Closure::from(function)),
+            closure: Rc::new(Closure {
+                function,
+                // the global scope doesn't capture any upvalues
+                upvalues: Vec::new(),
+            }),
         }];
 
         loop {
@@ -119,7 +127,7 @@ impl VM {
                 OpCode::Jump => {
                     let offset = i16::from_ne_bytes([self.read_byte(), self.read_byte()]);
                     let frame = self.frame_mut();
-                    frame.ip = frame.ip.saturating_add_signed(offset as isize);
+                    frame.ip = frame.ip.offset(offset);
                 }
 
                 OpCode::JumpIfTrue => {
@@ -127,7 +135,7 @@ impl VM {
 
                     if self.pop_stack().is_truthy() {
                         let frame = self.frame_mut();
-                        frame.ip = frame.ip.saturating_add_signed(offset as isize);
+                        frame.ip = frame.ip.offset(offset);
                     }
                 }
 
@@ -136,7 +144,7 @@ impl VM {
 
                     if !self.pop_stack().is_truthy() {
                         let frame = self.frame_mut();
-                        frame.ip = frame.ip.saturating_add_signed(offset as isize);
+                        frame.ip = frame.ip.offset(offset);
                     }
                 }
 
@@ -147,14 +155,39 @@ impl VM {
 
                 OpCode::MakeClosure => {
                     let function = self.load_function();
-                    self.stack.push(Value::from(function));
+
+                    // resolve all upvalues
+                    let mut upvalues = Vec::with_capacity(function.upvalues.len());
+
+                    // TODO: check for pre-existing upvalue
+                    for upvalue in &function.upvalues {
+                        let cell = match upvalue {
+                            // compute absolute stack location
+                            Upvalue::Local(slot_offset) => {
+                                Rc::new(RefCell::new(UpvalueCell::Open(StackIndex(
+                                    self.frame().slot_base + slot_offset.0 as usize,
+                                ))))
+                            }
+
+                            // query for upvalue in parent scope
+                            Upvalue::Transitive(UpvalueIndex(index)) => {
+                                let parent = &self.frames[self.frames.len() - 2];
+                                parent.closure.upvalues[*index as usize].clone()
+                            }
+                        };
+
+                        upvalues.push(cell);
+                    }
+
+                    self.stack
+                        .push(Value::Closure(Rc::new(Closure { function, upvalues })));
                 }
 
                 OpCode::Call => {
                     let arguments = self.read_byte();
                     let slot_base = self.stack.len() - arguments as usize - 1;
 
-                    let span = self.chunk().span_at(self.frame().ip - 1);
+                    let span = self.chunk().span_at(self.frame().ip.previous());
 
                     let callee = self.stack[slot_base].clone();
                     let Value::Closure(closure) = callee else {
@@ -181,7 +214,7 @@ impl VM {
                     }
 
                     self.frames.push(CallFrame {
-                        ip: 0,
+                        ip: InstructionPointer(0),
                         closure,
                         slot_base,
                     });
@@ -221,20 +254,45 @@ impl VM {
                     self.globals.runtime.insert(name, value);
                 }
 
+                OpCode::GetUpvalue => {
+                    let index = UpvalueIndex(self.read_byte());
+                    let upvalue = &self.frame().closure.upvalues[index.0 as usize];
+
+                    let value = match &*upvalue.borrow() {
+                        UpvalueCell::Open(StackIndex(index)) => &self.stack[*index],
+                        UpvalueCell::Closed(value) => value,
+                    }
+                    .clone();
+
+                    self.stack.push(value);
+                }
+
+                OpCode::SetUpvalue => {
+                    let index = UpvalueIndex(self.read_byte());
+                    let value = self.pop_stack();
+
+                    let upvalue = self.frame().closure.upvalues[index.0 as usize].clone();
+
+                    match &mut *upvalue.borrow_mut() {
+                        UpvalueCell::Open(StackIndex(index)) => self.stack[*index] = value,
+                        UpvalueCell::Closed(closed) => *closed = value,
+                    }
+                }
+
                 OpCode::GetLocal => {
-                    let index = self.read_byte() as usize;
+                    let index = LocalIndex(self.read_byte());
                     let base = self.frame().slot_base;
-                    let value = self.stack[base + index].clone();
+                    let value = self.stack[base + index.0 as usize].clone();
                     self.stack.push(value);
                 }
 
                 OpCode::SetLocal => {
-                    let index = self.read_byte() as usize;
+                    let index = LocalIndex(self.read_byte());
                     let base = self.frame().slot_base;
 
                     let value = self.pop_stack();
 
-                    self.stack[index + base] = value;
+                    self.stack[base + index.0 as usize] = value;
                 }
 
                 OpCode::Print => {
@@ -273,7 +331,7 @@ impl VM {
             _ => unreachable!("called handle_binary_operation with non binary opcode"),
         };
 
-        let span = self.chunk().span_at(self.frame().ip - 1);
+        let span = self.chunk().span_at(self.frame().ip.previous());
 
         self.stack
             .push(reducer(lhs, rhs).map_err(|e| Spanned::new(e, span))?);
@@ -291,7 +349,7 @@ impl VM {
             _ => unreachable!("called handle_unary_operation with non unary opcode"),
         };
 
-        let span = self.chunk().span_at(self.frame().ip - 1);
+        let span = self.chunk().span_at(self.frame().ip.previous());
 
         self.stack
             .push(reducer(operand).map_err(|e| Spanned::new(e, span))?);
@@ -331,20 +389,20 @@ impl VM {
     /// Returns the [`Constant`] indexed from the current byte from the current frame's [`Chunk::constants`].
     fn load_constant(&mut self) -> Constant {
         let n = self.read_byte();
-        self.chunk().constants[n]
+        self.chunk().constants[ConstantIndex(n)]
     }
 
     /// Returns the [`Function`] indexed from the current byte from the current frame's [`Chunk::functions`].
     fn load_function(&mut self) -> Rc<Function> {
-        let n = self.read_byte();
-        Rc::clone(&self.chunk().functions[n as usize])
+        let n = FunctionIndex(self.read_byte());
+        Rc::clone(&self.chunk().functions[n.0 as usize])
     }
 
     /// Reads one byte from the current frame's [`Chunk::code`], advancing the instruction pointer by one byte.
     fn read_byte(&mut self) -> u8 {
         let frame = self.frame_mut();
-        let value = frame.closure.function.chunk.code[frame.ip];
-        frame.ip += 1;
+        let value = frame.closure.function.chunk[frame.ip];
+        frame.ip = frame.ip.next();
         value
     }
 }

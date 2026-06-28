@@ -2,7 +2,10 @@ use std::{collections::HashMap, fmt::Debug, ops::Index};
 
 use ordered_float::OrderedFloat;
 
-use crate::interner::{Interner, Symbol};
+use crate::{
+    compiler::index::ConstantIndex,
+    interner::{Interner, Symbol},
+};
 
 /// A constant referred to within a [`Chunk`].
 #[repr(u8)]
@@ -29,7 +32,7 @@ pub struct ConstantPool {
     /// A list of the constants currently stored, with a maximum of 256 constants.
     list: Vec<Constant>,
     /// A mapping from already added constant: index into `list`.
-    index_map: HashMap<Constant, u8>,
+    index_map: HashMap<Constant, ConstantIndex>,
 }
 
 impl ConstantPool {
@@ -42,7 +45,7 @@ impl ConstantPool {
     }
 
     /// Adds a constant to the pool if it wasn't already added, returning the index to it.
-    pub fn insert(&mut self, c: Constant) -> u8 {
+    pub fn insert(&mut self, c: Constant) -> ConstantIndex {
         if let Some(&index) = self.index_map.get(&c) {
             return index;
         }
@@ -55,22 +58,17 @@ impl ConstantPool {
         );
 
         self.list.push(c);
-        self.index_map.insert(c, len as u8);
+        self.index_map.insert(c, ConstantIndex(len as u8));
 
-        len as u8
-    }
-
-    /// Retrieves a constant from the pool by index.
-    pub fn get(&self, index: usize) -> Constant {
-        self.list[index]
+        ConstantIndex(len as u8)
     }
 }
 
-impl Index<u8> for ConstantPool {
+impl Index<ConstantIndex> for ConstantPool {
     type Output = Constant;
 
-    fn index(&self, index: u8) -> &Self::Output {
-        &self.list[index as usize]
+    fn index(&self, index: ConstantIndex) -> &Self::Output {
+        &self.list[index.0 as usize]
     }
 }
 

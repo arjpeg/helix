@@ -1,10 +1,15 @@
 use std::{
+    cell::RefCell,
     fmt::{Debug, Display},
     rc::Rc,
 };
 
 use crate::{
-    compiler::{chunk::Function, constants::Constant},
+    compiler::{
+        chunk::Function,
+        constants::Constant,
+        index::{LocalIndex, StackIndex},
+    },
     interner::Interner,
     vm::error::RuntimeError,
 };
@@ -33,6 +38,17 @@ pub enum Value {
 pub struct Closure {
     /// The function this closure executes (may be shared across different closures).
     pub(crate) function: Rc<Function>,
+    /// The list of upvalues this closure closes over
+    pub(crate) upvalues: Vec<Rc<RefCell<UpvalueCell>>>,
+}
+
+/// A cell holding a captured value from an enclosing scope that may have exited.
+#[derive(Debug, Clone, PartialEq)]
+pub enum UpvalueCell {
+    /// An open reference to a live value on the stack.
+    Open(StackIndex),
+    /// A closed over value, once the original scope for the upvalue has been dropped.
+    Closed(Value),
 }
 
 impl From<Constant> for Value {
@@ -46,18 +62,6 @@ impl From<Constant> for Value {
             C::Boolean(b) => Self::Boolean(b),
             C::Symbol(s) => Self::String(Rc::from(Interner::resolve(s))),
         }
-    }
-}
-
-impl From<Rc<Function>> for Value {
-    fn from(function: Rc<Function>) -> Self {
-        Self::Closure(Rc::new(Closure::from(function)))
-    }
-}
-
-impl From<Rc<Function>> for Closure {
-    fn from(function: Rc<Function>) -> Self {
-        Self { function }
     }
 }
 

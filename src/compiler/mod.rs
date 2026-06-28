@@ -3,6 +3,7 @@ use crate::{
         chunk::{Chunk, Function},
         constants::Constant,
         error::{CompilerError, Result},
+        index::{ConstantIndex, LocalIndex, UpvalueIndex},
         instruction::Instruction,
     },
     interner::{Interner, Symbol},
@@ -14,6 +15,7 @@ use crate::{
 pub mod chunk;
 pub mod constants;
 pub mod error;
+pub mod index;
 pub mod instruction;
 
 /// The context of compiling a complete program.
@@ -40,6 +42,9 @@ struct FunctionCtx {
     /// All the local variables allocated thus far. May contain duplicates to
     /// support variable shadowing.
     locals: Vec<Local>,
+    /// All the upvalues captured by this function. Will not contain any duplicates as upvalues all
+    /// capture the same binding.
+    upvalues: Vec<Upvalue>,
     /// The current depth of scopes (how many blocks deep we are).
     scope_depth: usize,
 
@@ -49,13 +54,33 @@ struct FunctionCtx {
     continue_addresses: Vec<Vec<usize>>,
 }
 
+/// The different locations of a variable binding.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Binding {
+    /// A reference to a local variable, offset from the base slot by `.0`.
+    Local(LocalIndex),
+    /// A reference to a captured local variable, holding the upvalue number.
+    Upvalue(UpvalueIndex),
+    /// A reference to a global variable, holding the index of the symbol in the constant pool.
+    Global(ConstantIndex),
+}
+
 /// A reference to a local variable.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 struct Local {
     /// The name of the variable.
     name: Symbol,
     /// The scope depth this local was first referenced at.
     scope_depth: usize,
+}
+
+/// A reference to a captured local variable from an enclosing [`FunctionCtx`].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Upvalue {
+    /// A binding that was directly captured as a local variable from the enclosing function.
+    Local(LocalIndex),
+    /// A binding that was captured as an upvalue of the enclosing function.
+    Transitive(UpvalueIndex),
 }
 
 impl CompileCtx {
@@ -102,10 +127,11 @@ pub fn compile_program(
         chunk: Chunk::new(Some(name)),
         name,
         arity: None,
-        locals: vec![],
+        locals: Vec::new(),
+        upvalues: Vec::new(),
         scope_depth: 0,
-        break_addresses: vec![],
-        continue_addresses: vec![],
+        break_addresses: Vec::new(),
+        continue_addresses: Vec::new(),
     };
 
     let mut context = CompileCtx {
@@ -259,6 +285,7 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
                 name,
                 arity: Some(arity),
                 locals: Vec::new(),
+                upvalues: Vec::new(),
                 scope_depth: 1,
                 break_addresses: Vec::new(),
                 continue_addresses: Vec::new(),
@@ -282,7 +309,7 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
 
             let chunk = context.chunk_mut();
             let function = chunk.emit_function(Function::from(compiled));
-            chunk.emit_instruction(Instruction::MakeClosure { index: function }, span);
+            chunk.emit_instruction(Instruction::MakeClosure(function), span);
 
             define_binding(context, name, span);
         }
@@ -293,7 +320,7 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
             } else {
                 let chunk = context.chunk_mut();
                 let index = chunk.emit_constant(Constant::Unit);
-                chunk.emit_instruction(Instruction::LoadConstant { index }, span);
+                chunk.emit_instruction(Instruction::LoadConstant(index), span);
             }
 
             context
@@ -316,19 +343,19 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
             let constant = context.chunk_mut().emit_constant(Constant::from(i));
             context
                 .chunk_mut()
-                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
+                .emit_instruction(Instruction::LoadConstant(constant), span);
         }
         Expression::Float(f) => {
             let constant = context.chunk_mut().emit_constant(Constant::from(f));
             context
                 .chunk_mut()
-                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
+                .emit_instruction(Instruction::LoadConstant(constant), span);
         }
         Expression::Boolean(b) => {
             let constant = context.chunk_mut().emit_constant(Constant::from(b));
             context
                 .chunk_mut()
-                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
+                .emit_instruction(Instruction::LoadConstant(constant), span);
         }
         Expression::String(s) => {
             let constant = context
@@ -336,7 +363,7 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
                 .emit_constant(Constant::from(&*s.leak()));
             context
                 .chunk_mut()
-                .emit_instruction(Instruction::LoadConstant { index: constant }, span);
+                .emit_instruction(Instruction::LoadConstant(constant), span);
         }
 
         Expression::BinaryOperation { lhs, operator, rhs } => {
@@ -439,7 +466,7 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
                 let index = context.chunk_mut().emit_constant(Constant::Unit);
                 context
                     .chunk_mut()
-                    .emit_instruction(Instruction::LoadConstant { index }, span);
+                    .emit_instruction(Instruction::LoadConstant(index), span);
             }
 
             let current_depth = context.current().scope_depth;
@@ -469,32 +496,11 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
         }
 
         Expression::Variable { symbol } => {
-            if let Some(index) = find_local(context, symbol) {
-                // due to the way stack is cleaned up after statements,
-                // the indices from `locals` always match up to the location of elements on the stack,
-                // so can just copy the same index
-                context.chunk_mut().emit_instruction(
-                    Instruction::GetLocal {
-                        stack_index: index as u8,
-                    },
-                    span,
-                );
-            } else if context.globals.known.contains(&symbol) {
-                let symbol_index = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
-
-                context.chunk_mut().emit_instruction(
-                    Instruction::GetGlobal {
-                        name_index: symbol_index,
-                    },
-                    span,
-                );
-            } else {
-                context
-                    .errors
-                    .push(Spanned::new(CompilerError::UnboundBinding { symbol }, span));
-
+            let Some(binding) = resolve_binding(context, symbol, span) else {
                 return start;
             };
+
+            context.chunk_mut().emit_instruction(binding.get(), span);
         }
 
         Expression::Assignment { target, value } => {
@@ -506,31 +512,11 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
 
             match target.value {
                 LValue::Variable(symbol) => {
-                    if let Some(index) = find_local(context, symbol) {
-                        context.chunk_mut().emit_instruction(
-                            Instruction::SetLocal {
-                                stack_index: index as u8,
-                            },
-                            target.span,
-                        );
-                    } else if context.globals.known.contains(&symbol) {
-                        let symbol_index =
-                            context.chunk_mut().emit_constant(Constant::Symbol(symbol));
-
-                        context.chunk_mut().emit_instruction(
-                            Instruction::SetGlobal {
-                                name_index: symbol_index,
-                            },
-                            target.span,
-                        );
-                    } else {
-                        context.errors.push(Spanned::new(
-                            CompilerError::UnboundBinding { symbol },
-                            target.span,
-                        ));
-
+                    let Some(binding) = resolve_binding(context, symbol, span) else {
                         return start;
                     };
+
+                    context.chunk_mut().emit_instruction(binding.set(), span);
                 }
 
                 LValue::Index { .. } => todo!(),
@@ -566,7 +552,7 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
 
                 context
                     .chunk_mut()
-                    .emit_instruction(Instruction::LoadConstant { index: c }, span);
+                    .emit_instruction(Instruction::LoadConstant(c), span);
             }
 
             context.chunk_mut().backpatch_jump(end_jump, None);
@@ -626,34 +612,129 @@ fn define_binding(context: &mut CompileCtx, symbol: Symbol, span: Span) {
         return;
     }
 
-    let symbol_index = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
+    let name = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
 
-    context.chunk_mut().emit_instruction(
-        Instruction::DefineGlobal {
-            index: symbol_index,
-        },
-        span,
-    );
+    context
+        .chunk_mut()
+        .emit_instruction(Instruction::DefineGlobal(name), span);
 }
 
-/// Returns the lastmost index of the given variable name in the innermost [`FunctionCtx::locals`].
-fn find_local(context: &CompileCtx, symbol: Symbol) -> Option<usize> {
-    context
-        .current()
+/// Attempts to resolve the [`Binding`] location for the given symbol.
+///
+/// Emits an error if it wasn't found.
+fn resolve_binding(context: &mut CompileCtx, symbol: Symbol, span: Span) -> Option<Binding> {
+    // due to the way stack is cleaned up after statements,
+    // the indices from `locals` always match up to the location of elements on the stack,
+    // so we can just copy the same index
+    if let Some(index) = resolve_local(context.current(), symbol) {
+        Some(Binding::Local(index))
+    } else if let Some(index) = resolve_upvalue(context, symbol, context.functions.len() - 1) {
+        Some(Binding::Upvalue(index))
+    } else if context.globals.known.contains(&symbol) {
+        let symbol_index = context.chunk_mut().emit_constant(Constant::Symbol(symbol));
+        Some(Binding::Global(symbol_index))
+    } else {
+        context
+            .errors
+            .push(Spanned::new(CompilerError::UnboundBinding { symbol }, span));
+
+        None
+    }
+}
+
+/// Returns the lastmost index of the given variable name in the given [`FunctionCtx::locals`].
+fn resolve_local(function: &FunctionCtx, symbol: Symbol) -> Option<LocalIndex> {
+    function
         .locals
         .iter()
         .enumerate()
         .rev()
         .find(|(_, local)| local.name == symbol)
-        .map(|(index, _)| index)
+        .map(|(index, _)| LocalIndex(u8::try_from(index).unwrap()))
+}
+
+/// Returns the upvalue index of the given variable name, recurursing up from the given
+/// `frame_index`.
+fn resolve_upvalue(
+    context: &mut CompileCtx,
+    symbol: Symbol,
+    frame_index: usize,
+) -> Option<UpvalueIndex> {
+    // we hit the global scope, there can't be any upvalues to capture
+    if frame_index == 0 {
+        return None;
+    }
+
+    // attempt to search the enclosing locals
+    if let Some(local) = resolve_local(&context.functions[frame_index - 1], symbol) {
+        return Some(add_upvalue(context, frame_index, Upvalue::Local(local)));
+    }
+
+    // attempt to search the enclosing upvalues
+    if let Some(upvalue) = resolve_upvalue(context, symbol, frame_index - 1) {
+        return Some(add_upvalue(
+            context,
+            frame_index,
+            Upvalue::Transitive(upvalue),
+        ));
+    }
+
+    None
+}
+
+/// Adds an upvalue to the given function indexed by `frame_index`.
+fn add_upvalue(context: &mut CompileCtx, frame_index: usize, upvalue: Upvalue) -> UpvalueIndex {
+    let frame = &mut context.functions[frame_index];
+
+    // search if this upvalue has already been captured within this frame
+    let index = frame
+        .upvalues
+        .iter()
+        .position(|other| upvalue == *other)
+        .unwrap_or_else(|| {
+            let index = frame.upvalues.len();
+            frame.upvalues.push(upvalue);
+            index
+        });
+
+    UpvalueIndex(u8::try_from(index).unwrap())
+}
+
+impl Binding {
+    /// Returns the appropriate [`Instruction`] to read from this binding.
+    fn get(self) -> Instruction {
+        match self {
+            Binding::Local(stack_index) => Instruction::GetLocal(stack_index),
+            Binding::Upvalue(upvalue_index) => Instruction::GetUpvalue(upvalue_index),
+            Binding::Global(name_index) => Instruction::GetGlobal(name_index),
+        }
+    }
+
+    /// Returns the appropriate [`Instruction`] to set from this binding.
+    fn set(self) -> Instruction {
+        match self {
+            Binding::Local(stack_index) => Instruction::SetLocal(stack_index),
+            Binding::Upvalue(upvalue_index) => Instruction::SetUpvalue(upvalue_index),
+            Binding::Global(name_index) => Instruction::SetGlobal(name_index),
+        }
+    }
 }
 
 impl From<FunctionCtx> for Function {
     fn from(value: FunctionCtx) -> Self {
+        let FunctionCtx {
+            chunk,
+            name,
+            arity,
+            upvalues,
+            ..
+        } = value;
+
         Self {
-            arity: value.arity.unwrap_or(0),
-            chunk: value.chunk,
-            name: Some(value.name),
+            arity: arity.unwrap_or_default(),
+            upvalues,
+            chunk,
+            name: Some(name),
         }
     }
 }

@@ -1,17 +1,15 @@
 
-fn A() {
-    let message = "bruh";
+fn outer() {
+    let x = 5;
 
-    fn B() {
-        print "no closures yet";
-        return 42;
+    fn inner() {
+        print x;
+        x = 10;
     }
 
-    print message;
-
-    B
+    inner();
+    print x;
 }
 
-let b = A();
-print b();
+outer();
 

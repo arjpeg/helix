@@ -1,8 +1,10 @@
-use std::rc::Rc;
+use std::{ops::Index, rc::Rc};
 
 use crate::{
     compiler::{
+        Upvalue,
         constants::{Constant, ConstantPool},
+        index::{ConstantIndex, FunctionIndex, InstructionPointer},
         instruction::Instruction,
     },
     interner::{Interner, Symbol},
@@ -35,6 +37,8 @@ pub struct Chunk {
 pub struct Function {
     /// The number of parameters this function accepts.
     pub(crate) arity: u8,
+    /// The descriptors of the [`Upvalue`]s this function closes over.
+    pub(crate) upvalues: Vec<Upvalue>,
     /// The bytecode [`Chunk`] to execute when this function is invoked.
     pub(crate) chunk: Chunk,
     /// The function's given name (or `None` if it is anonymous).
@@ -55,16 +59,16 @@ impl Chunk {
 
     /// Appends one [`Constant`] to this chunk, returning the index of the constant within
     /// [`Self::constants`].
-    pub fn emit_constant(&mut self, constant: Constant) -> u8 {
+    pub fn emit_constant(&mut self, constant: Constant) -> ConstantIndex {
         self.constants.insert(constant)
     }
 
     /// Appends one [`Function`] to this chunk, returning the index of the function within
     /// [`Self::functions`].
-    pub fn emit_function(&mut self, function: Function) -> u8 {
+    pub fn emit_function(&mut self, function: Function) -> FunctionIndex {
         let index = self.functions.len();
         self.functions.push(Rc::new(function));
-        u8::try_from(index).unwrap()
+        FunctionIndex(u8::try_from(index).unwrap())
     }
 
     /// Appends one [`Instruction`] to this chunk, returning the index of the start of the
@@ -90,11 +94,7 @@ impl Chunk {
         let base = base as i16;
 
         // 3 here being one byte for opcode + 2 bytes for offset
-        let offset = if to > base {
-            to - base - 3
-        } else {
-            to - base - 3
-        };
+        let offset = to - base - 3;
 
         let [a, b] = offset.to_ne_bytes();
         self.code[base as usize + 1] = a;
@@ -107,8 +107,8 @@ impl Chunk {
     }
 
     /// Returns the left span corresponding to the given code offset.
-    pub fn span_at(&self, offset: usize) -> Span {
-        let i = self.spans.partition_point(|&(start, _)| start <= offset);
+    pub fn span_at(&self, offset: InstructionPointer) -> Span {
+        let i = self.spans.partition_point(|&(start, _)| start <= offset.0);
 
         self.spans[i - 1].1
     }
@@ -124,15 +124,16 @@ pub fn disassemble(f: &Function) {
     let chunk = &f.chunk;
 
     println!("constants: {:?}", chunk.constants);
+    println!("upvalues:  {:?}", f.upvalues);
     println!("functions:");
     for function in &chunk.functions {
         disassemble(function);
     }
     println!();
 
-    let mut offset = 0;
+    let mut offset = InstructionPointer(0);
 
-    while offset < chunk.code.len() {
+    while offset.0 < chunk.code.len() {
         let (instruction, next) = Instruction::decode(&chunk.code, offset);
         let span = chunk.span_at(offset);
 
@@ -156,5 +157,13 @@ impl std::fmt::Debug for Function {
             .field("name", &self.name)
             .field("arity", &self.arity)
             .finish()
+    }
+}
+
+impl Index<InstructionPointer> for Chunk {
+    type Output = u8;
+
+    fn index(&self, index: InstructionPointer) -> &Self::Output {
+        &self.code[index.0]
     }
 }

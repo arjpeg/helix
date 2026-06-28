@@ -2,6 +2,10 @@ use std::fmt::Display;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
+use crate::compiler::index::{
+    ConstantIndex, FunctionIndex, InstructionPointer, LocalIndex, UpvalueIndex,
+};
+
 /// All the different instructions performed by the VM.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Instruction {
@@ -36,15 +40,9 @@ pub enum Instruction {
     },
 
     /// Loads a constant from the constant pool.
-    LoadConstant {
-        /// The index of constant to load.
-        index: u8,
-    },
+    LoadConstant(ConstantIndex),
     /// Allocates a new closure object by loading a template from the function pool.
-    MakeClosure {
-        /// The index of function to load.
-        index: u8,
-    },
+    MakeClosure(FunctionIndex),
 
     /// Invokes the execution of a function-like value.
     Call {
@@ -53,32 +51,22 @@ pub enum Instruction {
     },
 
     /// Declares a new global variable with the value as the popped value on the top of the stack.
-    DefineGlobal {
-        /// The index of the constant containing the name of the variable.
-        index: u8,
-    },
+    DefineGlobal(ConstantIndex),
     /// Reads the value of a previously declared global variable, placing it at the top of the
     /// stack.
-    GetGlobal {
-        /// The index of the constant containing the name of the variable.
-        name_index: u8,
-    },
+    GetGlobal(ConstantIndex),
     /// Updates the value of a global variable by popping the top of the stack.
-    SetGlobal {
-        /// The index of the constant containing the name of the variable.
-        name_index: u8,
-    },
+    SetGlobal(ConstantIndex),
+
+    /// Reads the value of a captured upvalue within a closure.
+    GetUpvalue(UpvalueIndex),
+    /// Updates the value of a captured upvalue within a closure.
+    SetUpvalue(UpvalueIndex),
 
     /// Retrives a local variable allocated at a given stack location.
-    GetLocal {
-        /// The index on the stack to load.
-        stack_index: u8,
-    },
+    GetLocal(LocalIndex),
     /// Updates the value of a local variable by popping the top of the stack.
-    SetLocal {
-        /// The index on the stack to update.
-        stack_index: u8,
-    },
+    SetLocal(LocalIndex),
 
     /// Prints the popped value at the top of the stack.
     Print,
@@ -142,6 +130,10 @@ pub enum OpCode {
     GetGlobal,
     /// See [Instruction::SetGlobal].
     SetGlobal,
+    /// See [Instruction::GetUpvalue].
+    GetUpvalue,
+    /// See [Instruction::SetUpvalue].
+    SetUpvalue,
     /// See [Instruction::GetLocal].
     GetLocal,
     /// See [Instruction::SetLocal].
@@ -176,8 +168,8 @@ impl Instruction {
         match *self {
             Instruction::PopUnder { n } => buf.push(n),
 
-            Instruction::LoadConstant { index } => buf.push(index),
-            Instruction::MakeClosure { index } => buf.push(index),
+            Instruction::LoadConstant(ConstantIndex(index)) => buf.push(index),
+            Instruction::MakeClosure(FunctionIndex(index)) => buf.push(index),
 
             Instruction::Call { arguments } => buf.push(arguments),
 
@@ -185,12 +177,15 @@ impl Instruction {
             Instruction::JumpIfTrue { offset } => buf.extend(offset.to_ne_bytes()),
             Instruction::JumpIfFalse { offset } => buf.extend(offset.to_ne_bytes()),
 
-            Instruction::DefineGlobal { index } => buf.push(index),
-            Instruction::GetGlobal { name_index } => buf.push(name_index),
-            Instruction::SetGlobal { name_index } => buf.push(name_index),
+            Instruction::DefineGlobal(ConstantIndex(index)) => buf.push(index),
+            Instruction::GetGlobal(ConstantIndex(index)) => buf.push(index),
+            Instruction::SetGlobal(ConstantIndex(index)) => buf.push(index),
 
-            Instruction::GetLocal { stack_index } => buf.push(stack_index),
-            Instruction::SetLocal { stack_index } => buf.push(stack_index),
+            Instruction::GetUpvalue(UpvalueIndex(index)) => buf.push(index),
+            Instruction::SetUpvalue(UpvalueIndex(index)) => buf.push(index),
+
+            Instruction::GetLocal(LocalIndex(index)) => buf.push(index),
+            Instruction::SetLocal(LocalIndex(index)) => buf.push(index),
 
             _ => {}
         }
@@ -198,11 +193,14 @@ impl Instruction {
 
     /// Decodes an instruction starting from `start` of `buf`, returning the decoded instruction and
     /// the index to the start of the next instruction (if any).
-    pub fn decode(buf: &[u8], start: usize) -> (Self, usize) {
+    pub fn decode(
+        buf: &[u8],
+        InstructionPointer(start): InstructionPointer,
+    ) -> (Self, InstructionPointer) {
         let opcode = OpCode::try_from_primitive(buf[start])
             .expect("dissassembler started on invalid instruction");
 
-        match opcode {
+        let (instruction, next) = match opcode {
             // simple one byte instructions
             OpCode::Return => (Instruction::Return, start + 1),
             OpCode::Duplicate => (Instruction::Duplicate, start + 1),
@@ -239,15 +237,11 @@ impl Instruction {
                 start + 3,
             ),
             OpCode::LoadConstant => (
-                Instruction::LoadConstant {
-                    index: buf[start + 1],
-                },
+                Instruction::LoadConstant(ConstantIndex(buf[start + 1])),
                 start + 2,
             ),
             OpCode::MakeClosure => (
-                Instruction::MakeClosure {
-                    index: buf[start + 1],
-                },
+                Instruction::MakeClosure(FunctionIndex(buf[start + 1])),
                 start + 2,
             ),
             OpCode::Call => (
@@ -257,36 +251,30 @@ impl Instruction {
                 start + 2,
             ),
             OpCode::DefineGlobal => (
-                Instruction::DefineGlobal {
-                    index: buf[start + 1],
-                },
+                Instruction::DefineGlobal(ConstantIndex(buf[start + 1])),
                 start + 2,
             ),
             OpCode::GetGlobal => (
-                Instruction::GetGlobal {
-                    name_index: buf[start + 1],
-                },
+                Instruction::GetGlobal(ConstantIndex(buf[start + 1])),
                 start + 2,
             ),
             OpCode::SetGlobal => (
-                Instruction::SetGlobal {
-                    name_index: buf[start + 1],
-                },
+                Instruction::SetGlobal(ConstantIndex(buf[start + 1])),
                 start + 2,
             ),
-            OpCode::GetLocal => (
-                Instruction::GetLocal {
-                    stack_index: buf[start + 1],
-                },
+            OpCode::GetUpvalue => (
+                Instruction::GetUpvalue(UpvalueIndex(buf[start + 1])),
                 start + 2,
             ),
-            OpCode::SetLocal => (
-                Instruction::SetLocal {
-                    stack_index: buf[start + 1],
-                },
+            OpCode::SetUpvalue => (
+                Instruction::SetUpvalue(UpvalueIndex(buf[start + 1])),
                 start + 2,
             ),
-        }
+            OpCode::GetLocal => (Instruction::GetLocal(LocalIndex(buf[start + 1])), start + 2),
+            OpCode::SetLocal => (Instruction::SetLocal(LocalIndex(buf[start + 1])), start + 2),
+        };
+
+        (instruction, InstructionPointer(next))
     }
 }
 
@@ -306,6 +294,8 @@ impl From<&Instruction> for OpCode {
             Instruction::DefineGlobal { .. } => Self::DefineGlobal,
             Instruction::GetGlobal { .. } => Self::GetGlobal,
             Instruction::SetGlobal { .. } => Self::SetGlobal,
+            Instruction::GetUpvalue { .. } => Self::GetUpvalue,
+            Instruction::SetUpvalue { .. } => Self::SetUpvalue,
             Instruction::GetLocal { .. } => Self::GetLocal,
             Instruction::SetLocal { .. } => Self::SetLocal,
             Instruction::Print => Self::Print,
@@ -338,6 +328,8 @@ impl Display for OpCode {
             OpCode::DefineGlobal => "DEFINE_GLOBAL",
             OpCode::GetGlobal => "GET_GLOBAL",
             OpCode::SetGlobal => "SET_GLOBAL",
+            OpCode::GetUpvalue => "GET_UPVALUE",
+            OpCode::SetUpvalue => "SET_UPVALUE",
             OpCode::GetLocal => "GET_LOCAL",
             OpCode::SetLocal => "SET_LOCAL",
             OpCode::Print => "PRINT",
@@ -356,21 +348,23 @@ impl Display for OpCode {
 
 impl Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", OpCode::from(self))?;
+        write!(f, "{}\t", OpCode::from(self))?;
 
         match self {
-            Instruction::PopUnder { n } => write!(f, " N:{n}")?,
-            Instruction::Jump { offset } => write!(f, " O:{offset}")?,
-            Instruction::JumpIfTrue { offset } => write!(f, " O:{offset}")?,
-            Instruction::JumpIfFalse { offset } => write!(f, " O:{offset}")?,
-            Instruction::LoadConstant { index } => write!(f, " C:{index}")?,
-            Instruction::MakeClosure { index } => write!(f, " F:{index}")?,
-            Instruction::Call { arguments } => write!(f, " A:{arguments}")?,
-            Instruction::DefineGlobal { index } => write!(f, " C:{index}")?,
-            Instruction::GetGlobal { name_index } => write!(f, " C:{name_index}")?,
-            Instruction::SetGlobal { name_index } => write!(f, " C:{name_index}")?,
-            Instruction::GetLocal { stack_index } => write!(f, " S:{stack_index}")?,
-            Instruction::SetLocal { stack_index } => write!(f, " S:{stack_index}")?,
+            Instruction::PopUnder { n } => write!(f, "N:{n}")?,
+            Instruction::Jump { offset } => write!(f, "O:{offset}")?,
+            Instruction::JumpIfTrue { offset } => write!(f, "O:{offset}")?,
+            Instruction::JumpIfFalse { offset } => write!(f, "O:{offset}")?,
+            Instruction::LoadConstant(index) => write!(f, "{index}")?,
+            Instruction::MakeClosure(index) => write!(f, "{index}")?,
+            Instruction::Call { arguments } => write!(f, "A:{arguments}")?,
+            Instruction::DefineGlobal(index) => write!(f, "{index}")?,
+            Instruction::GetGlobal(index) => write!(f, "{index}")?,
+            Instruction::SetGlobal(index) => write!(f, "{index}")?,
+            Instruction::GetUpvalue(index) => write!(f, "{index}")?,
+            Instruction::SetUpvalue(index) => write!(f, "{index}")?,
+            Instruction::GetLocal(index) => write!(f, "{index}")?,
+            Instruction::SetLocal(index) => write!(f, "{index}")?,
             _ => {}
         };
 
