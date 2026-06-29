@@ -328,7 +328,13 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
                 .emit_instruction(Instruction::Return, span);
         }
 
-        Statement::Assert(..) => todo!(),
+        Statement::Assert(expression) => {
+            emit_expression(context, expression.value, expression.span);
+
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::Assert, span);
+        }
     };
 
     start

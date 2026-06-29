@@ -322,6 +322,15 @@ impl VM {
                     println!("{value}");
                 }
 
+                OpCode::Assert => {
+                    let value = self.pop_stack();
+                    let span = self.chunk().span_at(self.frame().ip.previous());
+
+                    if !value.is_truthy() {
+                        return Err(Spanned::new(RuntimeError::AssertionFailed(value), span));
+                    }
+                }
+
                 OpCode::Add
                 | OpCode::Subtract
                 | OpCode::Multiply

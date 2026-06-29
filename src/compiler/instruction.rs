@@ -77,6 +77,9 @@ pub enum Instruction {
     /// Prints the popped value at the top of the stack.
     Print,
 
+    /// Asserts that the popped value at the top of the stack is truthy.
+    Assert,
+
     /// Computes `stack.pop() + stack.pop()`, appending the result back to the stack.
     Add,
     /// Computes `stack.pop() - stack.pop()`, appending the result back to the stack.
@@ -148,6 +151,8 @@ pub enum OpCode {
     SetLocal,
     /// See [Instruction::Print].
     Print,
+    /// See [Instruction::Assert].
+    Assert,
     /// See [Instruction::Add].
     Add,
     /// See [Instruction::Subtract]
@@ -215,6 +220,7 @@ impl Instruction {
             OpCode::Duplicate => (Instruction::Duplicate, start + 1),
             OpCode::Pop => (Instruction::Pop, start + 1),
             OpCode::Print => (Instruction::Print, start + 1),
+            OpCode::Assert => (Instruction::Assert, start + 1),
             OpCode::Add => (Instruction::Add, start + 1),
             OpCode::Subtract => (Instruction::Subtract, start + 1),
             OpCode::Multiply => (Instruction::Multiply, start + 1),
@@ -315,6 +321,7 @@ impl From<&Instruction> for OpCode {
             Instruction::GetLocal { .. } => Self::GetLocal,
             Instruction::SetLocal { .. } => Self::SetLocal,
             Instruction::Print => Self::Print,
+            Instruction::Assert => Self::Assert,
             Instruction::Add => Self::Add,
             Instruction::Subtract => Self::Subtract,
             Instruction::Multiply => Self::Multiply,
@@ -350,6 +357,7 @@ impl Display for OpCode {
             OpCode::GetLocal => "GET_LOCAL",
             OpCode::SetLocal => "SET_LOCAL",
             OpCode::Print => "PRINT",
+            OpCode::Assert => "ASSERT",
             OpCode::Add => "ADD",
             OpCode::Subtract => "SUBTRACT",
             OpCode::Multiply => "MULTIPLY",

@@ -4,7 +4,7 @@ use crate::{
     interner::Symbol,
     parser::ast::{BinaryOp, UnaryOp},
     source::Spanned,
-    vm::r#type::Type,
+    vm::{r#type::Type, value::Value},
 };
 
 /// A type alias for the result of an operation that occurred during runtime.
@@ -53,4 +53,7 @@ pub enum RuntimeError {
         /// The number of arguments actually passed in.
         actual: usize,
     },
+
+    #[error("assertion failed: expression evaluated to non-truthy value, `{0}`")]
+    AssertionFailed(Value),
 }
