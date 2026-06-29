@@ -56,6 +56,10 @@ pub enum Instruction {
         arguments: u8,
     },
 
+    /// Creates a new list of length `length`, consuming `length` values from the top of the stack to
+    /// populate it.
+    MakeList { length: u8 },
+
     /// Declares a new global variable with the value as the popped value on the top of the stack.
     DefineGlobal(ConstantIndex),
     /// Reads the value of a previously declared global variable, placing it at the top of the
@@ -135,6 +139,8 @@ pub enum OpCode {
     MakeClosure,
     /// See [Instruction::Call].
     Call,
+    /// See [Instruction::MakeList].
+    MakeList,
     /// See [Instruction::DefineGlobal].
     DefineGlobal,
     /// See [Instruction::GetGlobal].
@@ -186,6 +192,8 @@ impl Instruction {
             Instruction::MakeClosure(FunctionIndex(index)) => buf.push(index),
 
             Instruction::Call { arguments } => buf.push(arguments),
+
+            Instruction::MakeList { length } => buf.push(length),
 
             Instruction::Jump { offset } => buf.extend(offset.to_ne_bytes()),
             Instruction::JumpIfTrue { offset } => buf.extend(offset.to_ne_bytes()),
@@ -271,6 +279,12 @@ impl Instruction {
                 },
                 start + 2,
             ),
+            OpCode::MakeList => (
+                Instruction::MakeList {
+                    length: buf[start + 1],
+                },
+                start + 2,
+            ),
             OpCode::DefineGlobal => (
                 Instruction::DefineGlobal(ConstantIndex(buf[start + 1])),
                 start + 2,
@@ -313,6 +327,7 @@ impl From<&Instruction> for OpCode {
             Instruction::LoadConstant { .. } => Self::LoadConstant,
             Instruction::MakeClosure { .. } => Self::MakeClosure,
             Instruction::Call { .. } => Self::Call,
+            Instruction::MakeList { .. } => Self::MakeList,
             Instruction::DefineGlobal { .. } => Self::DefineGlobal,
             Instruction::GetGlobal { .. } => Self::GetGlobal,
             Instruction::SetGlobal { .. } => Self::SetGlobal,
@@ -349,6 +364,7 @@ impl Display for OpCode {
             OpCode::LoadConstant => "LOAD_CONSTANT",
             OpCode::MakeClosure => "MAKE_CLOSURE",
             OpCode::Call => "CALL",
+            OpCode::MakeList => "MAKE_LIST",
             OpCode::DefineGlobal => "DEFINE_GLOBAL",
             OpCode::GetGlobal => "GET_GLOBAL",
             OpCode::SetGlobal => "SET_GLOBAL",
@@ -384,6 +400,7 @@ impl Display for Instruction {
             Instruction::LoadConstant(index) => write!(f, "{index}")?,
             Instruction::MakeClosure(index) => write!(f, "{index}")?,
             Instruction::Call { arguments } => write!(f, "A:{arguments}")?,
+            Instruction::MakeList { length } => write!(f, "(length: {length})")?,
             Instruction::DefineGlobal(index) => write!(f, "{index}")?,
             Instruction::GetGlobal(index) => write!(f, "{index}")?,
             Instruction::SetGlobal(index) => write!(f, "{index}")?,

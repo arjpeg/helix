@@ -4,6 +4,8 @@ use std::{
     rc::Rc,
 };
 
+use itertools::Itertools;
+
 use crate::{
     compiler::{chunk::Function, constants::Constant, index::StackIndex},
     interner::Interner,
@@ -24,6 +26,9 @@ pub enum Value {
     Boolean(bool),
     /// A utf-8 encoded immutable string.
     String(Rc<str>),
+
+    /// A heterogeneous array list.
+    List(Rc<RefCell<Vec<Value>>>),
 
     /// A helix-defined function.
     Closure(Rc<Closure>),
@@ -70,6 +75,7 @@ impl Value {
             Self::Float(n) => *n != 0.0,
             Self::Boolean(b) => *b,
             Self::String(s) => !s.is_empty(),
+            Self::List(l) => l.borrow().len() > 0,
             Self::Closure(_) => true,
         }
     }
@@ -88,6 +94,7 @@ impl Display for Value {
             Self::Float(fl) => write!(f, "{fl}"),
             Self::Boolean(b) => write!(f, "{b}"),
             Self::String(s) => write!(f, "{s}"),
+            Self::List(l) => write!(f, "[{}]", l.borrow().iter().format(", ")),
             Self::Closure(c) => write!(
                 f,
                 "<fn `{}`>",
@@ -158,6 +165,8 @@ macro_rules! unary_op {
 binary_op!(add: Plus, {
     (Float(a), Float(b)) => Float(a + b),
     (Integer(a), Integer(b)) => Integer(a + b),
+    (String(a), String(b)) => String(Rc::from(format!("{a}{b}"))),
+    (List(a), List(b)) => List(Rc::from(RefCell::new(a.borrow().iter().chain(b.borrow().iter()).cloned().collect()))),
 });
 
 binary_op!(subtract: Minus, {
@@ -181,11 +190,13 @@ binary_op!(divide: Slash, {
 binary_op!(less_than: LessThan, {
     (Float(a), Float(b)) => Boolean(a < b),
     (Integer(a), Integer(b)) => Boolean(a < b),
+    (String(a), String(b)) => Boolean(a < b)
 });
 
 binary_op!(less_than_equals: LessThanEquals, {
     (Float(a), Float(b)) => Boolean(a <= b),
     (Integer(a), Integer(b)) => Boolean(a <= b),
+    (String(a), String(b)) => Boolean(a <= b)
 });
 
 unary_op!(negate: Minus, {

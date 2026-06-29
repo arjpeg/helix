@@ -14,6 +14,8 @@ pub enum Type {
     Boolean,
     /// A utf-8 encoded immutable string.
     String,
+    /// A heterogeneous ordered list of values.
+    List,
     /// A helix-defined function.
     Closure,
 }
@@ -26,6 +28,7 @@ impl From<Value> for Type {
             Value::Float(_) => Self::Float,
             Value::Boolean(_) => Self::Boolean,
             Value::String(_) => Self::String,
+            Value::List(_) => Self::List,
             Value::Closure(_) => Self::Closure,
         }
     }
@@ -42,6 +45,7 @@ impl std::fmt::Display for Type {
                 Type::Float => "float",
                 Type::Boolean => "boolean",
                 Type::String => "string",
+                Type::List => "list",
                 Type::Closure => "function",
             }
         )

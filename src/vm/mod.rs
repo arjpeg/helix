@@ -242,6 +242,12 @@ impl VM {
                     });
                 }
 
+                OpCode::MakeList => {
+                    let size = self.read_byte() as usize;
+                    let items = self.stack.drain(self.stack.len() - size..).collect();
+                    self.stack.push(Value::List(Rc::new(RefCell::new(items))));
+                }
+
                 OpCode::DefineGlobal => {
                     let Constant::Symbol(name) = self.load_constant() else {
                         panic!("index into constant pool for global was not a symbol");

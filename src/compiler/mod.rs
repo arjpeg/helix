@@ -557,7 +557,25 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
             );
         }
 
-        Expression::List { .. } => todo!(),
+        Expression::List { elements } => {
+            let length = elements.len();
+            assert!(
+                length <= 255,
+                "can't list literal with more than 255 elements"
+            );
+
+            for element in elements {
+                emit_expression(context, element.value, element.span);
+            }
+
+            context.chunk_mut().emit_instruction(
+                Instruction::MakeList {
+                    length: length as _,
+                },
+                span,
+            );
+        }
+
         Expression::Index { .. } => todo!(),
     };
 
@@ -593,11 +611,11 @@ fn compile_function(
 ) {
     let arity = u8::try_from(parameters.len()).unwrap();
 
-    // "" is not a valid identifer, so it is safe to use
-    let slot_zero = name.unwrap_or_else(|| Interner::intern(""));
-
-    // declare binding for outer scopes
-    declare_binding(context, slot_zero);
+    // A named function binds itself in the enclosing scope so it can be called
+    // after its definition; a lambda is an expression and binds nothing there.
+    if let Some(name) = name {
+        declare_binding(context, name);
+    }
 
     context.functions.push(FunctionCtx {
         chunk: Chunk::new(name),
@@ -610,7 +628,7 @@ fn compile_function(
         continue_addresses: Vec::new(),
     });
 
-    // declare binding for inner scope to allow recursion
+    let slot_zero = name.unwrap_or_else(|| Interner::intern(""));
     declare_binding(context, slot_zero);
 
     // define all parameters
@@ -630,7 +648,9 @@ fn compile_function(
     let function = chunk.emit_function(Function::from(compiled));
     chunk.emit_instruction(Instruction::MakeClosure(function), span);
 
-    define_binding(context, slot_zero, span);
+    if let Some(name) = name {
+        define_binding(context, name, span);
+    }
 }
 
 /// Defines a local or global variable based on the current scope depth.
