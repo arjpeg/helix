@@ -496,7 +496,13 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
                     context.chunk_mut().emit_instruction(binding.set(), span);
                 }
 
-                LValue::Index { .. } => todo!(),
+                LValue::Index { base, index } => {
+                    emit_expression(context, base.value, base.span);
+                    emit_expression(context, index.value, index.span);
+                    context
+                        .chunk_mut()
+                        .emit_instruction(Instruction::SetIndex, span);
+                }
             }
         }
 

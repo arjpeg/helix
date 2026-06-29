@@ -1,18 +1,8 @@
-fn outer() {
-    let x = 10;
+let a = [0, 1, 2];
+let b = a;
 
-    fn middle() {
-        fn inner() {
-            print x;
-        }
+b[0] = 100;
 
-        inner
-    }
-
-    middle
-}
-
-let middle = outer();
-let inner = middle();
-inner();
+print a;
+print b;
 

@@ -259,7 +259,16 @@ impl VM {
                     self.stack.push(result);
                 }
 
-                OpCode::SetIndex => todo!(),
+                OpCode::SetIndex => {
+                    let index = self.pop_stack();
+                    let base = self.pop_stack();
+                    let value = self.pop_stack();
+
+                    if let Err(e) = Value::index_mut(base, index, value) {
+                        let span = self.chunk().span_at(self.frame().ip.previous());
+                        return Err(Spanned::new(e, span));
+                    }
+                }
 
                 OpCode::DefineGlobal => {
                     let Constant::Symbol(name) = self.load_constant() else {

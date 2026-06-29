@@ -132,6 +132,41 @@ impl Value {
             }
         })
     }
+
+    /// Attempts to assign `value` by indexing into `base` value by the given `index`.
+    pub fn index_mut(base: Self, index: Self, value: Self) -> Result<(), RuntimeError> {
+        let index = match index {
+            Self::Integer(i) if i >= 0 => i as usize,
+
+            _ => {
+                return Err(RuntimeError::InvalidIndex {
+                    base: Type::from(base),
+                    index,
+                });
+            }
+        };
+
+        Ok(match base {
+            Self::List(list) => {
+                let mut list = list.borrow_mut();
+
+                if index > list.len() {
+                    return Err(RuntimeError::IndexOutOfBounds {
+                        index: Self::Integer(index as _),
+                        length: list.len(),
+                    });
+                }
+
+                list[index] = value;
+            }
+
+            _ => {
+                return Err(RuntimeError::InvalidBase {
+                    base: Type::from(base),
+                });
+            }
+        })
+    }
 }
 
 impl Display for Value {
