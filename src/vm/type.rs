@@ -22,6 +22,12 @@ pub enum Type {
 
 impl From<Value> for Type {
     fn from(value: Value) -> Self {
+        Self::from(&value)
+    }
+}
+
+impl From<&Value> for Type {
+    fn from(value: &Value) -> Self {
         match value {
             Value::Unit => Self::Unit,
             Value::Integer(_) => Self::Integer,

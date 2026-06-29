@@ -23,6 +23,21 @@ pub fn default_environment() -> Globals {
             arity: Some(1),
             function: Rc::new(length),
         },
+        Native {
+            name: Interner::intern("string"),
+            arity: Some(1),
+            function: Rc::new(string),
+        },
+        Native {
+            name: Interner::intern("integer"),
+            arity: Some(1),
+            function: Rc::new(integer),
+        },
+        Native {
+            name: Interner::intern("float"),
+            arity: Some(1),
+            function: Rc::new(float),
+        },
     ];
 
     let known = fns.iter().map(|f| f.name).collect();
@@ -66,4 +81,61 @@ fn length(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
             });
         }
     } as i64))
+}
+
+/// Converts the provided argument into a [`Value::String`].
+fn string(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
+    let value = args.pop().unwrap();
+
+    if let Value::String(s) = value {
+        Ok(Value::String(s))
+    } else {
+        Ok(Value::String(Rc::from(value.to_string())))
+    }
+}
+
+/// Converts the provided argument into a [`Value::Integer`].
+fn integer(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
+    let value = args.pop().unwrap();
+    let ty = Type::from(&value);
+
+    Ok(Value::Integer(match value {
+        Value::Integer(n) => n,
+        Value::Float(n) => n.round() as i64,
+        Value::String(s) => s.parse().map_err(|_| RuntimeError::InvalidConversion {
+            from: ty,
+            to: Type::Integer,
+        })?,
+
+        _ => {
+            return Err(RuntimeError::MismatchedType {
+                name: Interner::intern("integer"),
+                n: Interner::intern("one"),
+                received: ty,
+            });
+        }
+    }))
+}
+
+/// Converts the provided argument into a [`Value::Float`].
+fn float(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
+    let value = args.pop().unwrap();
+    let ty = Type::from(&value);
+
+    Ok(Value::Float(match value {
+        Value::Integer(n) => n as f64,
+        Value::Float(n) => n,
+        Value::String(s) => s.parse().map_err(|_| RuntimeError::InvalidConversion {
+            from: ty,
+            to: Type::Float,
+        })?,
+
+        _ => {
+            return Err(RuntimeError::MismatchedType {
+                name: Interner::intern("float"),
+                n: Interner::intern("one"),
+                received: ty,
+            });
+        }
+    }))
 }

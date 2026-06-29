@@ -64,6 +64,14 @@ pub enum RuntimeError {
         received: Type,
     },
 
+    #[error("failed to convert value of type: `{from}` to type: `{to}`")]
+    InvalidConversion {
+        /// The original type being converted,
+        from: Type,
+        /// The type being converted to.
+        to: Type,
+    },
+
     #[error("assertion failed: expression evaluated to non-truthy value, `{0}`")]
     AssertionFailed(Value),
 

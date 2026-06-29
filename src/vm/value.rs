@@ -190,7 +190,7 @@ impl Display for Value {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Float(fl) => write!(f, "{fl}"),
             Self::Boolean(b) => write!(f, "{b}"),
-            Self::String(s) => write!(f, "{s}"),
+            Self::String(s) => write!(f, "\"{s}\""),
             Self::List(l) => write!(f, "[{}]", l.borrow().iter().format(", ")),
             Self::Closure(c) => write!(
                 f,

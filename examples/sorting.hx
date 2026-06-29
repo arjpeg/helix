@@ -14,7 +14,7 @@ fn swap(list, i, j) {
 fn sum(list) {
     let total = 0;
     let i = 0;
-    while i < len(list) {
+    while i < length(list) {
         total = total + list[i];
         i = i + 1;
     }
@@ -24,7 +24,7 @@ fn sum(list) {
 fn min(list) {
     let m = list[0];
     let i = 1;
-    while i < len(list) {
+    while i < length(list) {
         if list[i] < m { m = list[i]; };
         i = i + 1;
     }
@@ -34,7 +34,7 @@ fn min(list) {
 fn max(list) {
     let m = list[0];
     let i = 1;
-    while i < len(list) {
+    while i < length(list) {
         if list[i] > m { m = list[i]; };
         i = i + 1;
     }
@@ -43,7 +43,7 @@ fn max(list) {
 
 fn contains(list, target) {
     let i = 0;
-    while i < len(list) {
+    while i < length(list) {
         if list[i] == target { return true; };
         i = i + 1;
     }
@@ -53,7 +53,7 @@ fn contains(list, target) {
 # --- sorting ---
 
 fn bubble_sort(list) {
-    let n = len(list);
+    let n = length(list);
     let i = 0;
     while i < n - 1 {
         let j = 0;
@@ -68,7 +68,7 @@ fn bubble_sort(list) {
 }
 
 fn selection_sort(list) {
-    let n = len(list);
+    let n = length(list);
     let i = 0;
     while i < n - 1 {
         let min_idx = i;
@@ -85,7 +85,7 @@ fn selection_sort(list) {
 # binary search on a sorted list — returns the index, or -1 if not found
 fn binary_search(list, target) {
     let lo = 0;
-    let hi = len(list) - 1;
+    let hi = length(list) - 1;
     while lo <= hi {
         let mid = (lo + hi) / 2;
         if list[mid] == target { return mid; };
@@ -163,7 +163,7 @@ print max(nums);
 print "primes up to 50:";
 let primes = sieve(50);
 print primes;
-print len(primes);
+print length(primes);
 
 print "is 37 prime?";
 print contains(primes, 37);
