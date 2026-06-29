@@ -248,6 +248,19 @@ impl VM {
                     self.stack.push(Value::List(Rc::new(RefCell::new(items))));
                 }
 
+                OpCode::GetIndex => {
+                    let index = self.pop_stack();
+                    let base = self.pop_stack();
+                    let result = Value::index(base, index).map_err(|error| {
+                        let span = self.chunk().span_at(self.frame().ip.previous());
+                        Spanned::new(error, span)
+                    })?;
+
+                    self.stack.push(result);
+                }
+
+                OpCode::SetIndex => todo!(),
+
                 OpCode::DefineGlobal => {
                     let Constant::Symbol(name) = self.load_constant() else {
                         panic!("index into constant pool for global was not a symbol");

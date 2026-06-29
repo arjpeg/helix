@@ -56,4 +56,26 @@ pub enum RuntimeError {
 
     #[error("assertion failed: expression evaluated to non-truthy value, `{0}`")]
     AssertionFailed(Value),
+
+    #[error("cannot index into value of type: `{base}`")]
+    InvalidBase {
+        /// The type of the base value attempted to be indexed into.
+        base: Type,
+    },
+
+    #[error("cannot index into base of type: `{base}` with index: `{index}`")]
+    InvalidIndex {
+        /// The type of the base value attempted to be indexed into.
+        base: Type,
+        /// The value of the index.
+        index: Value,
+    },
+
+    #[error("index: `{index}` was out of bounds for base of length: `{length}`")]
+    IndexOutOfBounds {
+        /// The value of the index.
+        index: Value,
+        /// The actual length of the container.
+        length: usize,
+    },
 }

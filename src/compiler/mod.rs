@@ -576,7 +576,14 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
             );
         }
 
-        Expression::Index { .. } => todo!(),
+        Expression::Index { base, index } => {
+            emit_expression(context, base.value, base.span);
+            emit_expression(context, index.value, index.span);
+
+            context
+                .chunk_mut()
+                .emit_instruction(Instruction::GetIndex, span);
+        }
     };
 
     start

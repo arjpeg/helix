@@ -59,6 +59,12 @@ pub enum Instruction {
     /// Creates a new list of length `length`, consuming `length` values from the top of the stack to
     /// populate it.
     MakeList { length: u8 },
+    /// Indexes into the second from top value on the stack by the top value on the stack, popping
+    /// both and placing the result back at the top of the stack.
+    GetIndex,
+    /// Indexes into the third from top value on the stack by the second value on the stack,
+    /// and sets its value to the top value on the stack, popping all three values.
+    SetIndex,
 
     /// Declares a new global variable with the value as the popped value on the top of the stack.
     DefineGlobal(ConstantIndex),
@@ -141,6 +147,10 @@ pub enum OpCode {
     Call,
     /// See [Instruction::MakeList].
     MakeList,
+    /// See [Instruction::GetIndex].
+    GetIndex,
+    /// See [Instruction::SetIndex].
+    SetIndex,
     /// See [Instruction::DefineGlobal].
     DefineGlobal,
     /// See [Instruction::GetGlobal].
@@ -227,6 +237,8 @@ impl Instruction {
             OpCode::Return => (Instruction::Return, start + 1),
             OpCode::Duplicate => (Instruction::Duplicate, start + 1),
             OpCode::Pop => (Instruction::Pop, start + 1),
+            OpCode::GetIndex => (Instruction::GetIndex, start + 1),
+            OpCode::SetIndex => (Instruction::SetIndex, start + 1),
             OpCode::Print => (Instruction::Print, start + 1),
             OpCode::Assert => (Instruction::Assert, start + 1),
             OpCode::Add => (Instruction::Add, start + 1),
@@ -328,6 +340,8 @@ impl From<&Instruction> for OpCode {
             Instruction::MakeClosure { .. } => Self::MakeClosure,
             Instruction::Call { .. } => Self::Call,
             Instruction::MakeList { .. } => Self::MakeList,
+            Instruction::GetIndex { .. } => Self::GetIndex,
+            Instruction::SetIndex { .. } => Self::SetIndex,
             Instruction::DefineGlobal { .. } => Self::DefineGlobal,
             Instruction::GetGlobal { .. } => Self::GetGlobal,
             Instruction::SetGlobal { .. } => Self::SetGlobal,
@@ -365,6 +379,8 @@ impl Display for OpCode {
             OpCode::MakeClosure => "MAKE_CLOSURE",
             OpCode::Call => "CALL",
             OpCode::MakeList => "MAKE_LIST",
+            OpCode::GetIndex => "GET_INDEX",
+            OpCode::SetIndex => "SET_INDEX",
             OpCode::DefineGlobal => "DEFINE_GLOBAL",
             OpCode::GetGlobal => "GET_GLOBAL",
             OpCode::SetGlobal => "SET_GLOBAL",

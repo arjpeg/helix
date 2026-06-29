@@ -9,7 +9,7 @@ use itertools::Itertools;
 use crate::{
     compiler::{chunk::Function, constants::Constant, index::StackIndex},
     interner::Interner,
-    vm::error::RuntimeError,
+    vm::{error::RuntimeError, r#type::Type},
 };
 
 /// A value living in the helix runtime environment.
@@ -83,6 +83,54 @@ impl Value {
     /// Returns true if `this` is equal to `other`.
     pub fn equals(this: Self, other: Self) -> Result<Self, RuntimeError> {
         Ok(Self::Boolean(this == other))
+    }
+
+    /// Attempts to index into `base` value by the given `index`.
+    pub fn index(base: Self, index: Self) -> Result<Self, RuntimeError> {
+        let index = match index {
+            Self::Integer(i) if i >= 0 => i as usize,
+
+            _ => {
+                return Err(RuntimeError::InvalidIndex {
+                    base: Type::from(base),
+                    index,
+                });
+            }
+        };
+
+        Ok(match base {
+            Self::String(string) => {
+                if index > string.len() {
+                    return Err(RuntimeError::IndexOutOfBounds {
+                        index: Self::Integer(index as _),
+                        length: string.len(),
+                    });
+                }
+
+                let char = string.chars().nth(index).unwrap().to_string();
+
+                Self::String(Rc::from(char))
+            }
+
+            Self::List(list) => {
+                let list = list.borrow();
+
+                if index > list.len() {
+                    return Err(RuntimeError::IndexOutOfBounds {
+                        index: Self::Integer(index as _),
+                        length: list.len(),
+                    });
+                }
+
+                list[index].clone()
+            }
+
+            _ => {
+                return Err(RuntimeError::InvalidBase {
+                    base: Type::from(base),
+                });
+            }
+        })
     }
 }
 
