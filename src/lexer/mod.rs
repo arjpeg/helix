@@ -284,6 +284,14 @@ mod tests {
             .collect()
     }
 
+    fn symbol(s: &'static str) -> Token {
+        Token::Symbol(Interner::intern(s))
+    }
+
+    fn string(s: &'static str) -> Token {
+        Token::String(Interner::intern(s))
+    }
+
     #[test]
     fn test_integer() {
         assert_eq!(tokens_ok("42"), vec![Token::Integer(42)]);
@@ -325,7 +333,7 @@ mod tests {
 
     #[test]
     fn test_symbol() {
-        assert_eq!(tokens_ok("foo"), vec![Token::Symbol("foo")]);
+        assert_eq!(tokens_ok("foo"), vec![symbol("foo")]);
     }
 
     #[test]
@@ -333,23 +341,23 @@ mod tests {
         assert_eq!(
             tokens_ok("hello and or but not"),
             vec![
-                Token::Symbol("hello"),
+                symbol("hello"),
                 Token::Keyword(Keyword::And),
                 Token::Keyword(Keyword::Or),
-                Token::Symbol("but"),
-                Token::Symbol("not"),
+                symbol("but"),
+                symbol("not"),
             ]
         );
     }
 
     #[test]
     fn test_symbol_with_underscore_start() {
-        assert_eq!(tokens_ok("_foo"), vec![Token::Symbol("_foo")]);
+        assert_eq!(tokens_ok("_foo"), vec![symbol("_foo")]);
     }
 
     #[test]
     fn test_symbol_with_digits() {
-        assert_eq!(tokens_ok("foo123"), vec![Token::Symbol("foo123")]);
+        assert_eq!(tokens_ok("foo123"), vec![symbol("foo123")]);
     }
 
     #[test]
@@ -398,7 +406,7 @@ mod tests {
         assert_eq!(
             tokens_ok("foo + 42"),
             vec![
-                Token::Symbol("foo"),
+                symbol("foo"),
                 Token::Operator(OpKind::Plus),
                 Token::Integer(42),
             ]
@@ -407,32 +415,32 @@ mod tests {
 
     #[test]
     fn test_string_basic() {
-        assert_eq!(tokens_ok(r#""hello""#), vec![Token::String("hello")]);
+        assert_eq!(tokens_ok(r#""hello""#), vec![string("hello")]);
     }
 
     #[test]
     fn test_string_single_quotes() {
-        assert_eq!(tokens_ok("'hello'"), vec![Token::String("hello")]);
+        assert_eq!(tokens_ok("'hello'"), vec![string("hello")]);
     }
 
     #[test]
     fn test_string_empty() {
-        assert_eq!(tokens_ok(r#""""#), vec![Token::String("")]);
+        assert_eq!(tokens_ok(r#""""#), vec![string("")]);
     }
 
     #[test]
     fn test_string_escape_newline() {
-        assert_eq!(tokens_ok(r#""\n""#), vec![Token::String("\n")]);
+        assert_eq!(tokens_ok(r#""\n""#), vec![string("\n")]);
     }
 
     #[test]
     fn test_string_escape_tab() {
-        assert_eq!(tokens_ok(r#""\t""#), vec![Token::String("\t")]);
+        assert_eq!(tokens_ok(r#""\t""#), vec![string("\t")]);
     }
 
     #[test]
     fn test_string_escape_backslash() {
-        assert_eq!(tokens_ok(r#""\\""#), vec![Token::String("\\")]);
+        assert_eq!(tokens_ok(r#""\\""#), vec![string("\\")]);
     }
 
     #[test]
@@ -484,11 +492,7 @@ mod tests {
     fn test_string_in_expression() {
         assert_eq!(
             tokens_ok(r#"foo + "bar""#),
-            vec![
-                Token::Symbol("foo"),
-                Token::Operator(OpKind::Plus),
-                Token::String("bar"),
-            ]
+            vec![symbol("foo"), Token::Operator(OpKind::Plus), string("bar"),]
         );
     }
 
