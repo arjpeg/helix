@@ -1,4 +1,4 @@
-use std::rc::Rc;
+use std::{io::Write, rc::Rc};
 
 use crate::{
     interner::Interner,
@@ -22,6 +22,11 @@ pub fn default_environment() -> Globals {
             name: Interner::intern("length"),
             arity: Some(1),
             function: Rc::new(length),
+        },
+        Native {
+            name: Interner::intern("input"),
+            arity: None,
+            function: Rc::new(input),
         },
         Native {
             name: Interner::intern("string"),
@@ -81,6 +86,24 @@ fn length(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
             });
         }
     } as i64))
+}
+
+/// Prints the given prompt and queries the user for input.
+fn input(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
+    let prompt = args.pop().unwrap_or_else(|| Value::String(Rc::from("")));
+
+    match prompt {
+        // lift string out
+        Value::String(s) => print!("{s}"),
+        v => print!("{v}"),
+    };
+
+    std::io::stdout().flush().unwrap();
+
+    let mut buf = String::new();
+    std::io::stdin().read_line(&mut buf).unwrap();
+
+    Ok(Value::String(buf.trim_end().into()))
 }
 
 /// Converts the provided argument into a [`Value::String`].
