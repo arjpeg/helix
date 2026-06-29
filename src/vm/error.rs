@@ -54,6 +54,16 @@ pub enum RuntimeError {
         actual: usize,
     },
 
+    #[error("function `{name}` did not expect argument {n} to be of type: `{received}` ")]
+    MismatchedType {
+        /// The name of the function being called.
+        name: Symbol,
+        /// The number of the argument that was the wrong type.
+        n: Symbol,
+        /// The type actually passed.
+        received: Type,
+    },
+
     #[error("assertion failed: expression evaluated to non-truthy value, `{0}`")]
     AssertionFailed(Value),
 

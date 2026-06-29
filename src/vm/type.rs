@@ -30,6 +30,7 @@ impl From<Value> for Type {
             Value::String(_) => Self::String,
             Value::List(_) => Self::List,
             Value::Closure(_) => Self::Closure,
+            Value::Native(_) => Self::Closure,
         }
     }
 }

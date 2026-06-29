@@ -1,5 +1,6 @@
 pub mod error;
 pub mod globals;
+pub mod stdlib;
 pub mod r#type;
 pub mod value;
 
@@ -212,6 +213,40 @@ impl VM {
                     let span = self.chunk().span_at(self.frame().ip.previous());
 
                     let callee = self.stack[slot_base].clone();
+
+                    if let Value::Native(native) = callee {
+                        if let Some(arity) = native.arity
+                            && arity != arguments
+                        {
+                            return Err(Spanned::new(
+                                RuntimeError::MismatchedArity {
+                                    name: native.name,
+                                    expected: arity as usize,
+                                    actual: arguments as usize,
+                                },
+                                span,
+                            ));
+                        }
+
+                        // invoke the function
+                        let args = self
+                            .stack
+                            .drain(self.stack.len() - arguments as usize..)
+                            .collect();
+
+                        let result = (native.function)(args);
+
+                        // pop the function itself off of the stack
+                        let _ = self.pop_stack();
+
+                        match result {
+                            Ok(value) => self.stack.push(value),
+                            Err(e) => return Err(Spanned::new(e, span)),
+                        }
+
+                        continue;
+                    };
+
                     let Value::Closure(closure) = callee else {
                         return Err(Spanned::new(
                             RuntimeError::NotCallable {

@@ -11,7 +11,7 @@ use crate::{
     lexer::Tokenizer,
     parser::Parser,
     source::{SourceHandle, SourceMap, Spanned},
-    vm::{VM, globals::Globals, value::Value},
+    vm::{VM, globals::Globals, stdlib, value::Value},
 };
 
 pub mod compiler;
@@ -43,7 +43,7 @@ impl Engine {
         Self {
             scripts: HashMap::new(),
             vm: VM::new(),
-            globals: Globals::new(),
+            globals: stdlib::default_environment(),
         }
     }
 

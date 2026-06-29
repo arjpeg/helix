@@ -8,7 +8,7 @@ use itertools::Itertools;
 
 use crate::{
     compiler::{chunk::Function, constants::Constant, index::StackIndex},
-    interner::Interner,
+    interner::{Interner, Symbol},
     vm::{error::RuntimeError, r#type::Type},
 };
 
@@ -32,6 +32,8 @@ pub enum Value {
 
     /// A helix-defined function.
     Closure(Rc<Closure>),
+    /// A native function written in rust.
+    Native(Rc<Native>),
 }
 
 /// The runtime manifestation of a [`Function`], along with the data it may close over.
@@ -50,6 +52,17 @@ pub enum UpvalueCell {
     Open(StackIndex),
     /// A closed over value, once the original scope for the upvalue has been dropped.
     Closed(Value),
+}
+
+/// A native function written in rust, bypassing the default control flow of the VM.
+#[derive(Clone)]
+pub struct Native {
+    /// The name of this function.
+    pub name: Symbol,
+    /// The number of parameters this function accepts.
+    pub arity: Option<u8>,
+    /// The code to execute when this function is invoked.
+    pub function: Rc<dyn Fn(Vec<Value>) -> Result<Value, RuntimeError>>,
 }
 
 impl From<Constant> for Value {
@@ -77,6 +90,7 @@ impl Value {
             Self::String(s) => !s.is_empty(),
             Self::List(l) => l.borrow().len() > 0,
             Self::Closure(_) => true,
+            Self::Native(_) => true,
         }
     }
 
@@ -183,6 +197,7 @@ impl Display for Value {
                 "<fn `{}`>",
                 c.function.name.unwrap_or(Interner::intern("(anonymous)"))
             ),
+            Self::Native(n) => write!(f, "<native fn `{}`>", n.name),
         }
     }
 }
@@ -291,3 +306,18 @@ unary_op!(not: Bang, {
     Integer(a) => Integer(!a),
     Boolean(a) => Boolean(!a)
 });
+
+impl Debug for Native {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Native")
+            .field("name", &self.name)
+            .field("arity", &self.arity)
+            .finish()
+    }
+}
+
+impl PartialEq for Native {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name && self.arity == other.arity
+    }
+}
