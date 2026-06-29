@@ -5,11 +5,7 @@ use std::{
 };
 
 use crate::{
-    compiler::{
-        chunk::Function,
-        constants::Constant,
-        index::{LocalIndex, StackIndex},
-    },
+    compiler::{chunk::Function, constants::Constant, index::StackIndex},
     interner::Interner,
     vm::error::RuntimeError,
 };

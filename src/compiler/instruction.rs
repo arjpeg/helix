@@ -3,7 +3,7 @@ use std::fmt::Display;
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::compiler::index::{
-    ConstantIndex, FunctionIndex, InstructionPointer, LocalIndex, UpvalueIndex,
+    ConstantIndex, FunctionIndex, InstructionPointer, LocalIndex, StackIndex, UpvalueIndex,
 };
 
 /// All the different instructions performed by the VM.
@@ -21,6 +21,12 @@ pub enum Instruction {
     PopUnder {
         /// The number of values to pop.
         n: u8,
+    },
+
+    /// Closes all open upvalues whose absolute stack pointer >= `from`.
+    CloseAbove {
+        /// The base stack address to close over from.
+        from: StackIndex,
     },
 
     /// Unconditionally jumps by the given offset..
@@ -112,6 +118,8 @@ pub enum OpCode {
     Pop,
     /// See [Instruction::PopUnder].
     PopUnder,
+    /// See [Instruction::CloseAbove].
+    CloseAbove,
     /// See [Instruction::Jump].
     Jump,
     /// See [Instruction::JumpIfTrue].
@@ -167,6 +175,7 @@ impl Instruction {
 
         match *self {
             Instruction::PopUnder { n } => buf.push(n),
+            Instruction::CloseAbove { from } => buf.extend(from.0.to_ne_bytes()),
 
             Instruction::LoadConstant(ConstantIndex(index)) => buf.push(index),
             Instruction::MakeClosure(FunctionIndex(index)) => buf.push(index),
@@ -218,6 +227,12 @@ impl Instruction {
 
             // multi byte instructions
             OpCode::PopUnder => (Instruction::PopUnder { n: buf[start + 1] }, start + 2),
+            OpCode::CloseAbove => (
+                Instruction::CloseAbove {
+                    from: StackIndex(u16::from_ne_bytes([buf[start + 1], buf[start + 2]])),
+                },
+                start + 3,
+            ),
             OpCode::Jump => (
                 Instruction::Jump {
                     offset: i16::from_ne_bytes([buf[start + 1], buf[start + 2]]),
@@ -285,6 +300,7 @@ impl From<&Instruction> for OpCode {
             Instruction::Duplicate => Self::Duplicate,
             Instruction::Pop => Self::Pop,
             Instruction::PopUnder { .. } => Self::PopUnder,
+            Instruction::CloseAbove { .. } => Self::CloseAbove,
             Instruction::Jump { .. } => Self::Jump,
             Instruction::JumpIfTrue { .. } => Self::JumpIfTrue,
             Instruction::JumpIfFalse { .. } => Self::JumpIfFalse,
@@ -319,6 +335,7 @@ impl Display for OpCode {
             OpCode::Duplicate => "DUPLICATE",
             OpCode::Pop => "POP",
             OpCode::PopUnder => "POP_UNDER",
+            OpCode::CloseAbove => "CLOSE_ABOVE",
             OpCode::Jump => "JUMP",
             OpCode::JumpIfTrue => "JUMP_IF_TRUE",
             OpCode::JumpIfFalse => "JUMP_IF_FALSE",
@@ -352,6 +369,7 @@ impl Display for Instruction {
 
         match self {
             Instruction::PopUnder { n } => write!(f, "N:{n}")?,
+            Instruction::CloseAbove { from } => write!(f, "{from}")?,
             Instruction::Jump { offset } => write!(f, "O:{offset}")?,
             Instruction::JumpIfTrue { offset } => write!(f, "O:{offset}")?,
             Instruction::JumpIfFalse { offset } => write!(f, "O:{offset}")?,

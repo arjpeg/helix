@@ -3,7 +3,7 @@ use crate::{
         chunk::{Chunk, Function},
         constants::Constant,
         error::{CompilerError, Result},
-        index::{ConstantIndex, LocalIndex, UpvalueIndex},
+        index::{ConstantIndex, LocalIndex, StackIndex, UpvalueIndex},
         instruction::Instruction,
     },
     interner::{Interner, Symbol},
@@ -484,6 +484,12 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
                 let new_size = context.current().locals.len() - scope_local_count;
                 context.current_mut().locals.truncate(new_size);
 
+                context.chunk_mut().emit_instruction(
+                    Instruction::CloseAbove {
+                        from: StackIndex(new_size as u16),
+                    },
+                    span,
+                );
                 context.chunk_mut().emit_instruction(
                     Instruction::PopUnder {
                         n: scope_local_count as u8,

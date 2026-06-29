@@ -7,9 +7,9 @@ fn outer() {
         x = 10;
     }
 
-    inner();
-    print x;
+    inner
 }
 
-outer();
+let inner = outer();
+inner();
 

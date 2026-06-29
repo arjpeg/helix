@@ -20,7 +20,7 @@ pub struct LocalIndex(pub u8);
 
 /// An absolute location on the stack.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct StackIndex(pub usize);
+pub struct StackIndex(pub u16);
 
 /// An index to an upvalue in the current frame.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

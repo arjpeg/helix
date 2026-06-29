@@ -24,7 +24,7 @@ pub mod source;
 pub mod vm;
 
 /// Whether or not the running script is disassembled for debugging purposes or not.
-pub const DEBUG_DISASSEMBLE_SCRIPT: bool = true;
+pub const DEBUG_DISASSEMBLE_SCRIPT: bool = false;
 
 /// Manages the lifetime of program and REPL evaluation.
 pub struct Engine {

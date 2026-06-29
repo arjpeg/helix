@@ -103,7 +103,7 @@ impl VM {
                     let result = self.stack.pop();
                     let frame = self.pop_frame();
 
-                    self.close_above(StackIndex(frame.slot_base));
+                    self.close_above(StackIndex(frame.slot_base as u16));
                     self.stack.truncate(frame.slot_base);
 
                     if self.frames.len() == 0 {
@@ -128,6 +128,11 @@ impl VM {
 
                     self.stack.truncate(self.stack.len() - n as usize);
                     self.stack.push(top);
+                }
+
+                OpCode::CloseAbove => {
+                    let base = u16::from_ne_bytes([self.read_byte(), self.read_byte()]);
+                    self.close_above(StackIndex(base));
                 }
 
                 OpCode::Jump => {
@@ -169,8 +174,9 @@ impl VM {
                         let cell = match upvalue {
                             // compute absolute stack location
                             Upvalue::Local(slot_offset) => {
-                                let stack_location =
-                                    StackIndex(self.frame().slot_base + slot_offset.0 as usize);
+                                let stack_location = StackIndex(
+                                    self.frame().slot_base as u16 + slot_offset.0 as u16,
+                                );
 
                                 // dedupelicate prexisting open upvalues
                                 if let Some(cell) = self.open_upvalues.get(&stack_location) {
@@ -275,7 +281,7 @@ impl VM {
                     let upvalue = &self.frame().closure.upvalues[index.0 as usize];
 
                     let value = match &*upvalue.borrow() {
-                        UpvalueCell::Open(StackIndex(index)) => &self.stack[*index],
+                        UpvalueCell::Open(StackIndex(index)) => &self.stack[*index as usize],
                         UpvalueCell::Closed(value) => value,
                     }
                     .clone();
@@ -290,7 +296,7 @@ impl VM {
                     let upvalue = self.frame().closure.upvalues[index.0 as usize].clone();
 
                     match &mut *upvalue.borrow_mut() {
-                        UpvalueCell::Open(StackIndex(index)) => self.stack[*index] = value,
+                        UpvalueCell::Open(StackIndex(index)) => self.stack[*index as usize] = value,
                         UpvalueCell::Closed(closed) => *closed = value,
                     }
                 }
@@ -336,11 +342,15 @@ impl VM {
         let captured = self.open_upvalues.split_off(&bottom);
 
         for (_, upvalue) in captured.into_iter() {
-            let UpvalueCell::Open(StackIndex(index)) = &*upvalue.borrow() else {
-                unreachable!("upvalue should not have already been closed")
+            let index = {
+                let UpvalueCell::Open(StackIndex(index)) = &*upvalue.borrow() else {
+                    unreachable!("upvalue should not have already been closed")
+                };
+
+                *index
             };
 
-            *upvalue.borrow_mut() = UpvalueCell::Closed(self.stack[*index].clone());
+            *upvalue.borrow_mut() = UpvalueCell::Closed(self.stack[index as usize].clone());
         }
     }
 
