@@ -3,7 +3,7 @@ pub mod globals;
 pub mod r#type;
 pub mod value;
 
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 use num_enum::TryFromPrimitive;
 
@@ -40,6 +40,9 @@ pub struct VM {
 
     /// The runtime stack of values being accumulated.
     stack: Vec<Value>,
+
+    /// A mapping of indices of local variables to any currently open upvalues.
+    open_upvalues: BTreeMap<StackIndex, Rc<RefCell<UpvalueCell>>>,
 }
 
 /// The context of a function invocation.
@@ -60,8 +63,9 @@ impl VM {
     pub fn new() -> Self {
         Self {
             globals: Globals::new(),
-            stack: Vec::new(),
             frames: Vec::new(),
+            stack: Vec::new(),
+            open_upvalues: BTreeMap::new(),
         }
     }
 
@@ -98,6 +102,8 @@ impl VM {
                 OpCode::Return => {
                     let result = self.stack.pop();
                     let frame = self.pop_frame();
+
+                    self.close_above(StackIndex(frame.slot_base));
                     self.stack.truncate(frame.slot_base);
 
                     if self.frames.len() == 0 {
@@ -159,14 +165,24 @@ impl VM {
                     // resolve all upvalues
                     let mut upvalues = Vec::with_capacity(function.upvalues.len());
 
-                    // TODO: check for pre-existing upvalue
                     for upvalue in &function.upvalues {
                         let cell = match upvalue {
                             // compute absolute stack location
                             Upvalue::Local(slot_offset) => {
-                                Rc::new(RefCell::new(UpvalueCell::Open(StackIndex(
-                                    self.frame().slot_base + slot_offset.0 as usize,
-                                ))))
+                                let stack_location =
+                                    StackIndex(self.frame().slot_base + slot_offset.0 as usize);
+
+                                // dedupelicate prexisting open upvalues
+                                if let Some(cell) = self.open_upvalues.get(&stack_location) {
+                                    Rc::clone(&cell)
+                                } else {
+                                    let cell =
+                                        Rc::new(RefCell::new(UpvalueCell::Open(stack_location)));
+
+                                    self.open_upvalues.insert(stack_location, Rc::clone(&cell));
+
+                                    cell
+                                }
                             }
 
                             // query for upvalue in parent scope
@@ -312,6 +328,19 @@ impl VM {
 
                 OpCode::Negate | OpCode::Not => self.handle_unary_operation(opcode)?,
             }
+        }
+    }
+
+    /// Closes over all open [`UpvalueCell`]s who stack locations >= `bottom`.
+    fn close_above(&mut self, bottom: StackIndex) {
+        let captured = self.open_upvalues.split_off(&bottom);
+
+        for (_, upvalue) in captured.into_iter() {
+            let UpvalueCell::Open(StackIndex(index)) = &*upvalue.borrow() else {
+                unreachable!("upvalue should not have already been closed")
+            };
+
+            *upvalue.borrow_mut() = UpvalueCell::Closed(self.stack[*index].clone());
         }
     }
 
