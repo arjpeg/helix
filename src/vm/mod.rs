@@ -398,6 +398,7 @@ impl VM {
                 | OpCode::Subtract
                 | OpCode::Multiply
                 | OpCode::Divide
+                | OpCode::Modulus
                 | OpCode::Equals
                 | OpCode::LessThan
                 | OpCode::LessThanEquals => {
@@ -436,6 +437,7 @@ impl VM {
             OpCode::Subtract => Value::subtract,
             OpCode::Multiply => Value::multiply,
             OpCode::Divide => Value::divide,
+            OpCode::Modulus => Value::modulus,
             OpCode::Equals => Value::equals,
             OpCode::LessThan => Value::less_than,
             OpCode::LessThanEquals => Value::less_than_equals,

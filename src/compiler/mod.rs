@@ -389,6 +389,7 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
                     BinaryOp::Minus => Instruction::Subtract,
                     BinaryOp::Star => Instruction::Multiply,
                     BinaryOp::Slash => Instruction::Divide,
+                    BinaryOp::Percent => Instruction::Modulus,
                     BinaryOp::Equals => Instruction::Equals,
                     // we correct not equals below
                     BinaryOp::NotEquals => Instruction::Equals,

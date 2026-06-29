@@ -198,6 +198,8 @@ pub enum BinaryOp {
     Star,
     /// The '/' operator.
     Slash,
+    /// The '%' operator.
+    Percent,
 
     /// The '!=' operator.
     NotEquals,
@@ -264,6 +266,7 @@ impl TryFrom<OpKind> for BinaryOp {
             OpKind::Minus => Self::Minus,
             OpKind::Star => Self::Star,
             OpKind::Slash => Self::Slash,
+            OpKind::Percent => Self::Percent,
             OpKind::NotEquals => Self::NotEquals,
             OpKind::Equals => Self::Equals,
             OpKind::GreaterThan => Self::GreaterThan,
@@ -306,6 +309,7 @@ impl Display for BinaryOp {
             Self::Minus => "-",
             Self::Star => "*",
             Self::Slash => "/",
+            Self::Percent => "%",
             Self::NotEquals => "!=",
             Self::Equals => "==",
             Self::GreaterThan => ">",

@@ -390,7 +390,10 @@ impl Parser {
     }
 
     fn factor(&mut self) -> ExprResult {
-        self.reduce_binary_op(Self::unary, &[BinaryOp::Star, BinaryOp::Slash])
+        self.reduce_binary_op(
+            Self::unary,
+            &[BinaryOp::Star, BinaryOp::Slash, BinaryOp::Percent],
+        )
     }
 
     fn unary(&mut self) -> ExprResult {

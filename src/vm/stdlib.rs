@@ -91,12 +91,7 @@ fn length(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
 /// Prints the given prompt and queries the user for input.
 fn input(mut args: Vec<Value>) -> Result<Value, RuntimeError> {
     let prompt = args.pop().unwrap_or_else(|| Value::String(Rc::from("")));
-
-    match prompt {
-        // lift string out
-        Value::String(s) => print!("{s}"),
-        v => print!("{v}"),
-    };
+    print!("{prompt}");
 
     std::io::stdout().flush().unwrap();
 

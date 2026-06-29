@@ -75,6 +75,7 @@ impl Value {
             BinaryOp::Minus => Self::subtract(lhs, rhs),
             BinaryOp::Star => Self::multiply(lhs, rhs),
             BinaryOp::Slash => Self::divide(lhs, rhs),
+            BinaryOp::Percent => unimplemented!(),
             BinaryOp::NotEquals => Self::not_equals(lhs, rhs),
             BinaryOp::Equals => Self::equals(lhs, rhs),
             BinaryOp::GreaterThan => Self::greater_than(lhs, rhs),

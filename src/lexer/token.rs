@@ -39,6 +39,8 @@ pub enum OpKind {
     Star,
     /// The '/' operator.
     Slash,
+    /// The '%' operator.
+    Percent,
 
     /// The '!' operator.
     Bang,
@@ -129,7 +131,7 @@ pub trait CharTokenExt {
 
 impl CharTokenExt for char {
     fn is_operator_start(&self) -> bool {
-        matches!(self, '+' | '-' | '*' | '/' | '=' | '!' | '>' | '<')
+        matches!(self, '+' | '-' | '*' | '/' | '%' | '=' | '!' | '>' | '<')
     }
 
     fn is_grouping(&self) -> bool {
@@ -160,6 +162,7 @@ impl TryFrom<(char, Option<char>)> for OpKind {
             ('-', _) => Self::Minus,
             ('*', _) => Self::Star,
             ('/', _) => Self::Slash,
+            ('%', _) => Self::Percent,
             ('>', _) => Self::GreaterThan,
             ('<', _) => Self::LessThan,
             ('!', _) => Self::Bang,
@@ -280,6 +283,7 @@ impl Display for OpKind {
                 Self::Star => "*",
                 Self::Slash => "/",
                 Self::Bang => "!",
+                Self::Percent => "%",
                 Self::Assign => "=",
                 Self::NotEquals => "!=",
                 Self::Equals => "==",

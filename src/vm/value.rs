@@ -190,7 +190,7 @@ impl Display for Value {
             Self::Integer(i) => write!(f, "{i}"),
             Self::Float(fl) => write!(f, "{fl}"),
             Self::Boolean(b) => write!(f, "{b}"),
-            Self::String(s) => write!(f, "\"{s}\""),
+            Self::String(s) => write!(f, "{s}"),
             Self::List(l) => write!(f, "[{}]", l.borrow().iter().format(", ")),
             Self::Closure(c) => write!(
                 f,
@@ -295,6 +295,10 @@ binary_op!(less_than_equals: LessThanEquals, {
     (Float(a), Float(b)) => Boolean(a <= b),
     (Integer(a), Integer(b)) => Boolean(a <= b),
     (String(a), String(b)) => Boolean(a <= b)
+});
+
+binary_op!(modulus: Percent, {
+    (Integer(a), Integer(b)) => Integer(a.rem_euclid(b)),
 });
 
 unary_op!(negate: Minus, {

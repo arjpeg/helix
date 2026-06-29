@@ -98,6 +98,8 @@ pub enum Instruction {
     Multiply,
     /// Computes `stack.pop() / stack.pop()`, appending the result back to the stack.
     Divide,
+    /// Computes `stack.pop() % stack.pop()`, appending the result back to the stack.
+    Modulus,
 
     /// Computes `stack.pop() == stack.pop()`, appending the result back to the stack.
     Equals,
@@ -177,6 +179,8 @@ pub enum OpCode {
     Multiply,
     /// See [Instruction::Divide].
     Divide,
+    /// See [Instruction::Modulus].
+    Modulus,
     /// See [Instruction::Equals].
     Equals,
     /// See [Instruction::LessThan].
@@ -245,6 +249,7 @@ impl Instruction {
             OpCode::Subtract => (Instruction::Subtract, start + 1),
             OpCode::Multiply => (Instruction::Multiply, start + 1),
             OpCode::Divide => (Instruction::Divide, start + 1),
+            OpCode::Modulus => (Instruction::Modulus, start + 1),
             OpCode::Equals => (Instruction::Equals, start + 1),
             OpCode::LessThan => (Instruction::LessThan, start + 1),
             OpCode::LessThanEquals => (Instruction::LessThanEquals, start + 1),
@@ -355,6 +360,7 @@ impl From<&Instruction> for OpCode {
             Instruction::Subtract => Self::Subtract,
             Instruction::Multiply => Self::Multiply,
             Instruction::Divide => Self::Divide,
+            Instruction::Modulus => Self::Modulus,
             Instruction::Equals => Self::Equals,
             Instruction::LessThan => Self::LessThan,
             Instruction::LessThanEquals => Self::LessThanEquals,
@@ -394,6 +400,7 @@ impl Display for OpCode {
             OpCode::Subtract => "SUBTRACT",
             OpCode::Multiply => "MULTIPLY",
             OpCode::Divide => "DIVIDE",
+            OpCode::Modulus => "MODULUS",
             OpCode::Equals => "EQUALS",
             OpCode::LessThan => "LESS_THAN",
             OpCode::LessThanEquals => "LESS_THAN_EQUALS",
