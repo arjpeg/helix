@@ -1,15 +1,18 @@
-
 fn outer() {
-    let x = 5;
+    let x = 10;
 
-    fn inner() {
-        print x;
-        x = 10;
+    fn middle() {
+        fn inner() {
+            print x;
+        }
+
+        inner
     }
 
-    inner
+    middle
 }
 
-let inner = outer();
+let middle = outer();
+let inner = middle();
 inner();
 

@@ -35,7 +35,7 @@ struct FunctionCtx {
     chunk: Chunk,
 
     /// The name of this function.
-    name: Symbol,
+    name: Option<Symbol>,
     /// The arity of this function (if applicable).
     arity: Option<u8>,
 
@@ -125,7 +125,7 @@ pub fn compile_program(
 
     let script = FunctionCtx {
         chunk: Chunk::new(Some(name)),
-        name,
+        name: Some(name),
         arity: None,
         locals: Vec::new(),
         upvalues: Vec::new(),
@@ -275,43 +275,7 @@ fn emit_statement(context: &mut CompileCtx, statement: Statement, span: Span) ->
             parameters,
             body,
         } => {
-            let arity = u8::try_from(parameters.len()).unwrap();
-
-            // declare binding for outer scopes
-            declare_binding(context, name);
-
-            context.functions.push(FunctionCtx {
-                chunk: Chunk::new(Some(name)),
-                name,
-                arity: Some(arity),
-                locals: Vec::new(),
-                upvalues: Vec::new(),
-                scope_depth: 1,
-                break_addresses: Vec::new(),
-                continue_addresses: Vec::new(),
-            });
-
-            // declare binding for inner scope to allow recursion
-            declare_binding(context, name);
-
-            // define all parameters
-            for parameter in parameters {
-                declare_binding(context, parameter.value);
-            }
-
-            emit_expression(context, body.value, body.span);
-
-            context
-                .chunk_mut()
-                .emit_instruction(Instruction::Return, span);
-
-            let compiled = context.functions.pop().unwrap();
-
-            let chunk = context.chunk_mut();
-            let function = chunk.emit_function(Function::from(compiled));
-            chunk.emit_instruction(Instruction::MakeClosure(function), span);
-
-            define_binding(context, name, span);
+            compile_function(context, Some(name), parameters, body, span);
         }
 
         Statement::Return { result } => {
@@ -492,10 +456,11 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
 
                 context.chunk_mut().emit_instruction(
                     Instruction::CloseAbove {
-                        from: StackIndex(new_size as u16),
+                        from: StackIndex(new_size.saturating_sub(1) as u16),
                     },
                     span,
                 );
+
                 context.chunk_mut().emit_instruction(
                     Instruction::PopUnder {
                         n: scope_local_count as u8,
@@ -570,6 +535,10 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
             context.chunk_mut().backpatch_jump(end_jump, None);
         }
 
+        Expression::Lambda { parameters, body } => {
+            compile_function(context, None, parameters, *body, span);
+        }
+
         Expression::Call { callee, arguments } => {
             emit_expression(context, callee.value, callee.span);
 
@@ -589,7 +558,6 @@ fn emit_expression(context: &mut CompileCtx, expression: Expression, span: Span)
         }
 
         Expression::List { .. } => todo!(),
-        Expression::Lambda { .. } => todo!(),
         Expression::Index { .. } => todo!(),
     };
 
@@ -613,6 +581,56 @@ fn declare_binding(context: &mut CompileCtx, symbol: Symbol) {
             scope_depth: current_depth,
         });
     }
+}
+
+/// Compiles a function definition.
+fn compile_function(
+    context: &mut CompileCtx,
+    name: Option<Symbol>,
+    parameters: Vec<Spanned<Symbol>>,
+    body: Spanned<Expression>,
+    span: Span,
+) {
+    let arity = u8::try_from(parameters.len()).unwrap();
+
+    // "" is not a valid identifer, so it is safe to use
+    let slot_zero = name.unwrap_or_else(|| Interner::intern(""));
+
+    // declare binding for outer scopes
+    declare_binding(context, slot_zero);
+
+    context.functions.push(FunctionCtx {
+        chunk: Chunk::new(name),
+        name: name,
+        arity: Some(arity),
+        locals: Vec::new(),
+        upvalues: Vec::new(),
+        scope_depth: 1,
+        break_addresses: Vec::new(),
+        continue_addresses: Vec::new(),
+    });
+
+    // declare binding for inner scope to allow recursion
+    declare_binding(context, slot_zero);
+
+    // define all parameters
+    for parameter in parameters {
+        declare_binding(context, parameter.value);
+    }
+
+    emit_expression(context, body.value, body.span);
+
+    context
+        .chunk_mut()
+        .emit_instruction(Instruction::Return, span);
+
+    let compiled = context.functions.pop().unwrap();
+
+    let chunk = context.chunk_mut();
+    let function = chunk.emit_function(Function::from(compiled));
+    chunk.emit_instruction(Instruction::MakeClosure(function), span);
+
+    define_binding(context, slot_zero, span);
 }
 
 /// Defines a local or global variable based on the current scope depth.
@@ -746,7 +764,7 @@ impl From<FunctionCtx> for Function {
             arity: arity.unwrap_or_default(),
             upvalues,
             chunk,
-            name: Some(name),
+            name,
         }
     }
 }

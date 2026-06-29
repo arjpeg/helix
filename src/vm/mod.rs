@@ -193,7 +193,7 @@ impl VM {
 
                             // query for upvalue in parent scope
                             Upvalue::Transitive(UpvalueIndex(index)) => {
-                                let parent = &self.frames[self.frames.len() - 2];
+                                let parent = &self.frames[self.frames.len() - 1];
                                 parent.closure.upvalues[*index as usize].clone()
                             }
                         };
